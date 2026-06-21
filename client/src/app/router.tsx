@@ -1,5 +1,4 @@
 import { createBrowserRouter } from "react-router-dom";
-
 import AppLayout from "@/layouts/app-layout";
 import Dashboard from "@/features/dashboard/pages/dash-borad";
 import { NotFound } from "@/layouts/not-found";
