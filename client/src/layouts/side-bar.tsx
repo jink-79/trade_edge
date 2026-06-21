@@ -8,6 +8,7 @@ import {
   PiggyBank,
   Sparkles,
   Target,
+  Wallet,
   Zap,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -24,7 +25,9 @@ export const NAV_ITEMS = [
   { icon: Activity, label: "Open Positions", path: "/positions" },
   { icon: BarChart3, label: "Trade History", path: "/history" },
   { icon: LineChart, label: "Analytics", path: "/analytics" },
+  { icon: Zap, label: "Signals", path: "/signals" },
   { icon: PiggyBank, label: "Mutual Funds", path: "/mutual-funds" },
+  { icon: Wallet, label: "Funds", path: "/funds" },
   { icon: Target, label: "Playbook", path: "/playbook" },
   { icon: CalendarDays, label: "Journal", path: "/journal" },
 ];

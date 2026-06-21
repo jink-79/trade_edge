@@ -3,6 +3,7 @@ import AppLayout from "@/layouts/app-layout";
 import { Dashboard } from "@/features/dashboard/pages/dash-borad";
 import { NotFound } from "@/layouts/not-found";
 import { SignalsPage } from "@/features/signals/pages/signals";
+import { FundsPage } from "@/features/funds/pages/funds-page";
 
 export const router = createBrowserRouter([
   {
@@ -15,8 +16,12 @@ export const router = createBrowserRouter([
         element: <Dashboard />,
       },
       {
-        path: "signal",
+        path: "signals",
         element: <SignalsPage />,
+      },
+      {
+        path: "funds",
+        element: <FundsPage />,
       },
     ],
   },
