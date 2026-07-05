@@ -11,21 +11,19 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import type { DashboardPnlPoint } from "../types/dashboard.types";
 
-const pnlByDay = [
-  { day: "Mon", win: 1240, loss: -420 },
-  { day: "Tue", win: 980, loss: -610 },
-  { day: "Wed", win: 1820, loss: -280 },
-  { day: "Thu", win: 640, loss: -890 },
-  { day: "Fri", win: 2110, loss: -340 },
-];
+interface PnlByDayCardProps {
+  pnlChart: DashboardPnlPoint[];
+}
 
-export function PnlByDayCard() {
+export function PnlByDayCard({ pnlChart }: PnlByDayCardProps) {
   return (
     <Card
       className="col-span-12 xl:col-span-7 border-border/70 bg-card/70"
@@ -34,27 +32,23 @@ export function PnlByDayCard() {
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <BarChart3 className="size-4 text-chart-3" /> P&L by Weekday
+            <BarChart3 className="size-4 text-chart-3" /> Monthly P&L
           </CardTitle>
           <CardDescription>
-            Wins vs. losses across the trading week
+            Realised profit &amp; loss by month (last 6)
           </CardDescription>
-        </div>
-        <div className="flex items-center gap-3 text-xs">
-          <Legend dot="bg-primary" label="Wins" />
-          <Legend dot="bg-destructive" label="Losses" />
         </div>
       </CardHeader>
       <CardContent>
         <div className="h-65">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
-              data={pnlByDay}
+              data={pnlChart}
               margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
             >
               <CartesianGrid stroke="oklch(1 0 0 / 6%)" vertical={false} />
               <XAxis
-                dataKey="day"
+                dataKey="month"
                 stroke="oklch(0.66 0.015 250)"
                 tickLine={false}
                 axisLine={false}
@@ -65,38 +59,27 @@ export function PnlByDayCard() {
                 tickLine={false}
                 axisLine={false}
                 fontSize={11}
-                tickFormatter={(v) => `$${v}`}
+                tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
                 width={48}
               />
               <Tooltip
-                content={<ChartTooltip prefix="$" />}
+                content={<ChartTooltip prefix="₹" />}
                 cursor={{ fill: "oklch(1 0 0 / 4%)" }}
               />
-              <Bar
-                dataKey="win"
-                fill="oklch(0.78 0.17 155)"
-                radius={[6, 6, 0, 0]}
-                maxBarSize={28}
-              />
-              <Bar
-                dataKey="loss"
-                fill="oklch(0.68 0.21 22)"
-                radius={[6, 6, 0, 0]}
-                maxBarSize={28}
-              />
+              <Bar dataKey="pnl" radius={[6, 6, 0, 0]} maxBarSize={40}>
+                {pnlChart.map((p, i) => (
+                  <Cell
+                    key={i}
+                    fill={
+                      p.pnl >= 0 ? "oklch(0.78 0.17 155)" : "oklch(0.68 0.21 22)"
+                    }
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function Legend({ dot, label }: { dot: string; label: string }) {
-  return (
-    <div className="flex items-center gap-1.5 text-muted-foreground">
-      <span className={`size-2 rounded-sm ${dot}`} />
-      {label}
-    </div>
   );
 }

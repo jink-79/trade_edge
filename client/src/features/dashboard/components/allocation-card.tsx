@@ -8,15 +8,34 @@ import {
 } from "@/components/ui/card";
 import { PieChartIcon } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { fmtINR } from "@/lib/positions-utils";
+import type { DashboardPortfolio } from "../types/dashboard.types";
 
-const allocation = [
-  { name: "Equities", value: 46, color: "var(--chart-1)" },
-  { name: "Options", value: 24, color: "var(--chart-2)" },
-  { name: "Futures", value: 18, color: "var(--chart-3)" },
-  { name: "Crypto", value: 12, color: "var(--chart-5)" },
-];
+interface AllocationCardProps {
+  portfolio: DashboardPortfolio;
+}
 
-export function AllocationCard() {
+export function AllocationCard({ portfolio }: AllocationCardProps) {
+  const segments = [
+    {
+      name: "Open Positions",
+      value: portfolio.totalOpenInvested,
+      color: "var(--chart-1)",
+    },
+    {
+      name: "Mutual Funds",
+      value: portfolio.totalMfInvested,
+      color: "var(--chart-2)",
+    },
+    {
+      name: "Cash / Funds",
+      value: portfolio.totalFundsDeposited,
+      color: "var(--chart-3)",
+    },
+  ].filter((s) => s.value > 0);
+
+  const total = segments.reduce((s, a) => s + a.value, 0);
+
   return (
     <Card
       className="col-span-12 xl:col-span-4 border-border/70 bg-card/70"
@@ -26,45 +45,58 @@ export function AllocationCard() {
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <PieChartIcon className="size-4 text-chart-2" /> Allocation
         </CardTitle>
-        <CardDescription>Capital deployed by instrument</CardDescription>
+        <CardDescription>Capital deployed across the book</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-50">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={allocation}
-                dataKey="value"
-                innerRadius={58}
-                outerRadius={84}
-                paddingAngle={3}
-                stroke="none"
-              >
-                {allocation.map((a, i) => (
-                  <Cell key={i} fill={a.color} />
-                ))}
-              </Pie>
-              <Tooltip content={<ChartTooltip suffix="%" />} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="mt-2 space-y-2">
-          {allocation.map((a) => (
-            <div
-              key={a.name}
-              className="flex items-center justify-between text-sm"
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className="size-2.5 rounded-sm"
-                  style={{ background: a.color as string }}
-                />
-                <span className="text-muted-foreground">{a.name}</span>
-              </div>
-              <span className="tabular">{a.value}%</span>
+        {total === 0 ? (
+          <div className="h-50 grid place-items-center text-sm text-muted-foreground">
+            No capital deployed yet.
+          </div>
+        ) : (
+          <>
+            <div className="h-50">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={segments}
+                    dataKey="value"
+                    innerRadius={58}
+                    outerRadius={84}
+                    paddingAngle={3}
+                    stroke="none"
+                  >
+                    {segments.map((a, i) => (
+                      <Cell key={i} fill={a.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<ChartTooltip prefix="₹" />} />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-          ))}
-        </div>
+            <div className="mt-2 space-y-2">
+              {segments.map((a) => (
+                <div
+                  key={a.name}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="size-2.5 rounded-sm"
+                      style={{ background: a.color }}
+                    />
+                    <span className="text-muted-foreground">{a.name}</span>
+                  </div>
+                  <span className="tabular">
+                    {fmtINR(a.value)}{" "}
+                    <span className="text-muted-foreground">
+                      ({((a.value / total) * 100).toFixed(0)}%)
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

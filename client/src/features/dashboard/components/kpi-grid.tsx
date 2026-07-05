@@ -1,59 +1,75 @@
-import { Activity, ArrowDownRight, Percent, Target, TrendingUp, Wallet } from "lucide-react";
+import {
+  Activity,
+  Briefcase,
+  Layers,
+  Percent,
+  Target,
+  Wallet,
+} from "lucide-react";
 import { KpiCard } from "./kpi-card";
+import { fmtINR } from "@/lib/positions-utils";
+import type {
+  DashboardPortfolio,
+  DashboardPositions,
+  DashboardTradeStats,
+} from "../types/dashboard.types";
 
-export function KpiGrid() {
+interface KpiGridProps {
+  stats: DashboardTradeStats;
+  portfolio: DashboardPortfolio;
+  positions: DashboardPositions;
+}
+
+export function KpiGrid({ stats, portfolio, positions }: KpiGridProps) {
+  const pnlPos = stats.netPnl >= 0;
+
   const kpis = [
     {
       icon: Wallet,
       label: "Net P&L",
-      value: "+$16,230",
-      delta: "+18.4%",
-      positive: true,
-      foot: "vs. last quarter",
+      value: `${pnlPos ? "+" : ""}${fmtINR(stats.netPnl)}`,
+      positive: pnlPos,
+      foot: "realised, all-time",
       accent: true,
     },
     {
       icon: Activity,
       label: "Total Trades",
-      value: "284",
-      delta: "+22",
+      value: String(stats.totalTrades),
       positive: true,
-      foot: "this month",
+      foot: `avg hold ${stats.avgHold}`,
     },
     {
       icon: Percent,
       label: "Win Rate",
-      value: "62.4%",
-      delta: "+3.1%",
-      positive: true,
-      foot: "177W · 107L",
-      progress: 62,
+      value: `${stats.winRate.toFixed(1)}%`,
+      positive: stats.winRate >= 50,
+      foot: "of closed trades",
+      progress: Math.round(stats.winRate),
     },
     {
-      icon: TrendingUp,
-      label: "Avg Win",
-      value: "+$184.20",
-      delta: "+$12",
+      icon: Layers,
+      label: "Open Positions",
+      value: String(positions.openCount),
       positive: true,
-      foot: "per winning trade",
+      foot: `${fmtINR(positions.totalInvested)} deployed`,
     },
     {
-      icon: ArrowDownRight,
-      label: "Avg Loss",
-      value: "-$96.40",
-      delta: "-$4",
+      icon: Briefcase,
+      label: "Portfolio Value",
+      value: fmtINR(portfolio.totalValue),
       positive: true,
-      foot: "per losing trade",
+      foot: `${fmtINR(portfolio.totalMfInvested)} in MFs`,
     },
     {
       icon: Target,
       label: "Profit Factor",
-      value: "2.18",
-      delta: "+0.14",
-      positive: true,
+      value: stats.profitFactor.toFixed(2),
+      positive: stats.profitFactor >= 1,
       foot: "gains / losses",
     },
   ];
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
       {kpis.map((k) => (

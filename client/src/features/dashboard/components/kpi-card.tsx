@@ -15,7 +15,7 @@ export function KpiCard({
   icon: typeof Wallet;
   label: string;
   value: string;
-  delta: string;
+  delta?: string;
   positive: boolean;
   foot: string;
   accent?: boolean;
@@ -53,20 +53,24 @@ export function KpiCard({
           {value}
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span
-            className={`inline-flex items-center gap-0.5 tabular rounded-md px-1.5 py-0.5 ${
-              positive
-                ? "text-primary bg-primary/10"
-                : "text-destructive bg-destructive/10"
-            }`}
-          >
-            {positive ? (
-              <ArrowUpRight className="size-3" />
-            ) : (
-              <ArrowDownRight className="size-3" />
-            )}
-            {delta}
-          </span>
+          {delta ? (
+            <span
+              className={`inline-flex items-center gap-0.5 tabular rounded-md px-1.5 py-0.5 ${
+                positive
+                  ? "text-primary bg-primary/10"
+                  : "text-destructive bg-destructive/10"
+              }`}
+            >
+              {positive ? (
+                <ArrowUpRight className="size-3" />
+              ) : (
+                <ArrowDownRight className="size-3" />
+              )}
+              {delta}
+            </span>
+          ) : (
+            <span />
+          )}
           <span className="text-muted-foreground">{foot}</span>
         </div>
         {typeof progress === "number" && (

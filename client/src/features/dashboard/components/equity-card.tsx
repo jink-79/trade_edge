@@ -16,37 +16,21 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { fmtINR } from "@/lib/positions-utils";
+import type {
+  DashboardPnlPoint,
+  DashboardPortfolio,
+} from "../types/dashboard.types";
 
-const equityCurve = [
-  { d: "Jan 02", v: 25000 },
-  { d: "Jan 09", v: 25840 },
-  { d: "Jan 16", v: 26110 },
-  { d: "Jan 23", v: 25620 },
-  { d: "Jan 30", v: 27210 },
-  { d: "Feb 06", v: 28140 },
-  { d: "Feb 13", v: 27880 },
-  { d: "Feb 20", v: 29320 },
-  { d: "Feb 27", v: 30410 },
-  { d: "Mar 06", v: 31580 },
-  { d: "Mar 13", v: 30940 },
-  { d: "Mar 20", v: 32710 },
-  { d: "Mar 27", v: 34120 },
-  { d: "Apr 03", v: 33480 },
-  { d: "Apr 10", v: 35260 },
-  { d: "Apr 17", v: 36980 },
-  { d: "Apr 24", v: 38420 },
-  { d: "May 01", v: 37610 },
-  { d: "May 08", v: 39870 },
-  { d: "May 15", v: 41230 },
-];
+interface EquityCardProps {
+  pnlChart: DashboardPnlPoint[];
+  portfolio: DashboardPortfolio;
+  netPnl: number;
+}
 
-export function EquityCard() {
-  const fmtUsd2 = (n: number) =>
-    n.toLocaleString("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2,
-    });
+export function EquityCard({ pnlChart, portfolio, netPnl }: EquityCardProps) {
+  const data = pnlChart.map((p) => ({ d: p.month, v: p.cumulative }));
+  const pnlPos = netPnl >= 0;
 
   return (
     <Card
@@ -56,22 +40,29 @@ export function EquityCard() {
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <LineChartIcon className="size-4 text-primary" /> Equity Curve
+            <LineChartIcon className="size-4 text-primary" /> Cumulative P&L
           </CardTitle>
           <CardDescription className="mt-1">
-            Account value over the last 20 weeks
+            Realised P&L over the last 6 months
           </CardDescription>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-semibold tabular">{fmtUsd2(41230)}</div>
-          <div className="text-xs text-primary tabular">+$16,230 ▲ 18.4%</div>
+          <div className="text-2xl font-semibold tabular">
+            {fmtINR(portfolio.totalValue)}
+          </div>
+          <div
+            className={`text-xs tabular ${pnlPos ? "text-primary" : "text-destructive"}`}
+          >
+            {pnlPos ? "+" : ""}
+            {fmtINR(netPnl)} realised
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="h-70">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
-              data={equityCurve}
+              data={data}
               margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
             >
               <defs>
@@ -101,11 +92,11 @@ export function EquityCard() {
                 tickLine={false}
                 axisLine={false}
                 fontSize={11}
-                tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                width={42}
+                tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+                width={48}
               />
               <Tooltip
-                content={<ChartTooltip prefix="$" />}
+                content={<ChartTooltip prefix="₹" />}
                 cursor={{ stroke: "oklch(1 0 0 / 15%)" }}
               />
               <Area
