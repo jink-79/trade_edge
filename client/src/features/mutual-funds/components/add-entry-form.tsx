@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { PlusCircle, X, Check } from "lucide-react";
+import { PlusCircle, X, Check, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,6 +15,7 @@ import {
   type FundCategory,
 } from "../types/mutual-funds.types";
 import { CATEGORIES, CAT_TOKENS } from "../utils/mutual-funds-utils";
+import { createMutualFundEntry } from "../api/mutual-funds-api";
 
 interface AddEntryFormProps {
   onAdd: (entry: MutualFundEntry) => void;
@@ -45,6 +47,7 @@ export function AddEntryForm({ onAdd, onClose }: AddEntryFormProps) {
     category: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
+  const [saving, setSaving] = useState(false);
 
   const units =
     form.amount && form.nav
@@ -68,16 +71,17 @@ export function AddEntryForm({ onAdd, onClose }: AddEntryFormProps) {
     return errs;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const errs = validate();
     if (Object.keys(errs).length) {
       setErrors(errs);
       return;
     }
+    if (!form.category) return;
 
-    if (form.category) {
-      onAdd({
-        _id: Math.random().toString(36).slice(2),
+    setSaving(true);
+    try {
+      const created = await createMutualFundEntry({
         fundName: form.fundName.trim(),
         date: new Date(form.date).toISOString(),
         amount: parseFloat(form.amount),
@@ -85,7 +89,15 @@ export function AddEntryForm({ onAdd, onClose }: AddEntryFormProps) {
         units: parseFloat(units),
         category: form.category,
       });
+      onAdd(created);
+      toast.success("Entry added to your portfolio.");
       onClose();
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ?? "Could not save entry. Please retry.",
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -211,9 +223,15 @@ export function AddEntryForm({ onAdd, onClose }: AddEntryFormProps) {
           <div className="sm:col-span-2 lg:col-span-3 flex justify-end pt-1">
             <Button
               onClick={handleSubmit}
+              disabled={saving}
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <Check className="size-4" /> Save Entry
+              {saving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Check className="size-4" />
+              )}
+              {saving ? "Saving…" : "Save Entry"}
             </Button>
           </div>
         </div>

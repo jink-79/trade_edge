@@ -1,70 +1,61 @@
 import { useState } from "react";
-import { PlusCircle, X,  } from "lucide-react";
+import { PlusCircle, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 // hooks
-import { useAddFund, useDeleteFund } from "../hooks/use-funds";
+import { useFunds, useAddFund, useDeleteFund } from "../hooks/use-funds";
 
 // components
 import { FundsStatsBar } from "../components/funds-stats-bar";
 import { AddFundForm } from "../components/add-fund-form";
 import { FundsTable } from "../components/funds-table";
 
-// mock (remove once API is live)
-import { MOCK_FUNDS_RESPONSE } from "../api/funds-mock";
-import type { AddFundPayload, Fund } from "../types/funds.types";
+import type { AddFundPayload, FundsSummary } from "../types/funds.types";
 
-/* ── flip to false once the backend is live ── */
-const USE_MOCK = true;
+const EMPTY_SUMMARY: FundsSummary = {
+  totalFunds: 0,
+  totalEntries: 0,
+  byType: { trading: 0, savings: 0, emergency: 0, other: 0 },
+};
 
 export function FundsPage() {
   const [showForm, setShowForm] = useState(false);
 
-  /* local state for mock mode — replace with query data when live */
-  const [mockFunds, setMockFunds] = useState(MOCK_FUNDS_RESPONSE.data);
-
+  const { data, isLoading } = useFunds();
   const addFundMutation = useAddFund();
   const deleteFundMutation = useDeleteFund();
 
-  /* derive summary from local state in mock mode */
-  const summary = USE_MOCK
-    ? (() => {
-        const byType = { trading: 0, savings: 0, emergency: 0, other: 0 };
-        mockFunds.forEach((f) => {
-          byType[f.type] = (byType[f.type] ?? 0) + f.amount;
-        });
-        return {
-          totalFunds: mockFunds.reduce((s, f) => s + f.amount, 0),
-          totalEntries: mockFunds.length,
-          byType,
-        };
-      })()
-    : MOCK_FUNDS_RESPONSE.summary; // replaced by real query in live mode
+  const summary = data?.summary ?? EMPTY_SUMMARY;
+  const funds = data?.data ?? [];
 
-  const funds = USE_MOCK ? mockFunds : MOCK_FUNDS_RESPONSE.data;
-
-  /* handlers */
   const handleAdd = (payload: AddFundPayload) => {
-    if (USE_MOCK) {
-      const newFund: Fund = {
-        _id: Math.random().toString(36).slice(2),
-        createdAt: new Date().toISOString(),
-        ...payload,
-      };
-      setMockFunds((prev) => [newFund, ...prev]);
-      setShowForm(false);
-      return;
-    }
-    addFundMutation.mutate(payload, { onSuccess: () => setShowForm(false) });
+    addFundMutation.mutate(payload, {
+      onSuccess: () => {
+        toast.success("Fund entry added.");
+        setShowForm(false);
+      },
+      onError: (err: any) =>
+        toast.error(
+          err?.response?.data?.message ?? "Could not add fund entry.",
+        ),
+    });
   };
 
   const handleDelete = (id: string) => {
-    if (USE_MOCK) {
-      setMockFunds((prev) => prev.filter((f) => f._id !== id));
-      return;
-    }
-    deleteFundMutation.mutate(id);
+    deleteFundMutation.mutate(id, {
+      onError: (err: any) =>
+        toast.error(err?.response?.data?.message ?? "Could not delete entry."),
+    });
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+        Loading Funds...
+      </div>
+    );
+  }
 
   return (
     <div className="px-8 py-8 space-y-6 max-w-[1600px]">

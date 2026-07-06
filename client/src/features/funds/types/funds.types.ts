@@ -32,7 +32,6 @@ export interface FundsSummary {
 }
 
 export interface FundsResponse {
-  success: boolean;
   summary: FundsSummary;
   data: Fund[];
 }

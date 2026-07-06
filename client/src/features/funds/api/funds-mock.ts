@@ -120,7 +120,6 @@ const byType = MOCK_FUNDS.reduce(
 );
 
 export const MOCK_FUNDS_RESPONSE: FundsResponse = {
-  success: true,
   summary: {
     totalFunds: MOCK_FUNDS.reduce((s, f) => s + f.amount, 0),
     totalEntries: MOCK_FUNDS.length,
