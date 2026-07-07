@@ -1,4 +1,4 @@
-import { Activity } from "lucide-react";
+import { Shield, Target, TrendingUp, ListChecks } from "lucide-react";
 import type { EnrichedPosition } from "../types/positions.types";
 import { fmtDate, fmtINR } from "@/lib/positions-utils";
 
@@ -6,18 +6,23 @@ interface ExpandedRowProps {
   pos: EnrichedPosition;
 }
 
-function DetailSection({
+type Tone = "good" | "bad" | "muted";
+
+function DetailBlock({
   title,
+  icon,
   children,
 }: {
   title: string;
+  icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-3">
-      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+    <div className="col-span-6 md:col-span-3 space-y-3">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+        {icon}
         {title}
-      </p>
+      </div>
       <div className="space-y-2">{children}</div>
     </div>
   );
@@ -26,128 +31,146 @@ function DetailSection({
 function DetailRow({
   label,
   value,
-  valueClass = "",
+  mono = false,
+  tone,
 }: {
   label: string;
   value: React.ReactNode;
-  valueClass?: string;
+  mono?: boolean;
+  tone?: Tone;
 }) {
+  const toneClass =
+    tone === "good"
+      ? "text-primary"
+      : tone === "bad"
+        ? "text-destructive"
+        : tone === "muted"
+          ? "text-muted-foreground"
+          : "";
   return (
     <div className="flex justify-between text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`tabular font-medium ${valueClass}`}>{value}</span>
+      <span className={`font-medium ${mono ? "tabular" : ""} ${toneClass}`}>
+        {value}
+      </span>
     </div>
   );
 }
 
 export function ExpandedRow({ pos }: ExpandedRowProps) {
-  const stopPrice = pos.trailingActive
-    ? pos.trailingStopPrice!
-    : pos.structureExitLow;
-  const stopLabel = pos.trailingActive ? "Trailing Stop" : "Structure Exit";
-  const riskAmt = (pos.currentPrice - stopPrice) * pos.qty;
+  const entry = pos.entryPrice;
+  const qty = pos.quantity;
+
+  // Effective stop — trailing stop when active, else structure exit
+  const stop =
+    pos.trailingActive && pos.trailingStopPrice != null
+      ? pos.trailingStopPrice
+      : pos.structureExitLow;
+
+  const risk = stop != null ? (stop - entry) * qty : null;
+  const riskPct = stop != null ? ((stop - entry) / entry) * 100 : null;
+  const dd = pos.upsideFromHigh; // drawdown from peak (%)
+
+  const money = (n: number | null | undefined) =>
+    n != null ? fmtINR(n) : "—";
 
   return (
     <tr>
-      <td
-        colSpan={8}
-        className="bg-[oklch(0.18_0.012_252)] border-b border-border/60"
-      >
-        {/* ── 4-column detail grid ── */}
-        <div className="px-6 py-5 grid grid-cols-2 md:grid-cols-4 gap-5">
-          <DetailSection title="Stop Details">
-            <DetailRow label={stopLabel} value={fmtINR(stopPrice)} />
+      <td colSpan={8} className="p-0">
+        <div className="bg-background/40 border-t border-border/60 p-6 grid grid-cols-12 gap-6">
+          <DetailBlock
+            title="Stop details"
+            icon={<Shield className="size-3.5 text-primary" />}
+          >
+            <DetailRow label="Trailing stop" value={money(stop)} mono />
             <DetailRow
               label="Risk (₹)"
-              value={`${riskAmt < 0 ? "-" : "+"}${fmtINR(Math.abs(riskAmt))}`}
-              valueClass={riskAmt < 0 ? "text-destructive" : "text-primary"}
+              value={
+                risk != null
+                  ? `${risk >= 0 ? "+" : "−"}${fmtINR(Math.abs(risk))}`
+                  : "—"
+              }
+              tone={risk != null ? (risk >= 0 ? "good" : "bad") : "muted"}
             />
             <DetailRow
               label="Risk (%)"
-              value={`${pos.riskToStop.toFixed(2)}%`}
-              valueClass={
-                pos.riskToStop < 0 ? "text-destructive" : "text-primary"
-              }
-            />
-          </DetailSection>
-
-          <DetailSection title="Price Levels">
-            <DetailRow label="Entry" value={fmtINR(pos.entryPrice)} />
-            <DetailRow label="Current" value={fmtINR(pos.currentPrice)} />
-            <DetailRow
-              label="Highest Close"
-              value={fmtINR(pos.highestCloseSinceEntry)}
-            />
-          </DetailSection>
-
-          <DetailSection title="Trail Status">
-            <DetailRow
-              label="Trail Active"
               value={
-                pos.trailingActive ? (
-                  <span className="text-primary">Yes</span>
-                ) : (
-                  <span className="text-muted-foreground">No</span>
-                )
+                riskPct != null
+                  ? `${riskPct >= 0 ? "+" : ""}${riskPct.toFixed(2)}%`
+                  : "—"
               }
+              tone={riskPct != null ? (riskPct >= 0 ? "good" : "bad") : "muted"}
             />
-            {pos.trailingActive ? (
-              <>
-                <DetailRow
-                  label="Trail Price"
-                  value={fmtINR(pos.trailingStopPrice!)}
-                />
-                <DetailRow
-                  label="Activated"
-                  value={fmtDate(pos.trailActivatedDate)}
-                />
-              </>
-            ) : (
-              <DetailRow label="Trailing Stop" value="—" />
-            )}
-          </DetailSection>
+          </DetailBlock>
 
-          <DetailSection title="Position Meta">
-            <DetailRow label="Entry Date" value={fmtDate(pos.entryDate)} />
-            <DetailRow label="Holding Days" value={`${pos.holdingDays}d`} />
+          <DetailBlock
+            title="Price levels"
+            icon={<Target className="size-3.5 text-primary" />}
+          >
+            <DetailRow label="Entry" value={fmtINR(entry)} mono />
+            <DetailRow label="Current" value={money(pos.currentPrice)} mono />
             <DetailRow
-              label="Exit Signal"
-              value={
-                pos.exitSignal ? (
-                  <span className="text-destructive">⚠ Active</span>
-                ) : (
-                  <span className="text-muted-foreground">None</span>
-                )
-              }
+              label="Highest close"
+              value={money(pos.highestCloseSinceEntry)}
+              mono
             />
-          </DetailSection>
-        </div>
+          </DetailBlock>
 
-        {/* ── Drawdown bar ── */}
-        <div className="px-6 pb-5">
-          <div className="p-3 rounded-lg bg-[oklch(0.205_0.014_252)] border border-border/40">
-            <div className="flex items-center justify-between mb-2 text-xs">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <Activity className="size-3" /> Drawdown from peak
+          <DetailBlock
+            title="Trail status"
+            icon={<TrendingUp className="size-3.5 text-primary" />}
+          >
+            <DetailRow
+              label="Trail active"
+              value={pos.trailingActive ? "Yes" : "No"}
+              tone={pos.trailingActive ? "good" : "muted"}
+            />
+            <DetailRow
+              label="Trail price"
+              value={money(pos.trailingStopPrice)}
+              mono
+            />
+            <DetailRow
+              label="Activated"
+              value={pos.trailActivatedDate ? fmtDate(pos.trailActivatedDate) : "—"}
+            />
+          </DetailBlock>
+
+          <DetailBlock
+            title="Position meta"
+            icon={<ListChecks className="size-3.5 text-primary" />}
+          >
+            <DetailRow label="Entry date" value={fmtDate(pos.tradeDate)} />
+            <DetailRow label="Holding days" value={`${pos.holdingDays}d`} />
+            <DetailRow
+              label="Exit signal"
+              value={pos.exitSignal ? (pos.exitReason ?? "Active") : "None"}
+              tone={pos.exitSignal ? "bad" : "muted"}
+            />
+            <DetailRow
+              label="Drawdown from peak"
+              value={
+                dd != null ? `${dd >= 0 ? "+" : ""}${dd.toFixed(2)}%` : "—"
+              }
+              tone={dd != null ? (dd >= 0 ? "good" : "bad") : "muted"}
+            />
+          </DetailBlock>
+
+          <div className="col-span-12 flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/60 pt-4">
+            <span>
+              Peak:{" "}
+              <span className="text-foreground tabular">
+                {money(pos.highestCloseSinceEntry)}
               </span>
-              <span
-                className={`tabular font-medium ${pos.upsideFromHigh < 0 ? "text-destructive" : "text-primary"}`}
-              >
-                {pos.upsideFromHigh.toFixed(2)}%
+              <span className="mx-2 text-border">·</span>
+              Now:{" "}
+              <span className="text-foreground tabular">
+                {money(pos.currentPrice)}
               </span>
-            </div>
-            <div className="relative h-1.5 rounded-full bg-secondary/60 overflow-hidden">
-              <div
-                className={`absolute left-0 top-0 h-full rounded-full ${pos.upsideFromHigh < 0 ? "bg-destructive" : "bg-primary"}`}
-                style={{
-                  width: `${Math.min(100, Math.abs(pos.upsideFromHigh) * 10)}%`,
-                }}
-              />
-            </div>
-            <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground tabular">
-              <span>Peak: {fmtINR(pos.highestCloseSinceEntry)}</span>
-              <span>Now: {fmtINR(pos.currentPrice)}</span>
-            </div>
+            </span>
+            <span>
+              Sector: <span className="text-foreground">{pos.sector}</span>
+            </span>
           </div>
         </div>
       </td>

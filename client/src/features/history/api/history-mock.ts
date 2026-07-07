@@ -1,6 +1,6 @@
 import { type ClosedTrade } from "../types/history.types";
 
-export const USE_MOCK = true;
+export const USE_MOCK = false;
 
 export const mockClosedTrades: ClosedTrade[] = [
   {

@@ -1,15 +1,15 @@
 import { useState, useMemo } from "react";
 import {
   Activity,
-  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
+  LogOut,
   Search,
-  Shield,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,25 +21,39 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ExpandedRow } from "./expanded-row";
-import { fmtINR, SECTOR_COLOR } from "@/lib/positions-utils";
+import { ExitDialog } from "./exit-dialog";
+import { fmtINR } from "@/lib/positions-utils";
 import type {
   EnrichedPosition,
   FilterKey,
+  SortCol,
   SortState,
 } from "../types/positions.types";
-
-/* ─── constants ─── */
 
 const PAGE_SIZE = 8;
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "signal", label: "⚠ Signals" },
-  { key: "trail", label: "🔒 Trailing" },
-  { key: "clean", label: "✓ Clean" },
+  { key: "long", label: "Long" },
+  { key: "short", label: "Short" },
 ];
 
-/* ─── table primitives ─── */
+function StatusPill({ pos }: { pos: EnrichedPosition }) {
+  let label = "Active";
+  let cls = "bg-muted/40 text-muted-foreground border-border/60";
+  if (pos.exitSignal) {
+    label = "Exit Signal";
+    cls = "bg-destructive/10 text-destructive border-destructive/30";
+  } else if (pos.trailingActive) {
+    label = "Trailing";
+    cls = "bg-primary/10 text-primary border-primary/30";
+  }
+  return (
+    <Badge className={cn("border h-5 px-2 text-[10px] font-medium", cls)}>
+      {label}
+    </Badge>
+  );
+}
 
 function Th({
   children,
@@ -62,10 +76,10 @@ function Td({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <td className={`py-3.5 px-3 ${className}`}>{children}</td>;
+  return <td className={`py-4 px-3 ${className}`}>{children}</td>;
 }
 
-function SortIcon({ col, sortState }: { col: string; sortState: SortState }) {
+function SortIcon({ col, sortState }: { col: SortCol; sortState: SortState }) {
   if (sortState.col !== col)
     return <ChevronsUpDown className="size-3 text-muted-foreground/40" />;
   return sortState.dir === "asc" ? (
@@ -81,23 +95,21 @@ function SortBtn({
   sortState,
   onSort,
 }: {
-  col: SortState["col"];
+  col: SortCol;
   label: string;
   sortState: SortState;
-  onSort: (col: SortState["col"]) => void;
+  onSort: (col: SortCol) => void;
 }) {
   return (
     <button
       onClick={() => onSort(col)}
-      className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
+      className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer ml-auto"
     >
       {label}
       <SortIcon col={col} sortState={sortState} />
     </button>
   );
 }
-
-/* ─── main component ─── */
 
 interface PositionsTableProps {
   positions: EnrichedPosition[];
@@ -107,14 +119,15 @@ export function PositionsTable({ positions }: PositionsTableProps) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [sortState, setSortState] = useState<SortState>({
-    col: "pnlPercent",
+    col: "tradeDate",
     dir: "desc",
   });
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [exitPos, setExitPos] = useState<EnrichedPosition | null>(null);
   const [page, setPage] = useState(1);
 
-  const sort = (col: SortState["col"]) => {
-    setSortState((prev: any) =>
+  const sort = (col: SortCol) => {
+    setSortState((prev) =>
       prev.col === col
         ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
         : { col, dir: "desc" },
@@ -131,25 +144,26 @@ export function PositionsTable({ positions }: PositionsTableProps) {
       const q = search.toLowerCase();
       rows = rows.filter(
         (p) =>
-          p.symbol.toLowerCase().includes(q) ||
+          p.stockSymbol.toLowerCase().includes(q) ||
           p.stockName.toLowerCase().includes(q) ||
           p.sector.toLowerCase().includes(q),
       );
     }
-    if (filter === "signal") rows = rows.filter((p) => p.exitSignal);
-    if (filter === "trail") rows = rows.filter((p) => p.trailingActive);
-    if (filter === "clean")
-      rows = rows.filter((p) => !p.exitSignal && !p.trailingActive);
+    if (filter !== "all") rows = rows.filter((p) => p.side === filter);
 
     return [...rows].sort((a, b) => {
       const mul = sortState.dir === "asc" ? 1 : -1;
-      return (
-        ((a[sortState.col] as number) - (b[sortState.col] as number)) * mul
-      );
+      if (sortState.col === "tradeDate") {
+        return (
+          (new Date(a.tradeDate).getTime() - new Date(b.tradeDate).getTime()) *
+          mul
+        );
+      }
+      return ((a[sortState.col] as number) - (b[sortState.col] as number)) * mul;
     });
   }, [positions, search, filter, sortState]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
@@ -162,11 +176,12 @@ export function PositionsTable({ positions }: PositionsTableProps) {
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Activity className="size-4 text-primary" /> All Positions
           </CardTitle>
-          <CardDescription>Click any row to expand details</CardDescription>
+          <CardDescription>
+            Click any row to expand details · LTP &amp; P&amp;L sync weekly
+          </CardDescription>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Filter pills */}
           <div className="flex items-center gap-1 rounded-lg bg-secondary/50 p-1 border border-border/60">
             {FILTERS.map((f) => (
               <button
@@ -186,7 +201,6 @@ export function PositionsTable({ positions }: PositionsTableProps) {
             ))}
           </div>
 
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
@@ -207,11 +221,10 @@ export function PositionsTable({ positions }: PositionsTableProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-t border-border/60 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                <Th className="pl-6 w-8" />
-                <Th className="pl-3">Symbol</Th>
+                <Th className="pl-6">Symbol</Th>
                 <Th className="text-right">
                   <SortBtn
-                    col="qty"
+                    col="quantity"
                     label="Qty"
                     sortState={sortState}
                     onSort={sort}
@@ -225,31 +238,11 @@ export function PositionsTable({ positions }: PositionsTableProps) {
                     onSort={sort}
                   />
                 </Th>
-                <Th className="text-right">
-                  <SortBtn
-                    col="currentPrice"
-                    label="LTP"
-                    sortState={sortState}
-                    onSort={sort}
-                  />
-                </Th>
-                <Th className="text-right">
-                  <SortBtn
-                    col="pnlAbs"
-                    label="P&L (₹)"
-                    sortState={sortState}
-                    onSort={sort}
-                  />
-                </Th>
-                <Th className="text-right">
-                  <SortBtn
-                    col="pnlPercent"
-                    label="P&L %"
-                    sortState={sortState}
-                    onSort={sort}
-                  />
-                </Th>
-                <Th className="text-right pr-6">Status</Th>
+                <Th className="text-right">LTP</Th>
+                <Th className="text-right">P&amp;L</Th>
+                <Th className="text-right">P&amp;L %</Th>
+                <Th>Status</Th>
+                <Th className="text-right pr-6">Actions</Th>
               </tr>
             </thead>
 
@@ -266,134 +259,134 @@ export function PositionsTable({ positions }: PositionsTableProps) {
               )}
 
               {paginated.map((pos) => {
-                const isExpanded = expandedId === pos._id;
-                const pnlPos = pos.pnlPercent >= 0;
+                const open = expandedId === pos._id;
+                const isLong = pos.side === "long";
+                const positive = (pos.pnlPct ?? 0) >= 0;
 
                 return (
                   <>
                     <tr
                       key={pos._id}
                       onClick={() => toggleRow(pos._id)}
-                      className={`border-t border-border/60 cursor-pointer transition-colors ${
-                        isExpanded
-                          ? "bg-[oklch(0.22_0.015_252)]"
-                          : "hover:bg-accent/20"
-                      }`}
+                      className={cn(
+                        "cursor-pointer border-t border-border/60 transition-colors",
+                        open
+                          ? "bg-accent/40 hover:bg-accent/40"
+                          : "hover:bg-accent/20",
+                      )}
                     >
-                      {/* chevron */}
-                      <Td className="pl-6 w-8">
-                        <div className="size-5 rounded grid place-items-center text-muted-foreground">
-                          {isExpanded ? (
-                            <ChevronUp className="size-3.5 text-primary" />
-                          ) : (
-                            <ChevronDown className="size-3.5" />
-                          )}
-                        </div>
-                      </Td>
-
-                      {/* symbol */}
-                      <Td className="pl-3">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className="size-8 rounded-lg grid place-items-center text-[10px] font-bold ring-1 ring-border/70 shrink-0"
-                            style={{ background: "oklch(0.26 0.015 252)" }}
-                          >
-                            {pos.symbol.slice(0, 2)}
+                      {/* Symbol */}
+                      <Td className="pl-6">
+                        <div className="flex items-center gap-3">
+                          <div className="size-9 rounded-lg grid place-items-center text-[11px] font-semibold tabular tracking-wide bg-primary/15 text-primary ring-1 ring-primary/30">
+                            {pos.stockSymbol.slice(0, 2)}
                           </div>
-                          <div>
-                            <div className="font-medium leading-tight">
-                              {pos.symbol}
+                          <div className="leading-tight">
+                            <div className="font-medium tracking-wide tabular flex items-center gap-2">
+                              {pos.stockSymbol}
+                              <Badge
+                                className={cn(
+                                  "border h-4 px-1.5 text-[10px] font-medium",
+                                  isLong
+                                    ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/10"
+                                    : "bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/10",
+                                )}
+                              >
+                                {isLong ? "LONG" : "SHORT"}
+                              </Badge>
                             </div>
-                            <div className="text-[11px] text-muted-foreground leading-tight max-w-35 truncate">
+                            <div className="text-xs text-muted-foreground max-w-40 truncate">
                               {pos.stockName}
                             </div>
                           </div>
                         </div>
                       </Td>
 
-                      {/* qty */}
-                      <Td className="text-right tabular">{pos.qty}</Td>
+                      {/* Qty */}
+                      <Td className="text-right tabular">{pos.quantity}</Td>
 
-                      {/* entry */}
-                      <Td className="text-right tabular">
+                      {/* Entry */}
+                      <Td className="text-right tabular text-muted-foreground">
                         {fmtINR(pos.entryPrice)}
                       </Td>
 
-                      {/* ltp */}
-                      <Td className="text-right tabular">
-                        <span
-                          className={
-                            pnlPos ? "text-primary" : "text-destructive"
-                          }
-                        >
-                          {fmtINR(pos.currentPrice)}
-                        </span>
+                      {/* LTP */}
+                      <Td className="text-right tabular font-medium">
+                        {pos.currentPrice != null ? (
+                          fmtINR(pos.currentPrice)
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </Td>
 
-                      {/* pnl abs */}
+                      {/* P&L ₹ */}
                       <Td
-                        className={`text-right tabular font-medium ${pnlPos ? "text-primary" : "text-destructive"}`}
+                        className={cn(
+                          "text-right tabular font-medium",
+                          positive ? "text-primary" : "text-destructive",
+                        )}
                       >
-                        {pnlPos ? "+" : ""}
-                        {fmtINR(pos.pnlAbs)}
+                        {pos.pnlAbs != null ? (
+                          <>
+                            {positive ? "+" : "−"}
+                            {fmtINR(Math.abs(pos.pnlAbs))}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </Td>
 
-                      {/* pnl % + mini bar */}
-                      <Td className="text-right pr-2">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-1.5 rounded-full bg-secondary/60 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${pnlPos ? "bg-primary" : "bg-destructive"}`}
-                              style={{
-                                width: `${Math.min(100, Math.abs(pos.pnlPercent) * 10)}%`,
-                              }}
-                            />
-                          </div>
-                          <span
-                            className={`tabular text-xs font-medium min-w-14 text-right inline-flex items-center justify-end gap-0.5 rounded-md px-1.5 py-0.5 ${
-                              pnlPos
-                                ? "text-primary bg-primary/10"
-                                : "text-destructive bg-destructive/10"
-                            }`}
-                          >
-                            {pnlPos ? (
-                              <ArrowUpRight className="size-3" />
+                      {/* P&L % */}
+                      <Td
+                        className={cn(
+                          "text-right tabular",
+                          positive ? "text-primary" : "text-destructive",
+                        )}
+                      >
+                        {pos.pnlPct != null ? (
+                          <span className="inline-flex items-center justify-end gap-0.5">
+                            {positive ? (
+                              <ArrowUpRight className="size-3.5" />
                             ) : (
-                              <ArrowDownRight className="size-3" />
+                              <ArrowDownRight className="size-3.5" />
                             )}
-                            {Math.abs(pos.pnlPercent).toFixed(2)}%
+                            {Math.abs(pos.pnlPct).toFixed(2)}%
                           </span>
-                        </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </Td>
 
-                      {/* status */}
-                      <Td className="pr-6">
+                      {/* Status */}
+                      <Td>
+                        <StatusPill pos={pos} />
+                      </Td>
+
+                      {/* Actions */}
+                      <Td className="text-right pr-6">
                         <div className="flex items-center justify-end gap-1.5">
-                          {pos.exitSignal && (
-                            <Badge className="text-[10px] bg-destructive/15 text-destructive border border-destructive/30 gap-1">
-                              <AlertTriangle className="size-2.5" /> Exit
-                            </Badge>
-                          )}
-                          {pos.trailingActive && (
-                            <Badge className="text-[10px] bg-primary/15 text-primary border border-primary/30 gap-1">
-                              <Shield className="size-2.5" /> Trail
-                            </Badge>
-                          )}
-                          {!pos.exitSignal && !pos.trailingActive && (
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] border-border/60 ${SECTOR_COLOR[pos.sector] ?? "text-muted-foreground"}`}
-                            >
-                              {pos.sector}
-                            </Badge>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExitPos(pos);
+                            }}
+                          >
+                            <LogOut className="size-3.5" /> Exit
+                          </Button>
+                          <ChevronDown
+                            className={cn(
+                              "size-4 text-muted-foreground transition-transform",
+                              open && "rotate-180",
+                            )}
+                          />
                         </div>
                       </Td>
                     </tr>
 
-                    {isExpanded && (
-                      <ExpandedRow key={`${pos._id}-exp`} pos={pos} />
-                    )}
+                    {open && <ExpandedRow key={`${pos._id}-exp`} pos={pos} />}
                   </>
                 );
               })}
@@ -401,10 +394,9 @@ export function PositionsTable({ positions }: PositionsTableProps) {
           </table>
         </div>
 
-        {/* pagination */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-border/60">
           <p className="text-xs text-muted-foreground">
-            Showing {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–
+            Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
             {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}{" "}
             positions
           </p>
@@ -441,6 +433,8 @@ export function PositionsTable({ positions }: PositionsTableProps) {
           </div>
         </div>
       </CardContent>
+
+      <ExitDialog position={exitPos} onClose={() => setExitPos(null)} />
     </Card>
   );
 }

@@ -84,46 +84,54 @@ function StatCard({
 
 interface PositionsStatsBarProps {
   summary: PositionsSummary;
-  positionCount: number;
 }
 
-export function PositionsStatsBar({
-  summary,
-  positionCount,
-}: PositionsStatsBarProps) {
+export function PositionsStatsBar({ summary }: PositionsStatsBarProps) {
   const {
     totalPnl,
     totalPnlPct,
     totalInvested,
-    winners,
-    losers,
+    totalPositions,
+    longCount,
+    shortCount,
     trailCount,
     signalCount,
+    syncedCount,
     avgHold,
   } = summary;
+
+  const synced = syncedCount > 0;
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
       <StatCard
         icon={DollarSign}
         label="Unrealised P&L"
-        value={`${totalPnl >= 0 ? "+" : ""}${fmtINR(Math.abs(totalPnl))}`}
-        sub={`${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(2)}% on deployed`}
-        positive={totalPnl >= 0}
+        value={
+          synced
+            ? `${totalPnl >= 0 ? "+" : ""}${fmtINR(Math.abs(totalPnl))}`
+            : "—"
+        }
+        sub={
+          synced
+            ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(2)}% on synced`
+            : "awaiting weekly sync"
+        }
+        positive={synced ? totalPnl >= 0 : undefined}
         accent
         iconColor="text-primary"
       />
       <StatCard
         icon={Layers}
         label="Positions"
-        value={positionCount}
-        sub={`${winners} winning · ${losers} losing`}
+        value={totalPositions}
+        sub={`${longCount} long · ${shortCount} short`}
         iconColor="text-chart-2"
       />
       <StatCard
         icon={BarChart2}
         label="Deployed"
-        value={`₹${(totalInvested / 100000).toFixed(1)}L`}
+        value={`₹${(totalInvested / 100000).toFixed(2)}L`}
         sub="total capital at work"
         iconColor="text-chart-3"
       />

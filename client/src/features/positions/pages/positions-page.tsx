@@ -1,34 +1,64 @@
-import { AlertTriangle, RefreshCw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { useMemo, useState } from "react";
+import { PlusCircle, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 // hooks
-import { enrichPosition, deriveSummary } from "../hooks/use-positions";
+import {
+  usePositions,
+  useCreatePosition,
+  enrichPosition,
+  deriveSummary,
+} from "../hooks/use-positions";
 
 // components
 import { PositionsStatsBar } from "../components/positions-stats-bar";
 import { PositionsTable } from "../components/positions-table";
+import { AddPositionForm } from "../components/add-position-form";
 
-// mock (flip USE_MOCK = false when API is live)
-import { MOCK_POSITIONS } from "../api/positions-mock";
 import { fmtINR } from "@/lib/positions-utils";
-
-const USE_MOCK = true;
+import type { CreatePositionPayload } from "../types/positions.types";
 
 export function PositionsPage() {
-  // swap for: const { data, isLoading } = usePositions() when live
-  const raw = USE_MOCK ? MOCK_POSITIONS : [];
-  const enriched = raw.map(enrichPosition);
-  const summary = deriveSummary(enriched);
+  const [showForm, setShowForm] = useState(false);
+
+  const { data, isLoading } = usePositions();
+  const createMutation = useCreatePosition();
+
+  const enriched = useMemo(
+    () => (data ?? []).map(enrichPosition),
+    [data],
+  );
+  const summary = useMemo(() => deriveSummary(enriched), [enriched]);
+
+  const handleAdd = (payload: CreatePositionPayload) => {
+    createMutation.mutate(payload, {
+      onSuccess: () => {
+        toast.success("Position added.");
+        setShowForm(false);
+      },
+      onError: (err: any) =>
+        toast.error(
+          err?.response?.data?.message ?? "Could not add position.",
+        ),
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+        Loading Positions...
+      </div>
+    );
+  }
 
   return (
     <div className="px-8 py-8 space-y-8 max-w-[1600px]">
-      {/* ── HERO ── */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
             <span className="size-1.5 rounded-full bg-primary animate-pulse" />
-            Live · {enriched.length} open positions
+            {enriched.length} open positions
           </div>
           <h1 className="mt-2 text-3xl md:text-4xl font-semibold">
             Open Positions
@@ -38,43 +68,49 @@ export function PositionsPage() {
             <span className="text-foreground tabular">
               {fmtINR(summary.totalInvested)}
             </span>{" "}
-            across {enriched.length} stocks ·{" "}
-            <span
-              className={
-                summary.totalPnl >= 0
-                  ? "text-primary tabular"
-                  : "text-destructive tabular"
-              }
-            >
-              {summary.totalPnl >= 0 ? "+" : ""}
-              {summary.totalPnlPct.toFixed(2)}% unrealised
-            </span>
+            across {enriched.length}{" "}
+            {enriched.length === 1 ? "position" : "positions"}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 border-border/70"
-          >
-            <RefreshCw className="size-3.5" /> Refresh
-          </Button>
-          {summary.signalCount > 0 && (
-            <Badge className="bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/15">
-              <AlertTriangle className="size-3 mr-1" />
-              {summary.signalCount} Exit Signal
-              {summary.signalCount > 1 ? "s" : ""}
-            </Badge>
+        <Button
+          onClick={() => setShowForm((v) => !v)}
+          className={`gap-2 transition-all ${
+            showForm
+              ? "bg-secondary text-foreground hover:bg-secondary/80"
+              : "bg-primary text-primary-foreground hover:bg-primary/90"
+          }`}
+        >
+          {showForm ? (
+            <X className="size-4" />
+          ) : (
+            <PlusCircle className="size-4" />
           )}
-        </div>
+          {showForm ? "Cancel" : "Add Position"}
+        </Button>
       </div>
 
+      {showForm && (
+        <AddPositionForm
+          onAdd={handleAdd}
+          onClose={() => setShowForm(false)}
+          isLoading={createMutation.isPending}
+        />
+      )}
+
       {/* ── KPI CARDS ── */}
-      <PositionsStatsBar summary={summary} positionCount={enriched.length} />
+      <PositionsStatsBar summary={summary} />
 
       {/* ── TABLE ── */}
-      <PositionsTable positions={enriched} />
+      {enriched.length === 0 ? (
+        <div className="rounded-lg border border-border/60 bg-card/40 py-16 text-center text-sm text-muted-foreground">
+          No open positions yet. Click{" "}
+          <span className="text-foreground">Add Position</span> to log your
+          first one.
+        </div>
+      ) : (
+        <PositionsTable positions={enriched} />
+      )}
     </div>
   );
 }

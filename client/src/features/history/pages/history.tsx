@@ -36,10 +36,20 @@ export function HistoryPage() {
     isLoading,
   } = useHistory({ useMock: USE_MOCK });
 
-  if (isLoading || !kpis) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Loading Trade History...
+      </div>
+    );
+  }
+
+  if (!kpis) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+        <Activity className="h-6 w-6 opacity-50" />
+        <p className="text-lg font-medium text-foreground">No closed trades yet</p>
+        <p className="text-sm">Your realized trades will appear here once you close a position.</p>
       </div>
     );
   }

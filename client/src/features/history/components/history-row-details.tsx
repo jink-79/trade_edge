@@ -56,7 +56,7 @@ export function HistoryRowDetails({ trade }: HistoryRowDetailsProps) {
                     )}
                   >
                     {trade.rMultiple >= 0 ? "+" : ""}
-                    {trade.rMultiple.toFixed(2)}R
+                    {trade.rMultiple}R
                   </span>
                 }
               />
