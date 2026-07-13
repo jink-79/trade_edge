@@ -1,23 +1,28 @@
 /* ─────────────────────────────────────────────────────
-   DATA CONTRACT
+   DATA CONTRACT  —  matches trade-edge-api
    ─────────────────────────────────────────────────────
 
+   Every API response is wrapped in the standard envelope:
+     { success: boolean; message: string; data: T }
+
+   POST /api/auth/register
+   Body:    { fullName, email, password, confirmPassword }
+   Returns: ApiEnvelope<{ token, user }>   (201)
+
    POST /api/auth/login
-   Body:    { email: string; password: string }
-   Returns: { token: string; user: AuthUser }
+   Body:    { email, password }
+   Returns: ApiEnvelope<{ token, user }>
 
-   POST /api/auth/signup
-   Body:    { name: string; email: string; password: string }
-   Returns: { token: string; user: AuthUser }
-
-   POST /api/auth/logout
-   Headers: Authorization: Bearer <token>
-   Returns: { success: boolean }
+   GET /api/auth/me   (Authorization: Bearer <token>)
+   Returns: ApiEnvelope<AuthUser>
 ───────────────────────────────────────────────────── */
 
+/** Standard response envelope returned by every endpoint. */
+export type { ApiEnvelope } from "@/lib/api";
+
 export interface AuthUser {
-  _id: string;
-  name: string;
+  id: string;
+  fullName: string;
   email: string;
   createdAt: string;
 }
@@ -27,19 +32,15 @@ export interface LoginPayload {
   password: string;
 }
 
-export interface SignupPayload {
-  name: string;
+export interface RegisterPayload {
+  fullName: string;
   email: string;
   password: string;
+  confirmPassword: string;
 }
 
-export interface AuthResponse {
-  token: string;
-  user: AuthUser;
-}
-
-/* stored in localStorage */
-export interface StoredAuth {
+/** Inner `data` shape for login/register responses. */
+export interface AuthData {
   token: string;
   user: AuthUser;
 }

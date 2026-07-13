@@ -1,13 +1,26 @@
-import {
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import type { WeekMeta } from "../types/signals.types";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import type { WeeklySignal } from "../types/signals.types";
 
 interface WeekSelectorProps {
-  weeks: WeekMeta[];
+  weeks: WeeklySignal[];
   selectedWeek: string;
   onChange: (week: string) => void;
+}
+
+/** "2026-05-11" or an ISO string → "11 May 2026" */
+export function weekLabel(w: WeeklySignal): string {
+  const raw = w.week ?? w.signalWeek;
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw ?? "—";
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function keyOf(w: WeeklySignal): string {
+  return w.week ?? w.signalWeek;
 }
 
 export function WeekSelector({
@@ -15,19 +28,17 @@ export function WeekSelector({
   selectedWeek,
   onChange,
 }: WeekSelectorProps) {
-  const currentIdx = weeks.findIndex((w) => w.weekStart === selectedWeek);
+  const currentIdx = weeks.findIndex((w) => keyOf(w) === selectedWeek);
 
   const goPrev = () => {
-    if (currentIdx < weeks.length - 1)
-      onChange(weeks[currentIdx + 1].weekStart);
+    if (currentIdx < weeks.length - 1) onChange(keyOf(weeks[currentIdx + 1]));
   };
   const goNext = () => {
-    if (currentIdx > 0) onChange(weeks[currentIdx - 1].weekStart);
+    if (currentIdx > 0) onChange(keyOf(weeks[currentIdx - 1]));
   };
 
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-      {/* Arrow nav */}
       <div className="flex items-center gap-1">
         <button
           onClick={goPrev}
@@ -45,35 +56,28 @@ export function WeekSelector({
         </button>
       </div>
 
-      {/* Week pill strip */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        {weeks.map((w) => {
-          const isSelected = w.weekStart === selectedWeek;
-          const isLatest = w.weekStart === weeks[0].weekStart;
+        {weeks.map((w, i) => {
+          const k = keyOf(w);
+          const isSelected = k === selectedWeek;
+          const isLatest = i === 0;
           return (
             <button
-              key={w.weekStart}
-              onClick={() => onChange(w.weekStart)}
+              key={k}
+              onClick={() => onChange(k)}
               className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-all ${
                 isSelected
                   ? "bg-primary/15 text-primary border-primary/40 ring-1 ring-primary/30"
                   : "text-muted-foreground border-border/50 hover:text-foreground hover:border-border hover:bg-accent/30"
               }`}
             >
-              {/* Nifty filter indicator dot */}
-              <span
-                className={`size-1.5 rounded-full shrink-0 ${
-                  w.niftyAboveEma ? "bg-primary" : "bg-destructive"
-                }`}
-              />
-              <span className="hidden sm:inline">{w.weekLabel}</span>
-              <span className="sm:hidden">{w.weekStart.slice(5, 10)}</span>
+              <span>{weekLabel(w)}</span>
               <span
                 className={`tabular text-[10px] px-1 rounded ${
                   isSelected ? "text-primary/80" : "text-muted-foreground/60"
                 }`}
               >
-                {w.signalCount}
+                {w.count}
               </span>
               {isLatest && isSelected && (
                 <span className="absolute -top-1.5 -right-1.5 text-[8px] uppercase tracking-wider bg-primary text-primary-foreground px-1 rounded-sm font-bold leading-tight">
@@ -83,16 +87,6 @@ export function WeekSelector({
             </button>
           );
         })}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-3 text-[10px] text-muted-foreground ml-auto shrink-0">
-        <span className="flex items-center gap-1">
-          <span className="size-1.5 rounded-full bg-primary" /> Nifty above EMA
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="size-1.5 rounded-full bg-destructive" /> Below EMA
-        </span>
       </div>
     </div>
   );

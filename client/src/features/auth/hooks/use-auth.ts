@@ -1,41 +1,24 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { loginApi, logoutApi } from "../api/auth-api";
-import type { LoginPayload, AuthUser } from "../types/auth.types";
+import { loginApi, registerApi, fetchCurrentUser } from "../api/auth-api";
+import {
+  getStoredToken,
+  getStoredUser,
+  persistAuth,
+  clearAuth,
+} from "../storage";
+import type { LoginPayload, RegisterPayload } from "../types/auth.types";
 
-const TOKEN_KEY = "te_token";
-const USER_KEY = "te_user";
+/* Re-export storage helpers so existing imports from this hook keep working. */
+export { getStoredToken, getStoredUser } from "../storage";
 
-/* ── helpers ── */
-
-export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function getStoredUser(): AuthUser | null {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as AuthUser) : null;
-  } catch {
-    return null;
-  }
-}
-
-function persistAuth(token: string, user: AuthUser) {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
-}
-
-function clearAuth() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-}
-
-/* ── hook ── */
+/* ── login ── */
 
 export function useLogin() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,10 +28,10 @@ export function useLogin() {
     try {
       const { token, user } = await loginApi(payload);
       persistAuth(token, user);
-      toast.success(`Welcome back, ${user.name.split(" ")[0]}.`);
+      queryClient.setQueryData(["auth", "me"], user);
+      toast.success(`Welcome back, ${user.fullName.split(" ")[0]}.`);
       navigate("/");
     } catch (err: any) {
-      /* axios puts the server message in err.response.data.message */
       const msg =
         err?.response?.data?.message ??
         "Invalid email or password. Please try again.";
@@ -62,17 +45,59 @@ export function useLogin() {
   return { login, loading, error };
 }
 
-export function useLogout() {
-  const navigate = useNavigate();
+/* ── register ── */
 
-  return async () => {
+export function useRegister() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const register = async (payload: RegisterPayload) => {
+    setLoading(true);
+    setError(null);
     try {
-      await logoutApi();
-    } catch {
-      /* best-effort — clear locally regardless */
+      const { token, user } = await registerApi(payload);
+      persistAuth(token, user);
+      queryClient.setQueryData(["auth", "me"], user);
+      toast.success(`Welcome to Trade Edge, ${user.fullName.split(" ")[0]}.`);
+      navigate("/");
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ??
+        "Could not create your account. Please try again.";
+      setError(msg);
+      toast.error(msg);
     } finally {
-      clearAuth();
-      navigate("/login");
+      setLoading(false);
     }
   };
+
+  return { register, loading, error };
+}
+
+/* ── logout (stateless JWT — client-side only) ── */
+
+export function useLogout() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  return () => {
+    clearAuth();
+    queryClient.removeQueries({ queryKey: ["auth", "me"] });
+    navigate("/login");
+  };
+}
+
+/* ── current user (validates the stored token against GET /auth/me) ── */
+
+export function useCurrentUser() {
+  return useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: fetchCurrentUser,
+    enabled: Boolean(getStoredToken()),
+    initialData: () => getStoredUser() ?? undefined,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
 }

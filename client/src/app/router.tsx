@@ -4,11 +4,24 @@ import { Dashboard } from "@/features/dashboard/pages/dash-borad";
 import { NotFound } from "@/layouts/not-found";
 import { SignalsPage } from "@/features/signals/pages/signals";
 import { FundsPage } from "@/features/funds/pages/funds-page";
+import { LoginPage } from "@/features/auth/pages/login-page";
+import { SignupPage } from "@/features/auth/pages/signup-page";
+import { ProtectedRoute } from "@/features/auth/components/protected-route";
+import { MutualFundsPage } from "@/features/mutual-funds/pages/mutual-funds";
+import { AnalyticsPage } from "@/features/analytics/pages/analytics-page";
+import { PositionsPage } from "@/features/positions/pages/positions-page";
+import { HistoryPage } from "@/features/history/pages/history";
+import { OverviewPage } from "@/features/overview/pages/overview";
+import { PlaybookPage } from "@/features/playbook/pages/playbook";
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <AppLayout />,
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
     children: [
       { path: "*", element: <NotFound /> },
       {
@@ -23,6 +36,38 @@ export const router = createBrowserRouter([
         path: "funds",
         element: <FundsPage />,
       },
+      {
+        path: "mutual-funds",
+        element: <MutualFundsPage />,
+      },
+      {
+        path: "analytics",
+        element: <AnalyticsPage />,
+      },
+      {
+        path: "positions",
+        element: <PositionsPage />,
+      },
+      {
+        path: "history",
+        element: <HistoryPage />,
+      },
+      {
+        path: "overview",
+        element: <OverviewPage />,
+      },
+      {
+        path: "playbook",
+        element: <PlaybookPage />,
+      },
     ],
+  },
+  {
+    path: "/login",
+    element: <LoginPage />,
+  },
+  {
+    path: "/signup",
+    element: <SignupPage />,
   },
 ]);

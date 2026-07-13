@@ -1,80 +1,50 @@
 /* ─────────────────────────────────────────────────────
-   DATA CONTRACT
-   ─────────────────────────────────────────────────────
-
-   GET /api/signals?week=2026-06-16
-   ↳ week param = Monday of the ISO week (YYYY-MM-DD)
-
-   Response:
-   {
-     success: boolean
-     weekStart: string          // "2026-06-16"
-     niftyAboveEma: boolean     // 20-week EMA filter result
-     niftyClose: number         // Nifty closing price used
-     niftyEma20w: number        // EMA value
-     totalScanned: number       // symbols scanned that week
-     data: Signal[]
-   }
-
-   GET /api/signals/weeks
-   ↳ Returns list of available weeks (last 8)
-   Response: { weeks: WeekMeta[] }
+   DATA CONTRACT — matches the Python weekly scanner
+   GET /api/signals/weekly-scanner?weeks=8
+   Response: ApiEnvelope<SignalsResponse>
 ───────────────────────────────────────────────────── */
 
-export type SignalStatus = "active" | "target_hit" | "stopped_out" | "expired";
+/** Raw stock row from the weekly_entry_scanner collection. */
+export interface SignalStock {
+  symbol: string;
+  close: number;
+  breakout_level: number;
+  volume: number;
+  avg_volume_20: number;
+}
+
+/** One week's group of scanner signals. */
+export interface WeeklySignal {
+  week: string | null; // week_key, e.g. "2026-05-11"
+  signalWeek: string; // label from signal_week
+  count: number;
+  stocks: SignalStock[];
+}
+
+export interface SignalsResponse {
+  latestWeek: string | null;
+  totalWeeks: number;
+  data: WeeklySignal[];
+}
+
+/* ── client-enriched ── */
+
 export type SignalStrength = "strong" | "moderate" | "weak";
 
-export interface Signal {
-  _id: string;
-  symbol: string;
-  stockName: string;
-  sector: string;
-  weekStart: string; // ISO — Monday of signal week
-
-  // PULSE BREAKER core fields
-  breakoutHigh: number; // 2-candle range high
-  breakoutLow: number; // 2-candle range low
-  entryPrice: number; // next candle open (suggested entry)
-  stopLoss: number; // structureExitLow
-  targetPrice: number; // trail activation level (+6%)
-
-  // Volume & filters
-  volumeRatio: number; // actual / avg (>= 1.3 to qualify)
-  niftyFilterPass: boolean; // Nifty above 20W EMA at signal time
-
-  // Signal quality — derived field, computed by backend
-  strength: SignalStrength;
-
-  // Outcome — null while open, populated on close
-  status: SignalStatus;
-  outcomePercent: number | null;
-  exitDate: string | null;
-
-  createdAt: string;
+export interface EnrichedSignal extends SignalStock {
+  volumeRatio: number; // volume / avg_volume_20
+  aboveBreakoutPct: number; // (close - breakout_level) / breakout_level * 100
+  strength: SignalStrength; // derived from volumeRatio
 }
 
-export interface WeekMeta {
-  weekStart: string; // "2026-06-16"
-  weekLabel: string; // "16 Jun – 20 Jun"
-  signalCount: number;
-  niftyAboveEma: boolean;
-}
-
-export interface SignalsWeekResponse {
-  success: boolean;
-  weekStart: string;
-  niftyAboveEma: boolean;
-  niftyClose: number;
-  niftyEma20w: number;
-  totalScanned: number;
-  data: Signal[];
-}
-
-export interface WeeksListResponse {
-  weeks: WeekMeta[];
-}
+export type SortCol =
+  | "symbol"
+  | "close"
+  | "breakout_level"
+  | "aboveBreakoutPct"
+  | "volumeRatio";
 
 export interface SortState {
-  col: keyof Signal | "riskReward";
+  col: SortCol;
   dir: "asc" | "desc";
 }

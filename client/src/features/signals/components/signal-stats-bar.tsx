@@ -1,21 +1,14 @@
-import {
-  Activity,
-  ShieldCheck,
-  ShieldOff,
-  TrendingUp,
-  Zap,
-  ScanLine,
-} from "lucide-react";
+import { Activity, BarChart3, Gauge, Zap } from "lucide-react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
 } from "@/components/ui/card";
-import type { SignalsWeekResponse } from "../types/signals.types";
+import type { EnrichedSignal } from "../types/signals.types";
 
 interface SignalStatsBarProps {
-  response: SignalsWeekResponse;
+  signals: EnrichedSignal[];
 }
 
 function StatCard({
@@ -73,29 +66,24 @@ function StatCard({
   );
 }
 
-export function SignalStatsBar({ response }: SignalStatsBarProps) {
-  const {
-    data: signals,
-    niftyAboveEma,
-    niftyClose,
-    niftyEma20w,
-    totalScanned,
-  } = response;
-
+export function SignalStatsBar({ signals }: SignalStatsBarProps) {
   const strong = signals.filter((s) => s.strength === "strong").length;
   const moderate = signals.filter((s) => s.strength === "moderate").length;
   const weak = signals.filter((s) => s.strength === "weak").length;
-  const niftyGap = (((niftyClose - niftyEma20w) / niftyEma20w) * 100).toFixed(
-    2,
-  );
+
+  const avgVol =
+    signals.length > 0
+      ? signals.reduce((s, x) => s + x.volumeRatio, 0) / signals.length
+      : 0;
+  const maxVol = signals.reduce((m, x) => Math.max(m, x.volumeRatio), 0);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard
         icon={Zap}
         label="Total Signals"
         value={signals.length}
-        sub={`from ${totalScanned} symbols scanned`}
+        sub="breakouts this week"
         accent
         iconColor="text-primary"
       />
@@ -115,28 +103,17 @@ export function SignalStatsBar({ response }: SignalStatsBarProps) {
         iconColor="text-chart-2"
       />
       <StatCard
-        icon={ScanLine}
-        label="Hit Rate"
-        value={`${((signals.length / totalScanned) * 100).toFixed(1)}%`}
-        sub={`${signals.length} of ${totalScanned} qualified`}
+        icon={Gauge}
+        label="Avg Volume"
+        value={`${avgVol.toFixed(2)}x`}
+        sub="of 20-week average"
         iconColor="text-chart-3"
       />
       <StatCard
-        icon={niftyAboveEma ? ShieldCheck : ShieldOff}
-        label="Nifty Filter"
-        value={
-          <span className={niftyAboveEma ? "text-primary" : "text-destructive"}>
-            {niftyAboveEma ? "Active ✓" : "Off ✗"}
-          </span>
-        }
-        sub={`${niftyGap}% above 20W EMA`}
-        iconColor={niftyAboveEma ? "text-primary" : "text-destructive"}
-      />
-      <StatCard
-        icon={TrendingUp}
-        label="Nifty Close"
-        value={niftyClose.toLocaleString("en-IN")}
-        sub={`EMA₂₀W: ${niftyEma20w.toLocaleString("en-IN")}`}
+        icon={BarChart3}
+        label="Peak Volume"
+        value={`${maxVol.toFixed(2)}x`}
+        sub="strongest surge"
         iconColor="text-chart-5"
       />
     </div>

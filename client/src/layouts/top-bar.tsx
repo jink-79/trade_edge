@@ -23,6 +23,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NAV_ITEMS } from "./side-bar";
+import { useCurrentUser, useLogout } from "@/features/auth/hooks/use-auth";
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "TE";
+  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
+}
 
 /* ─────────────────────────────────────────────
    TOPBAR
@@ -32,6 +39,8 @@ export function Topbar() {
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [isDark, setIsDark] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const { data: user } = useCurrentUser();
+  const logout = useLogout();
 
   /* Sync theme on mount */
   useEffect(() => {
@@ -136,13 +145,17 @@ export function Topbar() {
                     "linear-gradient(135deg, oklch(0.78 0.17 155), oklch(0.68 0.18 240))",
                 }}
               >
-                AK
+                {user ? initialsOf(user.fullName) : "TE"}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel className="font-normal">
-                <p className="text-sm font-medium">Ajinkya</p>
-                <p className="text-xs text-muted-foreground">tradeedge.app</p>
+                <p className="text-sm font-medium">
+                  {user?.fullName ?? "Trade Edge"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {user?.email ?? "tradeedge.app"}
+                </p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="cursor-pointer gap-2 text-sm">
@@ -152,7 +165,10 @@ export function Topbar() {
                 <Settings className="size-3.5" /> Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer gap-2 text-sm text-destructive focus:text-destructive">
+              <DropdownMenuItem
+                onClick={logout}
+                className="cursor-pointer gap-2 text-sm text-destructive focus:text-destructive"
+              >
                 <LogOut className="size-3.5" /> Log out
               </DropdownMenuItem>
             </DropdownMenuContent>

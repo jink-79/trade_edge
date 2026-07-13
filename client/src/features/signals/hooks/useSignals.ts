@@ -1,37 +1,41 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchAvailableWeeks, fetchSignalsByWeek } from "../api/signals-api";
+import { fetchWeeklySignals } from "../api/signals-api";
 import type {
-  SignalsWeekResponse,
-  WeeksListResponse,
+  EnrichedSignal,
+  SignalStock,
+  SignalsResponse,
+  SignalStrength,
 } from "../types/signals.types";
 
 export const signalKeys = {
   all: ["signals"] as const,
-  byWeek: (week: string) => ["signals", "week", week] as const,
-  weeks: () => ["signals", "weeks"] as const,
+  weeks: (n: number) => ["signals", "weeks", n] as const,
 };
 
-/**
- * Fetch signals for the selected week.
- * Disabled until a weekStart is provided.
- */
-export function useSignalsByWeek(weekStart: string | null) {
-  return useQuery<SignalsWeekResponse>({
-    queryKey: signalKeys.byWeek(weekStart ?? ""),
-    queryFn: () => fetchSignalsByWeek(weekStart!),
-    enabled: !!weekStart,
-    staleTime: 1000 * 60 * 5, // 5 min — signals don't change mid-session
-    retry: 2,
-  });
+function strengthOf(volumeRatio: number): SignalStrength {
+  if (volumeRatio >= 2) return "strong";
+  if (volumeRatio >= 1.5) return "moderate";
+  return "weak";
 }
 
-/**
- * Fetch the list of available weeks for the WeekSelector.
- */
-export function useAvailableWeeks() {
-  return useQuery<WeeksListResponse>({
-    queryKey: signalKeys.weeks(),
-    queryFn: fetchAvailableWeeks,
-    staleTime: 1000 * 60 * 30,
+export function enrichSignal(s: SignalStock): EnrichedSignal {
+  const volumeRatio = s.avg_volume_20 > 0 ? s.volume / s.avg_volume_20 : 0;
+  const aboveBreakoutPct =
+    s.breakout_level > 0
+      ? ((s.close - s.breakout_level) / s.breakout_level) * 100
+      : 0;
+  return {
+    ...s,
+    volumeRatio,
+    aboveBreakoutPct,
+    strength: strengthOf(volumeRatio),
+  };
+}
+
+export function useWeeklySignals(weeks = 8) {
+  return useQuery<SignalsResponse>({
+    queryKey: signalKeys.weeks(weeks),
+    queryFn: () => fetchWeeklySignals(weeks),
+    staleTime: 1000 * 60 * 5,
   });
 }
