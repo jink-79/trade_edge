@@ -20,6 +20,30 @@ export const MutualFundsQuerySchema = z.object({
 
 export type MutualFundsQuery = z.infer<typeof MutualFundsQuerySchema>;
 
+// ── Create Schema ─────────────────────────────────────────────────────────────
+
+export const FUND_CATEGORIES = [
+  "Smallcap",
+  "Midcap",
+  "Largecap",
+  "Flexicap",
+] as const;
+
+export const CreateMutualFundSchema = z.object({
+  fundName: z
+    .string()
+    .min(2, "Fund name must be at least 2 characters")
+    .max(120, "Fund name must be at most 120 characters")
+    .trim(),
+  date: z.coerce.date(),
+  category: z.enum(FUND_CATEGORIES),
+  nav: z.number().positive("NAV must be greater than 0"),
+  units: z.number().positive("Units must be greater than 0"),
+  amount: z.number().positive("Amount must be greater than 0"),
+});
+
+export type CreateMutualFundInput = z.infer<typeof CreateMutualFundSchema>;
+
 // ── Response Types ────────────────────────────────────────────────────────────
 
 export interface MutualFundEntry {

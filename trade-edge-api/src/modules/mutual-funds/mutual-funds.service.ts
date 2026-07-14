@@ -1,8 +1,10 @@
+import { Types } from "mongoose";
 import { MutualFund } from "./mutual-funds.model";
 import type {
   MutualFundsQuery,
   MutualFundsResponse,
   MutualFundEntry,
+  CreateMutualFundInput,
 } from "./mutual-funds.types";
 
 function formatEntry(doc: any): MutualFundEntry {
@@ -41,4 +43,16 @@ export async function getMutualFunds(
     limit,
     totalPages: Math.ceil(total / limit),
   };
+}
+
+export async function createMutualFund(
+  userId: string,
+  input: CreateMutualFundInput,
+): Promise<MutualFundEntry> {
+  const entry = await MutualFund.create({
+    ...input,
+    userId: new Types.ObjectId(userId),
+  });
+
+  return formatEntry(entry);
 }

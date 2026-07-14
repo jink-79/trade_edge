@@ -7,6 +7,12 @@ import { logger } from "./utils/logger";
 
 import authRoutes from "./modules/auth/auth.routes";
 import mutualFundsRoutes from "./modules/mutual-funds/mutual-funds.routes";
+import positionsRoutes from "./modules/positions/positions.routes";
+import tradesRoutes from "./modules/history/trades.routes";
+import fundsRoutes from "./modules/funds/funds.routes";
+import analyticsRoutes from "./modules/analytics/analytics.routes";
+import signalsRoutes from "./modules/signals/signals.routes";
+import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 
 const app = express();
 
@@ -31,6 +37,12 @@ if (env.NODE_ENV === "development") {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/mutual-funds", mutualFundsRoutes);
+app.use("/api/positions", positionsRoutes);
+app.use("/api/trades", tradesRoutes);
+app.use("/api/funds", fundsRoutes);
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/signals", signalsRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ success: false, message: "Route not found" });
