@@ -79,7 +79,7 @@ export function ReturnsCharts({
                 />
                 <Tooltip
                   contentStyle={CHART_STYLE.tooltip}
-                  formatter={(v: number) => fmtPct(v)}
+                  formatter={(v) => (typeof v === "number" ? fmtPct(v) : "")}
                 />
                 <ReferenceLine y={0} stroke="var(--border)" />
                 <Bar dataKey="r" radius={[6, 6, 2, 2]}>

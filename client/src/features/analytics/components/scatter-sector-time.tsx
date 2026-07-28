@@ -179,7 +179,7 @@ export function ScatterSectorTime({
                 />
                 <Tooltip
                   contentStyle={CHART_STYLE.tooltip}
-                  formatter={(v: number) => fmtUsd(v)}
+                  formatter={(v) => (typeof v === "number" ? fmtUsd(v) : "")}
                 />
                 <ReferenceLine y={0} stroke="var(--border)" />
                 <Bar dataKey="pnl" radius={[6, 6, 2, 2]}>

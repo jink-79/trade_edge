@@ -86,9 +86,7 @@ export function EquityChart({ data, benchPct, netPnlPct }: EquityChartProps) {
                 />
                 <Tooltip
                   contentStyle={CHART_STYLE.tooltip}
-                  formatter={(v: number | undefined) =>
-                    v !== undefined ? fmtUsd(v) : ""
-                  }
+                  formatter={(v) => (typeof v === "number" ? fmtUsd(v) : "")}
                 />
                 <Area
                   type="monotone"
@@ -155,7 +153,7 @@ export function EquityChart({ data, benchPct, netPnlPct }: EquityChartProps) {
                 />
                 <Tooltip
                   contentStyle={CHART_STYLE.tooltip}
-                  formatter={(v: number | undefined) => v !== undefined ? `${v.toFixed(2)}%` : ""}
+                  formatter={(v) => (typeof v === "number" ? `${v.toFixed(2)}%` : "")}
                 />
                 <ReferenceLine y={0} stroke="var(--border)" />
                 <Area
