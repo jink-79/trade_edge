@@ -216,10 +216,12 @@ export async function getDashboard(userId: string): Promise<DashboardResponse> {
   //  - trades (closedpositions): userId stored as a string → scope by string
   //  - positions (openpositions): no userId field → not scoped
   //  - mutualfunds: not user-scoped → return all
+  // Exclude base64 chart screenshots from these scans (journal-shaped docs)
+  const noShots = "-entry.screenshot -exit.screenshot";
   const [fundDocs, positionDocs, tradeDocs, mfDocs] = await Promise.all([
     Fund.find({ userId: userObjectId }).lean(),
-    Position.find({}).lean(),
-    Trade.find({ userId }).sort({ exitDate: -1 }).lean(),
+    Position.find({}).select(noShots).lean(),
+    Trade.find({ userId }).select(noShots).sort({ exitDate: -1 }).lean(),
     MutualFund.find({}).lean(),
   ]);
 

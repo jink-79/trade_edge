@@ -2,7 +2,6 @@ import { createBrowserRouter } from "react-router-dom";
 import AppLayout from "@/layouts/app-layout";
 import { Dashboard } from "@/features/dashboard/pages/dash-borad";
 import { NotFound } from "@/layouts/not-found";
-import { SignalsPage } from "@/features/signals/pages/signals";
 import { FundsPage } from "@/features/funds/pages/funds-page";
 import { LoginPage } from "@/features/auth/pages/login-page";
 import { SignupPage } from "@/features/auth/pages/signup-page";
@@ -13,6 +12,7 @@ import { PositionsPage } from "@/features/positions/pages/positions-page";
 import { HistoryPage } from "@/features/history/pages/history";
 import { OverviewPage } from "@/features/overview/pages/overview";
 import { PlaybookPage } from "@/features/playbook/pages/playbook";
+import { PreferencesPage } from "@/features/preferences/pages/preferences-page";
 
 export const router = createBrowserRouter([
   {
@@ -27,10 +27,6 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <Dashboard />,
-      },
-      {
-        path: "signals",
-        element: <SignalsPage />,
       },
       {
         path: "funds",
@@ -59,6 +55,10 @@ export const router = createBrowserRouter([
       {
         path: "playbook",
         element: <PlaybookPage />,
+      },
+      {
+        path: "preferences",
+        element: <PreferencesPage />,
       },
     ],
   },

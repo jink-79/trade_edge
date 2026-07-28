@@ -115,6 +115,7 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
     userId,
     exitDate: { $gte: since },
   })
+    .select("-entry.screenshot -exit.screenshot")
     .sort({ exitDate: 1 })
     .lean()
 
