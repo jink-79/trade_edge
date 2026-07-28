@@ -1,18 +1,18 @@
 import axios from "axios";
+import { env } from "@/config/env";
 import { TOKEN_KEY, USER_KEY } from "@/features/auth/storage";
 
 /**
  * Single axios instance used by every feature's API layer.
  *
- * VITE_API_URL may be set in client/.env (project root, NOT src/):
- *   VITE_API_URL=http://localhost:5000/api
- * Falls back to the local API when unset.
+ * The base URL is resolved by @/config/env — localhost in dev, the Vercel
+ * backend in a production build (overridable via VITE_API_URL).
  *
  * The request interceptor reads the token on every call so it
  * picks up changes (login / logout) without recreating the instance.
  */
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:5000/api",
+  baseURL: env.apiUrl,
   headers: { "Content-Type": "application/json" },
   timeout: 15_000,
 });

@@ -23,10 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import {
-  usePreferences,
-  useSavePreferences,
-} from "../hooks/use-preferences";
+import { usePreferences, useSavePreferences } from "../hooks/use-preferences";
 import type {
   Timeframe,
   TradingPreferences,
@@ -70,7 +67,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur shadow-[var(--shadow-card)]">
+    <section className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur shadow-(--shadow-card)">
       <div className="flex items-start gap-3 px-6 pt-5 pb-4 border-b border-border/60">
         <div className="size-9 rounded-xl grid place-items-center bg-primary/15 ring-1 ring-primary/30 shrink-0">
           <Icon className="size-4 text-primary" />

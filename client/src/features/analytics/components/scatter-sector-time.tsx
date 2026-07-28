@@ -51,10 +51,10 @@ export function ScatterSectorTime({
           >
             Hold time vs R
           </CardTitle>
-          <CardDescription>Sweet spot: 30–90 min holds.</CardDescription>
+          <CardDescription>Sweet spot: 30-90 min holds.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[240px]">
+          <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ left: 0, right: 8, top: 8 }}>
                 <CartesianGrid {...CHART_STYLE.grid} />
@@ -162,7 +162,7 @@ export function ScatterSectorTime({
           <CardDescription>Open and power hour are your edge.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[240px]">
+          <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={hourly} margin={{ left: 0, right: 8, top: 8 }}>
                 <CartesianGrid {...CHART_STYLE.grid} vertical={false} />
