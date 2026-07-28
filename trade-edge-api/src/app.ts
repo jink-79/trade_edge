@@ -9,31 +9,36 @@ import authRoutes from "./modules/auth/auth.routes";
 import mutualFundsRoutes from "./modules/mutual-funds/mutual-funds.routes";
 import fundsRoutes from "./modules/funds/funds.routes";
 import analyticsRoutes from "./modules/analytics/analytics.routes";
-import signalsRoutes from "./modules/signals/signals.routes";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import journalRoutes from "./modules/journal/journal.routes";
 import preferencesRoutes from "./modules/preferences/preferences.routes";
 
 const app = express();
 
+const allowedOrigins = env.CLIENT_URL.split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
   }),
 );
 
-// Keep a tight 10kb limit everywhere EXCEPT /api/journal, whose payloads carry
-// base64 chart screenshots and are parsed with a larger limit in that router.
 const skipJournal =
   (parser: express.RequestHandler): express.RequestHandler =>
   (req, res, next) =>
     req.path.startsWith("/api/journal") ? next() : parser(req, res, next);
 
 app.use(skipJournal(express.json({ limit: "10kb" })));
-app.use(
-  skipJournal(express.urlencoded({ extended: true, limit: "10kb" })),
-);
+app.use(skipJournal(express.urlencoded({ extended: true, limit: "10kb" })));
 
 app.use(globalRateLimiter);
 
@@ -48,7 +53,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/mutual-funds", mutualFundsRoutes);
 app.use("/api/funds", fundsRoutes);
 app.use("/api/analytics", analyticsRoutes);
-app.use("/api/signals", signalsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/journal", journalRoutes);
 app.use("/api/preferences", preferencesRoutes);
