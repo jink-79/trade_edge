@@ -63,3 +63,38 @@ export async function setGttPlaced(
   );
   return data.data;
 }
+
+/** Candle shape accepted by the analytics endpoint. */
+export interface AnalyzeCandle {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export async function analyzeTrade(
+  id: string,
+  candles: AnalyzeCandle[],
+): Promise<JournalTrade> {
+  const { data } = await axiosInstance.post<ApiEnvelope<JournalTrade>>(
+    `/journal/${id}/analytics`,
+    { candles },
+  );
+  return data.data;
+}
+
+export async function setRuleAdherence(
+  id: string,
+  payload: {
+    ruleAdherence: "system" | "discretionary" | null;
+    ruleAdherenceNote?: string;
+  },
+): Promise<JournalTrade> {
+  const { data } = await axiosInstance.post<ApiEnvelope<JournalTrade>>(
+    `/journal/${id}/adherence`,
+    payload,
+  );
+  return data.data;
+}

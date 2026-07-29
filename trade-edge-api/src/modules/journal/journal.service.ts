@@ -2,13 +2,16 @@ import mongoose from "mongoose";
 import { JournalOpen, JournalClosed } from "./journal.model";
 import { AppError } from "../../utils/api-error";
 import { computeEntryIndicators, computeRegime } from "./journal.compute";
+import { analyzeTradePath } from "./journal.analytics";
 import { getPreferences } from "../preferences/preferences.service";
 import type {
+  AnalyzeTradeInput,
   AutoCaptureInput,
   CreateJournalTradeInput,
   ExitJournalTradeInput,
   JournalTradeResponse,
   ReviewJournalTradeInput,
+  SetAdherenceInput,
 } from "./journal.types";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -26,9 +29,20 @@ function formatTrade(doc: any): JournalTradeResponse {
     source: doc.source ?? "manual",
     needsReview: doc.needsReview ?? false,
     gttPlaced: doc.gttPlaced ?? false,
+    ruleAdherence: doc.ruleAdherence ?? null,
+    ruleAdherenceNote: doc.ruleAdherenceNote ?? null,
+    analytics: doc.analytics ?? null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
+}
+
+/** Fetch a mutable trade doc from whichever collection holds it. */
+async function findEitherDoc(userId: string, id: string) {
+  return (
+    (await JournalOpen.findOne({ _id: id, userId })) ||
+    (await JournalClosed.findOne({ _id: id, userId }))
+  );
 }
 
 /** Flat top-level fields the dashboard/analytics Position & Trade models read. */
@@ -292,4 +306,56 @@ export async function exitJournalTrade(
 
   const created = await JournalClosed.findById(id).lean();
   return formatTrade(created);
+}
+
+/**
+ * Compute MAE/MFE + exit-strategy replays from the daily candles spanning the
+ * trade's life, and store them on the doc (open or closed).
+ */
+export async function analyzeJournalTrade(
+  userId: string,
+  id: string,
+  input: AnalyzeTradeInput,
+): Promise<JournalTradeResponse> {
+  const doc = await findEitherDoc(userId, id);
+  if (!doc) throw AppError.notFound("Trade not found");
+
+  const entry = doc.entry as Record<string, any>;
+  const exit = doc.exit as Record<string, any> | null;
+
+  const analytics = analyzeTradePath(input.candles, {
+    direction: entry.direction,
+    entryPrice: entry.entryPrice,
+    stopPrice: entry.stopPrice,
+    targetPrice: entry.targetPrice,
+    quantity: entry.quantity,
+    atr14: entry.atr14,
+    entryDateIso: new Date(entry.entryDate).toISOString(),
+    exitDateIso: exit?.exitDate ? new Date(exit.exitDate).toISOString() : null,
+    exitPrice: exit?.exitPrice ?? null,
+  });
+
+  doc.set("analytics", analytics);
+  doc.markModified("analytics");
+  // Backfill the exit's MAE% now that we've measured it.
+  if (exit) {
+    exit.maxAdverseExcursion = analytics.maePct;
+    doc.markModified("exit");
+  }
+  await doc.save();
+  return formatTrade(doc.toObject());
+}
+
+/** Tag a trade as system-following or discretionary (works open or closed). */
+export async function setRuleAdherence(
+  userId: string,
+  id: string,
+  input: SetAdherenceInput,
+): Promise<JournalTradeResponse> {
+  const doc = await findEitherDoc(userId, id);
+  if (!doc) throw AppError.notFound("Trade not found");
+  doc.set("ruleAdherence", input.ruleAdherence);
+  doc.set("ruleAdherenceNote", input.ruleAdherenceNote ?? null);
+  await doc.save();
+  return formatTrade(doc.toObject());
 }

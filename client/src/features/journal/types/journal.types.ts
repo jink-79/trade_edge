@@ -34,6 +34,40 @@ export type MarketTrend = "up" | "down";
 
 export type DataQuality = "clean" | "excludable";
 
+/** Did the trade follow the system, or was it a discretionary call? */
+export type RuleAdherence = "system" | "discretionary";
+
+// ── Trade-path analytics (MAE/MFE + exit optimizer) ───────────────────────────
+
+export interface ExitSim {
+  key: string;
+  label: string;
+  exitPrice: number;
+  exitDate: string;
+  daysHeld: number;
+  reason: string;
+  rMultiple: number | null;
+  pnl: number;
+}
+
+export interface TradeAnalytics {
+  mae: number;
+  maePct: number;
+  maeR: number | null;
+  mfe: number;
+  mfePct: number;
+  mfeR: number | null;
+  daysToMfe: number;
+  mfeCaptureRatio: number | null;
+  risk: number;
+  actualR: number | null;
+  sims: ExitSim[];
+  best: { key: string; label: string; rMultiple: number | null };
+  windowFrom: string;
+  windowTo: string;
+  computedAt: string;
+}
+
 // ── Entry object — locked once exit is written ────────────────────────────────
 
 export interface TradeEntry {
@@ -106,6 +140,9 @@ export interface JournalTrade {
   source: "manual" | "auto";
   needsReview: boolean;
   gttPlaced: boolean;
+  ruleAdherence?: RuleAdherence | null;
+  ruleAdherenceNote?: string | null;
+  analytics?: TradeAnalytics | null;
   createdAt: string;
   updatedAt: string;
 }

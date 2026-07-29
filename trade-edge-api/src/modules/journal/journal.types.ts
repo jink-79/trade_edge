@@ -19,6 +19,8 @@ export const VOLUME_CHARACTERS = [
 ] as const;
 export const MARKET_TRENDS = ["up", "down"] as const;
 export const DATA_QUALITIES = ["clean", "excludable"] as const;
+/** Did the trade follow the system, or was it a discretionary call? */
+export const RULE_ADHERENCES = ["system", "discretionary"] as const;
 
 export type ClosePosition = (typeof CLOSE_POSITIONS)[number];
 export type VolumeCharacter = (typeof VOLUME_CHARACTERS)[number];
@@ -151,6 +153,21 @@ export type ReviewJournalTradeInput = z.infer<typeof ReviewJournalTradeSchema>;
 export const GttPlacedSchema = z.object({ placed: z.boolean() });
 export type GttPlacedInput = z.infer<typeof GttPlacedSchema>;
 
+// ── Rule adherence (behavioural tag) ──────────────────────────────────────────
+
+export const SetAdherenceSchema = z.object({
+  ruleAdherence: z.enum(RULE_ADHERENCES).nullable(),
+  ruleAdherenceNote: z.string().max(500).trim().optional(),
+});
+export type SetAdherenceInput = z.infer<typeof SetAdherenceSchema>;
+
+// ── Trade-path analytics (MAE/MFE + exit optimizer) ───────────────────────────
+
+export const AnalyzeTradeSchema = z.object({
+  candles: z.array(CandleSchema).min(2), // daily OHLCV spanning entry → exit/now
+});
+export type AnalyzeTradeInput = z.infer<typeof AnalyzeTradeSchema>;
+
 // ── Response types ────────────────────────────────────────────────────────────
 
 export interface JournalTradeResponse {
@@ -164,6 +181,9 @@ export interface JournalTradeResponse {
   source: string;
   needsReview: boolean;
   gttPlaced: boolean;
+  ruleAdherence?: string | null;
+  ruleAdherenceNote?: string | null;
+  analytics?: Record<string, unknown> | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -9,13 +9,17 @@ import {
   autoCreateJournalTrade,
   reviewJournalTrade,
   setGttPlaced,
+  analyzeJournalTrade,
+  setRuleAdherence,
 } from "./journal.service";
 import type {
+  AnalyzeTradeInput,
   AutoCaptureInput,
   CreateJournalTradeInput,
   ExitJournalTradeInput,
   GttPlacedInput,
   ReviewJournalTradeInput,
+  SetAdherenceInput,
 } from "./journal.types";
 
 export const create = asyncHandler(async (req: Request, res: Response) => {
@@ -67,4 +71,20 @@ export const gttPlaced = asyncHandler(async (req: Request, res: Response) => {
   const { placed } = req.body as GttPlacedInput;
   const trade = await setGttPlaced(userId, id, placed);
   sendSuccess(res, trade, "GTT status updated");
+});
+
+export const analyze = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const id = req.params.id as string;
+  const input = req.body as AnalyzeTradeInput;
+  const trade = await analyzeJournalTrade(userId, id, input);
+  sendSuccess(res, trade, "Trade analytics computed");
+});
+
+export const adherence = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const id = req.params.id as string;
+  const input = req.body as SetAdherenceInput;
+  const trade = await setRuleAdherence(userId, id, input);
+  sendSuccess(res, trade, "Rule adherence updated");
 });

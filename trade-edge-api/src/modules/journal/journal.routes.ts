@@ -8,6 +8,8 @@ import {
   autoCreate,
   review,
   gttPlaced,
+  analyze,
+  adherence,
 } from "./journal.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
@@ -17,6 +19,8 @@ import {
   AutoCaptureSchema,
   ReviewJournalTradeSchema,
   GttPlacedSchema,
+  AnalyzeTradeSchema,
+  SetAdherenceSchema,
 } from "./journal.types";
 
 const router = Router();
@@ -47,5 +51,11 @@ router.post("/:id/review", validate(ReviewJournalTradeSchema), review);
 
 // POST /api/journal/:id/gtt  — mark the target/SL GTT as placed / not
 router.post("/:id/gtt", validate(GttPlacedSchema), gttPlaced);
+
+// POST /api/journal/:id/analytics  — MAE/MFE + exit optimizer from candles
+router.post("/:id/analytics", validate(AnalyzeTradeSchema), analyze);
+
+// POST /api/journal/:id/adherence  — tag system-following vs discretionary
+router.post("/:id/adherence", validate(SetAdherenceSchema), adherence);
 
 export default router;

@@ -13,6 +13,7 @@ import { HistoryPage } from "@/features/history/pages/history";
 import { OverviewPage } from "@/features/overview/pages/overview";
 import { PlaybookPage } from "@/features/playbook/pages/playbook";
 import { PreferencesPage } from "@/features/preferences/pages/preferences-page";
+import { TradeDetailPage } from "@/features/journal/pages/trade-detail-page";
 
 export const router = createBrowserRouter([
   {
@@ -47,6 +48,10 @@ export const router = createBrowserRouter([
       {
         path: "history",
         element: <HistoryPage />,
+      },
+      {
+        path: "trades/:id",
+        element: <TradeDetailPage />,
       },
       {
         path: "overview",

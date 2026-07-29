@@ -13,6 +13,18 @@ export const fmtINR = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
+/** Price/money with up to 2 decimals — shows paise only when present. */
+export const fmtPrice = (n: number) =>
+  "₹" +
+  n.toLocaleString("en-IN", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: n % 1 === 0 ? 0 : 2,
+  });
+
+/** Signed money, e.g. "+₹1,234" / "−₹1,234". */
+export const fmtSignedINR = (n: number) =>
+  `${n >= 0 ? "+" : "−"}${fmtPrice(Math.abs(n))}`;
+
 /** Price filter threshold for the strategy (₹200). */
 export const PRICE_FLOOR = 200;
 

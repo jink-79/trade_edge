@@ -5,6 +5,7 @@ import {
   DIRECTIONS,
   MARKET_TRENDS,
   OUTCOMES,
+  RULE_ADHERENCES,
   VOLUME_CHARACTERS,
 } from "./journal.types";
 
@@ -81,6 +82,9 @@ export interface IJournalTrade {
   source: string;
   needsReview: boolean;
   gttPlaced: boolean;
+  ruleAdherence?: string | null;
+  ruleAdherenceNote?: string | null;
+  analytics?: Record<string, any> | null;
   // ── flat mirrors (read by dashboard/analytics Position & Trade models) ──
   symbol?: string;
   stockName?: string;
@@ -115,6 +119,9 @@ const JournalTradeSchema = new Schema<IJournalTrade>(
     source: { type: String, enum: ["manual", "auto"], default: "manual" },
     needsReview: { type: Boolean, default: false },
     gttPlaced: { type: Boolean, default: false },
+    ruleAdherence: { type: String, enum: RULE_ADHERENCES, default: null },
+    ruleAdherenceNote: { type: String, default: null },
+    analytics: { type: Schema.Types.Mixed, default: null },
 
     // flat mirrors
     symbol: { type: String, default: null },
