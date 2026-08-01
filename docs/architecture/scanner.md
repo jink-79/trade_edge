@@ -1,6 +1,7 @@
 # Scanner — "Signal Lab"
 
-**Status:** Planned (Phase 1 not yet built)
+**Status:** Phase 1 shipped (paste → track → resolve). Phase 2 (insights +
+Python courier) and Phase 3 (ranking) pending.
 **Owner:** Ajinkya
 **Related:** [Journal](../README.md), Ranking system (future)
 
@@ -21,7 +22,7 @@ dataset that will train the **Ranking system** (features → outcomes).
 | Decision | Chosen | Rejected / why |
 |---|---|---|
 | **Entry model** | **Scan-day close** — `entryPrice = close(scanDate)`; indicators computed at that candle; target/SL from Preferences ATR multipliers. | Next-day open (more realistic but more moving parts); next-day close (too conservative). User chose scan-day close for simplicity. |
-| **Candle fetch** | **Phase 1: manual / agent-assisted** — enrich endpoint takes candles in the body (supplied via Kite MCP or a manual run). **Phase 2: Python courier** — a local script with a Kite token hits the same endpoints nightly. | Server-side Kite fetch — impossible; the Vercel backend holds no interactive broker session. |
+| **Candle fetch** | **Python courier using tvdatafeed** — a local script pulls OHLCV from TradingView (no broker API / token) and posts to the enrich endpoint nightly. (Originally scoped for Kite Connect, but the user has no Kite developer access, so we use tvdatafeed.) | Server-side fetch — impossible; the Vercel backend holds no market-data session. Kite Connect — needs a paid developer app. |
 | **Placement / scope** | **New `/scanner` page, phased.** Phase 1 = paste → track → resolve. Phase 2 = winner-vs-loser insight panel + dashboard widget. | Dashboard-only section (too small for a research tool); all-at-once (bigger risky build). |
 | **Max hold** | Time-stop after ~10 trading days → TIMEOUT (constant for now; move to Preferences later). | — |
 
@@ -53,9 +54,15 @@ and real trades are directly comparable and feed one insight engine.
 
 ## Pipelines
 
-### 1. Ingest — `POST /api/scanner/batch { scanDate, symbols[] }`
-Parse the paste → create a batch + one `OPEN` signal per symbol. No compute
-yet (candles not present).
+### 1. Ingest — two paths
+- **Daily paste** — `POST /api/scanner/batch { scanDate, symbols[] }`: one date.
+- **Bulk upload** — `POST /api/scanner/upload { rows:[{scanDate,symbol,sector,
+  marketCap}] }`: a Chartink backtest CSV spanning many dates, parsed
+  client-side (Date/Symbol/Marketcap/Sector). Upserts one `OPEN` signal per
+  (symbol, scanDate); `sector` + `marketCap` are written (backfilling existing
+  signals too — this is how the sector gap gets filled).
+
+Either way: create signals, no compute yet (candles arrive via the courier).
 
 ### 2. Enrich / resolve — `POST /api/scanner/signals/:id/enrich { candles, indexCandles }`
 Idempotent; safe to re-run nightly.
@@ -79,6 +86,7 @@ Across resolved signals:
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/api/scanner/batch` | Create a batch from a pasted symbol list |
+| POST | `/api/scanner/upload` | Bulk-ingest a Chartink backtest CSV (many dates) |
 | GET | `/api/scanner/signals` | List signals (filter by status/batch) |
 | GET | `/api/scanner/signals/active` | Open signals needing candles (courier reads this) |
 | POST | `/api/scanner/signals/:id/enrich` | Supply candles → compute entry + resolve |
@@ -104,10 +112,14 @@ Route `/scanner`; add a sidebar nav link.
 
 ## Phases
 
-- **Phase 1** — collections, ingest, enrich/resolve, `/scanner` page with
-  paste + active/resolved tables + basic KPIs. Candles supplied manually/agent.
-- **Phase 2** — winner-vs-loser insight panel, dashboard widget, **Python
-  courier** for automated nightly candle fetch.
+- **Phase 1 ✅ shipped** — `scanner` backend module (batches + signals,
+  ingest, enrich/resolve, stats), `/scanner` page with paste card + active /
+  resolved tables + 5 KPI cards + sidebar nav. Candles supplied manually/agent.
+  Verified end-to-end (paper signals resolve TARGET/STOP/TIMEOUT with R).
+- **Phase 2** — winner-vs-loser insight panel, dashboard widget. **Python
+  courier ✅ built** (`courier/`): pulls active signals, fetches OHLCV via
+  **tvdatafeed** (TradingView — no broker API), posts to `/enrich`; run nightly
+  (`enrich_signals.py`). Insight panel + dashboard widget still pending.
 - **Phase 3** — feed the labeled dataset into the **Ranking system** so real
   picks go to the highest-probability setups. (The flywheel: Lab → weights →
   better picks.)
@@ -115,8 +127,8 @@ Route `/scanner`; add a sidebar nav link.
 ## Open questions / future
 
 - Move `maxHoldDays` and paper target/SL multipliers into Preferences.
-- Instrument-token resolution for symbols (needed by the courier) — cache a
-  symbol→token map.
+- Symbol resolution: tvdatafeed uses plain NSE tickers (no tokens); watch for
+  TradingView symbol mismatches and skip/log them.
 - De-dup: the same stock can fire on consecutive nights — decide whether to
   track each occurrence or collapse.
 - Chartink paste format: plain symbols vs full CSV with columns — the ingest

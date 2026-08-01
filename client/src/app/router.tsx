@@ -14,6 +14,11 @@ import { OverviewPage } from "@/features/overview/pages/overview";
 import { PlaybookPage } from "@/features/playbook/pages/playbook";
 import { PreferencesPage } from "@/features/preferences/pages/preferences-page";
 import { TradeDetailPage } from "@/features/journal/pages/trade-detail-page";
+import { ScannerPage } from "@/features/scanner/pages/scanner-page";
+import { PerformancePage } from "@/features/performance/pages/performance-page";
+import { PulsePage } from "@/features/pulse/pages/pulse-page";
+import { SignalsPage } from "@/features/signals/pages/signals-page";
+import { SignalResultsPage } from "@/features/signals/pages/signal-results-page";
 
 export const router = createBrowserRouter([
   {
@@ -48,6 +53,26 @@ export const router = createBrowserRouter([
       {
         path: "history",
         element: <HistoryPage />,
+      },
+      {
+        path: "signals",
+        element: <SignalsPage />,
+      },
+      {
+        path: "signal-results",
+        element: <SignalResultsPage />,
+      },
+      {
+        path: "scanner",
+        element: <ScannerPage />,
+      },
+      {
+        path: "performance",
+        element: <PerformancePage />,
+      },
+      {
+        path: "pulse",
+        element: <PulsePage />,
       },
       {
         path: "trades/:id",

@@ -5,15 +5,16 @@ import {
   Eye,
   LayoutDashboard,
   LineChart,
+  ListChecks,
   PiggyBank,
   SlidersHorizontal,
-  Sparkles,
   Target,
   Wallet,
   Zap,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
+import { StrategySwitcher } from "@/features/strategy/strategy-switcher";
 
 /* ─────────────────────────────────────────────
    NAV STRUCTURE
@@ -25,6 +26,8 @@ export const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Activity, label: "Open Positions", path: "/positions" },
   { icon: BarChart3, label: "Trade History", path: "/history" },
+  { icon: Zap, label: "Signals", path: "/signals" },
+  { icon: ListChecks, label: "Signal Results", path: "/signal-results" },
   { icon: LineChart, label: "Analytics", path: "/analytics" },
   { icon: PiggyBank, label: "Mutual Funds", path: "/mutual-funds" },
   { icon: Eye, label: "Overview", path: "/overview" },
@@ -102,28 +105,9 @@ export function Sidebar() {
         <Separator className="bg-border/50" />
       </div>
 
-      {/* Edge AI insight */}
+      {/* Active strategy quick-switch (source of truth = Preferences) */}
       <div className="p-4 shrink-0">
-        <div className="rounded-xl p-3.5 border border-border/70 bg-card/60 space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-primary/15 grid place-items-center">
-              <Sparkles className="size-3.5 text-primary" />
-            </div>
-            <span className="text-xs font-semibold text-foreground">
-              Edge AI
-            </span>
-          </div>
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Win rate drops 14% on Thursdays after 2 PM. Consider a midweek
-            cooldown.
-          </p>
-          <div className="flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              Live insight
-            </span>
-          </div>
-        </div>
+        <StrategySwitcher />
       </div>
     </aside>
   );

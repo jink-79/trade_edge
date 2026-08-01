@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const TRADING_STYLES = ["swing", "intraday", "positional"] as const;
 export const TIMEFRAMES = ["Daily", "Weekly", "Monthly"] as const;
+// Active strategy the dashboard renders (Signals / Signal Results branch on this).
+export const STRATEGIES = ["pulse", "rsi2"] as const;
 
 export const SavePreferencesSchema = z.object({
   tradingStyles: z.array(z.enum(TRADING_STYLES)).min(1, "Pick at least one style"),
@@ -12,6 +14,8 @@ export const SavePreferencesSchema = z.object({
   atrPeriod: z.number().int().min(1).max(200),
   slAtrMultiplier: z.number().positive(),
   targetAtrMultiplier: z.number().positive(),
+  // Optional (default) so older payloads still validate; the client sends it.
+  activeStrategy: z.enum(STRATEGIES).default("pulse"),
 });
 
 export type SavePreferencesInput = z.infer<typeof SavePreferencesSchema>;
@@ -26,4 +30,5 @@ export const DEFAULT_PREFERENCES: SavePreferencesInput = {
   atrPeriod: 14,
   slAtrMultiplier: 0.5,
   targetAtrMultiplier: 1,
+  activeStrategy: "pulse",
 };

@@ -12,6 +12,8 @@ import analyticsRoutes from "./modules/analytics/analytics.routes";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import journalRoutes from "./modules/journal/journal.routes";
 import preferencesRoutes from "./modules/preferences/preferences.routes";
+import scannerRoutes from "./modules/scanner/scanner.routes";
+import pulseRoutes from "./modules/pulse/pulse.routes";
 
 const app = express();
 
@@ -32,13 +34,19 @@ app.use(
   }),
 );
 
-const skipJournal =
+// Journal & scanner payloads carry base64 screenshots / candle arrays; their
+// own routers parse with a larger limit. Everything else stays tight at 10kb.
+const skipLargeBody =
   (parser: express.RequestHandler): express.RequestHandler =>
   (req, res, next) =>
-    req.path.startsWith("/api/journal") ? next() : parser(req, res, next);
+    req.path.startsWith("/api/journal") ||
+    req.path.startsWith("/api/scanner") ||
+    req.path.startsWith("/api/pulse")
+      ? next()
+      : parser(req, res, next);
 
-app.use(skipJournal(express.json({ limit: "10kb" })));
-app.use(skipJournal(express.urlencoded({ extended: true, limit: "10kb" })));
+app.use(skipLargeBody(express.json({ limit: "10kb" })));
+app.use(skipLargeBody(express.urlencoded({ extended: true, limit: "10kb" })));
 
 app.use(globalRateLimiter);
 
@@ -56,6 +64,8 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/journal", journalRoutes);
 app.use("/api/preferences", preferencesRoutes);
+app.use("/api/scanner", scannerRoutes);
+app.use("/api/pulse", pulseRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ success: false, message: "Route not found" });

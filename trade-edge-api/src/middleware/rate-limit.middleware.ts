@@ -23,4 +23,7 @@ export const globalRateLimiter = rateLimit({
     message: "Too many requests. Please slow down.",
   },
   statusCode: HTTP_STATUS.TOO_MANY_REQUESTS,
+  // The scanner is an authenticated bulk pipeline (courier enrichment); the
+  // per-request abuse cap doesn't apply to it.
+  skip: (req) => req.path.startsWith("/api/scanner"),
 });
