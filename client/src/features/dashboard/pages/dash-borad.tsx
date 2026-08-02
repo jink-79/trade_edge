@@ -7,17 +7,14 @@ import { KpiGrid } from "../components/kpi-grid";
 import { PnlByDayCard } from "../components/pnl-by-day-card";
 import { RecentTrades } from "../components/recent-trades";
 import { SetupsCard } from "../components/setups-card";
+import { DashboardSkeleton } from "@/components/page-skeletons";
 
 export function Dashboard() {
   const { data, isLoading } = useDashboard();
   const { data: user } = useCurrentUser();
 
   if (isLoading || !data) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading Dashboard...
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (

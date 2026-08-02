@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PlaybookSkeleton } from "@/components/page-skeletons";
 import { Input } from "@/components/ui/input";
 import { usePlaybook } from "../hooks/use-playbook";
 import { FILTERS } from "../types/playbook.types";
@@ -34,11 +35,7 @@ export function PlaybookPage() {
   } = usePlaybook({ useMock: USE_MOCK });
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading Playbook...
-      </div>
-    );
+    return <PlaybookSkeleton />;
   }
 
   return (

@@ -6,6 +6,7 @@ import {
   metricsFor,
 } from "@/features/journal/components/trade-history-kpis";
 import { TradeHistoryTable } from "@/features/journal/components/trade-history-table";
+import { HistorySkeleton } from "@/components/page-skeletons";
 
 export function HistoryPage() {
   const { data: trades = [], isLoading } = useJournalTrades();
@@ -20,11 +21,7 @@ export function HistoryPage() {
   );
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading trade history…
-      </div>
-    );
+    return <HistorySkeleton />;
   }
 
   return (

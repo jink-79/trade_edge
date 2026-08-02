@@ -6,6 +6,7 @@ import type { PulseSignalOutcome, PulseWeekRow, PulseWeekSummary } from "@/featu
 import { Metric, NotAvailable, ReportShell, Section } from "../components/report-shell";
 import { WeekRangePicker, type WeekRange } from "../components/week-range-picker";
 import { useBacktestReport } from "../hooks/use-backtest-report";
+import { BlotterSkeleton } from "../components/report-skeletons";
 import { inr } from "../types/report.types";
 
 const statusTone: Record<string, string> = {
@@ -224,7 +225,7 @@ export function BlotterPage() {
     });
 
   if (isLoading) {
-    return <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">Loading report…</div>;
+    return <BlotterSkeleton />;
   }
 
   const hasWeeks = summaries.length > 0;

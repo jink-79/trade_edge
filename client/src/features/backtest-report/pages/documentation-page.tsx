@@ -1,5 +1,6 @@
 import { ArrowUpRight, BookOpen, FileText, GitCompare, ScrollText, ShieldCheck, Target } from "lucide-react";
 import { Metric, NotAvailable, ReportShell, Section, StatusBadge } from "../components/report-shell";
+import { DocumentationSkeleton } from "../components/report-skeletons";
 import { useBacktestReport } from "../hooks/use-backtest-report";
 import { STRATEGY, pct, num, weeks } from "../types/report.types";
 
@@ -28,7 +29,7 @@ export function DocumentationPage() {
   const { versions, current, metrics, doc, isLoading } = useBacktestReport();
 
   if (isLoading) {
-    return <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">Loading report…</div>;
+    return <DocumentationSkeleton />;
   }
 
   const results = metrics

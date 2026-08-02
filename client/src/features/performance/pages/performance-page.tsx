@@ -4,16 +4,13 @@ import { PerformanceKpis } from "@/features/performance/components/performance-k
 import { EquityCurveCard } from "@/features/performance/components/equity-curve-card";
 import { MetricGroups } from "@/features/performance/components/metric-groups";
 import { MonthlyReturnsCard } from "@/features/performance/components/monthly-returns-card";
+import { PerformanceSkeleton } from "@/components/page-skeletons";
 
 export function PerformancePage() {
   const { data: perf, isLoading } = usePerformance();
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading performance…
-      </div>
-    );
+    return <PerformanceSkeleton />;
   }
 
   if (!perf || !perf.metrics) {

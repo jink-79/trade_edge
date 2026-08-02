@@ -7,6 +7,7 @@ import { useBacktestReport } from "../hooks/use-backtest-report";
 import { useReportSelection } from "../hooks/use-report-selection";
 import { useReportSymbols } from "../hooks/use-report-symbols";
 import { useReportTradeLog } from "../hooks/use-report-trade-log";
+import { StockDetailSkeleton } from "../components/report-skeletons";
 import { STRATEGY, inr, num, pct, type Verdict } from "../types/report.types";
 
 const verdictTone: Record<Verdict, string> = {
@@ -36,11 +37,11 @@ export function StockDetailPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   if (isLoading) {
-    return <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">Loading…</div>;
+    return <StockDetailSkeleton />;
   }
 
   return (
-    <div className="p-8 space-y-6 max-w-[1500px]">
+    <div className="p-8 space-y-6 max-w-[1600px]">
       <div className="flex items-center gap-3">
         <Button asChild variant="outline" size="icon">
           <Link to={backHref} aria-label="Back to stock performance">

@@ -9,6 +9,7 @@ import { ScannerUploadCard } from "@/features/scanner/components/scanner-upload-
 import { ScannerKpis } from "@/features/scanner/components/scanner-kpis";
 import { ActiveSignalsTable } from "@/features/scanner/components/active-signals-table";
 import { ResolvedSignalsTable } from "@/features/scanner/components/resolved-signals-table";
+import { ScannerSkeleton } from "@/components/page-skeletons";
 
 export function ScannerPage() {
   const { data: signals = [], isLoading } = useScannerSignals();
@@ -24,11 +25,7 @@ export function ScannerPage() {
   );
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading scanner…
-      </div>
-    );
+    return <ScannerSkeleton />;
   }
 
   return (

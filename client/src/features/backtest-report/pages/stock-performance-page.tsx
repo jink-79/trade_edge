@@ -7,6 +7,7 @@ import { Metric, NotAvailable, ReportShell, Section } from "../components/report
 import { useBacktestReport } from "../hooks/use-backtest-report";
 import { useReportSelection } from "../hooks/use-report-selection";
 import { useReportSymbols } from "../hooks/use-report-symbols";
+import { StockPerformanceSkeleton } from "../components/report-skeletons";
 import { inr, num, pct } from "../types/report.types";
 import type { GroupBreakdownRow, Verdict } from "../types/report.types";
 
@@ -76,7 +77,7 @@ export function StockPerformancePage() {
     navigate(`/report/stocks/${encodeURIComponent(symbol)}?v=${version}&u=${universe}`);
 
   if (isLoading) {
-    return <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">Loading report…</div>;
+    return <StockPerformanceSkeleton />;
   }
 
   return (

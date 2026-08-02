@@ -55,11 +55,13 @@ export function SourceChip({ source }: { source: "live" | "archive" }) {
   );
 }
 
-export function VersionSelector({ versions }: { versions: VersionRef[] }) {
+export function VersionSelector({ versions, current }: { versions: VersionRef[]; current: VersionRef | null }) {
   const { version, universe } = useReportSelection();
   const [searchParams, setSearchParams] = useSearchParams();
   const del = useDeleteArchive();
-  const activeVersion = version || versions[0]?.version || "";
+  // Reflect the version the page actually resolved to (the adopted upload by
+  // default), not just the highest-numbered one in the list.
+  const activeVersion = version || current?.version || versions[0]?.version || "";
 
   const go = (patch: { v?: string; u?: ReportUniverse }) => {
     const next = new URLSearchParams(searchParams);
@@ -169,7 +171,7 @@ export function ReportShell({
             <p className="text-xs text-muted-foreground truncate">{desc}</p>
           </div>
           <div className="flex items-center gap-3">
-            <VersionSelector versions={versions} />
+            <VersionSelector versions={versions} current={current} />
             {action}
           </div>
         </div>
@@ -202,7 +204,7 @@ export function ReportShell({
           </div>
         </div>
       </header>
-      <div className="p-8 space-y-6 max-w-[1500px]">{children}</div>
+      <div className="p-8 space-y-6 max-w-[1600px]">{children}</div>
     </div>
   );
 }

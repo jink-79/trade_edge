@@ -26,6 +26,7 @@ import { ReturnsCharts } from "../components/returns-charts";
 import { SetupEdgeTable } from "../components/setup-edge-table";
 import { ScatterSectorTime } from "../components/scatter-sector-time";
 import { CalendarStreaks } from "../components/calendar-streaks";
+import { AnalyticsSkeleton } from "@/components/page-skeletons";
 
 export function AnalyticsPage() {
   const [range, setRange] = useState<Range>("YTD");
@@ -33,11 +34,7 @@ export function AnalyticsPage() {
   const { data, isLoading } = useAnalytics(range);
 
   if (isLoading || !data) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading Analytics...
-      </div>
-    );
+    return <AnalyticsSkeleton />;
   }
 
   const { stats } = data;

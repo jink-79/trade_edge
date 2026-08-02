@@ -19,6 +19,7 @@ import { Metric, NotAvailable, ReportShell, Section } from "../components/report
 import { useBacktestReport } from "../hooks/use-backtest-report";
 import { useReportSymbols } from "../hooks/use-report-symbols";
 import { useReportTradeLog } from "../hooks/use-report-trade-log";
+import { MetricsGraphsSkeleton } from "../components/report-skeletons";
 import { buildMetricGroups } from "../utils/metric-groups";
 
 const axis = { stroke: "var(--muted-foreground)", fontSize: 10 } as const;
@@ -124,11 +125,7 @@ export function MetricsGraphsPage() {
   }, [metrics]);
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">
-        Loading report…
-      </div>
-    );
+    return <MetricsGraphsSkeleton />;
   }
 
   return (

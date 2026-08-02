@@ -4,6 +4,7 @@ import { usePreferences } from "@/features/preferences/hooks/use-preferences";
 import { OpenPositionsHero } from "@/features/journal/components/open-positions-hero";
 import { OpenPositionsKpis } from "@/features/journal/components/open-positions-kpis";
 import { OpenPositionsTable } from "@/features/journal/components/open-positions-table";
+import { PositionsSkeleton } from "@/components/page-skeletons";
 
 export function PositionsPage() {
   const { data: trades = [], isLoading } = useJournalTrades();
@@ -20,11 +21,7 @@ export function PositionsPage() {
   );
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading positions…
-      </div>
-    );
+    return <PositionsSkeleton />;
   }
 
   return (

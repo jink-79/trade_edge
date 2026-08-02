@@ -10,6 +10,7 @@ import { useFunds, useAddFund, useDeleteFund } from "../hooks/use-funds";
 import { FundsStatsBar } from "../components/funds-stats-bar";
 import { AddFundForm } from "../components/add-fund-form";
 import { FundsTable } from "../components/funds-table";
+import { FundsSkeleton } from "@/components/page-skeletons";
 
 import type { AddFundPayload, FundsSummary } from "../types/funds.types";
 
@@ -50,11 +51,7 @@ export function FundsPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading Funds...
-      </div>
-    );
+    return <FundsSkeleton />;
   }
 
   return (

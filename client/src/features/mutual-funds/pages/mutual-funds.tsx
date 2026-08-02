@@ -8,6 +8,7 @@ import { AllocationBars } from "../components/allocation-bars";
 import { PortfolioMixDonut } from "../components/portfolio-mix-donut";
 import { AddEntryForm } from "../components/add-entry-form";
 import { TransactionTable } from "../components/transaction-table";
+import { MutualFundsSkeleton } from "@/components/page-skeletons";
 
 export function MutualFundsPage() {
   const {
@@ -31,11 +32,7 @@ export function MutualFundsPage() {
   } = useMutualFunds({ useMock: USE_MOCK });
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading Portfolio...
-      </div>
-    );
+    return <MutualFundsSkeleton />;
   }
 
   return (
