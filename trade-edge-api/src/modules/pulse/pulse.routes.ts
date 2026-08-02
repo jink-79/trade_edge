@@ -9,6 +9,10 @@ import {
   saveWeeks,
   weeks,
   weekByDate,
+  saveScorecard,
+  scorecard,
+  saveTrades,
+  tradeLog,
 } from "./pulse.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
@@ -16,6 +20,8 @@ import {
   SavePulseScanSchema,
   SavePulsePerformanceSchema,
   SavePulseWeeksSchema,
+  SaveSymbolScorecardSchema,
+  SavePulseTradeLogSchema,
 } from "./pulse.types";
 
 const router = Router();
@@ -48,5 +54,17 @@ router.get("/weeks", weeks);
 
 // GET /api/pulse/weeks/:date  — full blotter for the week containing :date
 router.get("/weeks/:date", weekByDate);
+
+// POST /api/pulse/symbol-stats  — store/replace a universe's symbol scorecard
+router.post("/symbol-stats", validate(SaveSymbolScorecardSchema), saveScorecard);
+
+// GET /api/pulse/symbol-stats  — latest scorecard (?variant=tracked|fno)
+router.get("/symbol-stats", scorecard);
+
+// POST /api/pulse/trade-log  — bulk-replace a variant's full trade log
+router.post("/trade-log", validate(SavePulseTradeLogSchema), saveTrades);
+
+// GET /api/pulse/trade-log  — paginated trade log (?variant=&page=&pageSize=&symbol=)
+router.get("/trade-log", tradeLog);
 
 export default router;

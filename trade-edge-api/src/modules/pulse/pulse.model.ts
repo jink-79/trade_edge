@@ -117,10 +117,81 @@ const PulseWeekSchema = new Schema<IPulseWeek>(
 // One blotter per (user, variant, week); re-posting the timeline is an upsert.
 PulseWeekSchema.index({ userId: 1, variant: 1, week: 1 }, { unique: true });
 
+// ── pulse_symbol_stats — per-symbol v10 scorecard, one snapshot per (user, variant) ──
+export interface IPulseSymbolStats {
+  userId: string;
+  variant: string; // "tracked" | "fno" — the scorecard's universe
+  strategy: string;
+  universeSize: number;
+  symbolsWithData: number;
+  periodStart: string | null;
+  periodEnd: string | null;
+  generatedAt: Date;
+  symbols: any[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const PulseSymbolStatsSchema = new Schema<IPulseSymbolStats>(
+  {
+    userId: { type: String, required: true, index: true },
+    variant: { type: String, required: true, index: true },
+    strategy: { type: String, default: "pulse_breaker_v10" },
+    universeSize: { type: Number, default: 0 },
+    symbolsWithData: { type: Number, default: 0 },
+    periodStart: { type: String, default: null },
+    periodEnd: { type: String, default: null },
+    generatedAt: { type: Date, required: true },
+    symbols: { type: Schema.Types.Mixed, default: [] },
+  },
+  { timestamps: true },
+);
+// One scorecard run per (user, variant, generatedAt); re-posting the same run is an upsert.
+// Rows now include Sector + Market Cap columns (BACKTEST_REPORT_SCHEMA.md §17) —
+// still Mixed, no model change needed for that; validated at the API boundary
+// against the shared SymbolScorecardRowSchema (src/modules/reports).
+PulseSymbolStatsSchema.index({ userId: 1, variant: 1, generatedAt: 1 }, { unique: true });
+
+// ── pulse_trade_log — one document per trade (§19), paginated/filterable ───────
+// Row-per-document (not one big array) so the trade log — which can run into
+// the thousands for a full tracked-592 backtest — can be skip/limit paginated
+// and filtered by symbol server-side, unlike the small embedded tables above.
+export interface IPulseTradeLogRow {
+  userId: string;
+  variant: string;
+  symbol: string; // pulled out of `row.Symbol` for indexing/filtering
+  exitDate: Date | null; // pulled out of `row["Exit Date"]` for sorting
+  row: any; // the full TradeLogRow (Mixed — shape owned by the Python/parser side)
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const PulseTradeLogRowSchema = new Schema<IPulseTradeLogRow>(
+  {
+    userId: { type: String, required: true, index: true },
+    variant: { type: String, required: true, index: true },
+    symbol: { type: String, required: true, index: true },
+    exitDate: { type: Date, default: null },
+    row: { type: Schema.Types.Mixed, required: true },
+  },
+  { timestamps: true },
+);
+PulseTradeLogRowSchema.index({ userId: 1, variant: 1, exitDate: 1 });
+
 export const PulseRun = model<IPulseRun>("PulseRun", PulseRunSchema, "pulse_runs");
 export const PulseWeek = model<IPulseWeek>("PulseWeek", PulseWeekSchema, "pulse_weeks");
 export const PulsePerformance = model<IPulsePerformance>(
   "PulsePerformance",
   PulsePerformanceSchema,
   "pulse_performance",
+);
+export const PulseSymbolStats = model<IPulseSymbolStats>(
+  "PulseSymbolStats",
+  PulseSymbolStatsSchema,
+  "pulse_symbol_stats",
+);
+export const PulseTradeLogRow = model<IPulseTradeLogRow>(
+  "PulseTradeLogRow",
+  PulseTradeLogRowSchema,
+  "pulse_trade_log",
 );

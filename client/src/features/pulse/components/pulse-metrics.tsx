@@ -1,5 +1,15 @@
 import { useMemo, useState } from "react";
-import { BarChart3, Gauge, Shield, Target, TrendingUp } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  Clock,
+  Gauge,
+  Layers,
+  Repeat,
+  Shield,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -14,9 +24,9 @@ import { usePulsePerformance } from "../hooks/use-pulse";
 import { PulseKpis } from "./pulse-kpis";
 import { PulseEquityCard } from "./pulse-equity-card";
 import { PulseVariants } from "./pulse-variants";
-import { fmtPct, fmtNum } from "./pulse-format";
+import { fmtPct, fmtNum, fmtMoney } from "./pulse-format";
 import { Button } from "@/components/ui/button";
-import type { PulseMetrics } from "../types/pulse.types";
+import type { GroupBreakdownRow, PulseMetrics } from "../types/pulse.types";
 
 function Section({
   title,
@@ -55,11 +65,19 @@ function Metric({ label, value, tone = "default" }: { label: string; value: stri
   );
 }
 
+// `??` fallbacks read the courier's CURRENT field name first, then the
+// BACKTEST_REPORT_SCHEMA.md name — works today and keeps working once the
+// courier is updated to emit the schema-doc names (see pulse.types.ts).
 function groups(m: PulseMetrics) {
-  const sign = (n: number | null) => (n == null ? "default" : n >= 0 ? "pos" : "neg") as "default" | "pos" | "neg";
+  const sign = (n: number | null | undefined) =>
+    (n == null ? "default" : n >= 0 ? "pos" : "neg") as "default" | "pos" | "neg";
+  const weeks = (n: number | null | undefined) => (n != null ? `${fmtNum(n, 1)}w` : "—");
+  const totalReturn = m.totalReturnPct ?? m.returnPct;
+  const totalTrades = m.totalTrades ?? m.trades;
+
   return {
     returns: [
-      { l: "Total Return", v: fmtPct(m.returnPct), t: sign(m.returnPct) },
+      { l: "Total Return", v: fmtPct(totalReturn), t: sign(totalReturn) },
       { l: "CAGR", v: fmtPct(m.cagrPct), t: sign(m.cagrPct) },
       { l: "Nifty CAGR", v: fmtPct(m.niftyCagrPct) },
       { l: "Alpha vs Nifty", v: m.alphaPct != null ? `${m.alphaPct.toFixed(1)}pp` : "—", t: sign(m.alphaPct) },
@@ -77,7 +95,7 @@ function groups(m: PulseMetrics) {
       { l: "Profit Factor", v: fmtNum(m.profitFactor) },
     ],
     trades: [
-      { l: "Trades", v: String(m.trades ?? "—") },
+      { l: "Trades", v: String(totalTrades ?? "—") },
       { l: "Win Rate", v: fmtPct(m.winRatePct), t: (m.winRatePct ?? 0) >= 50 ? ("pos" as const) : ("neg" as const) },
       { l: "Best Trade", v: fmtPct(m.bestTradePct), t: "pos" as const },
       { l: "Worst Trade", v: fmtPct(m.worstTradePct), t: "neg" as const },
@@ -85,7 +103,71 @@ function groups(m: PulseMetrics) {
       { l: "Avg Loss", v: fmtPct(m.avgLossPct), t: "neg" as const },
       { l: "Expectancy", v: fmtPct(m.expectancyPct), t: sign(m.expectancyPct) },
     ],
+    streaks: [
+      { l: "Max Win Streak", v: String(m.maxWinStreak ?? "—") },
+      { l: "Max Loss Streak", v: String(m.maxLossStreak ?? "—") },
+      { l: "Avg Win Streak", v: fmtNum(m.avgWinStreak, 1) },
+      { l: "Avg Loss Streak", v: fmtNum(m.avgLossStreak, 1) },
+    ],
+    holding: [
+      { l: "Avg Hold", v: weeks(m.avgHoldWeeks) },
+      { l: "Median Hold", v: weeks(m.medianHoldWeeks) },
+      { l: "Avg Win Hold", v: weeks(m.avgWinningHoldWeeks) },
+      { l: "Avg Loss Hold", v: weeks(m.avgLosingHoldWeeks) },
+    ],
+    execution: [
+      { l: "Avg Position Size", v: fmtMoney(m.avgPositionSizeRs) },
+      { l: "Capital Utilization", v: fmtPct(m.avgCapitalUtilizationPct) },
+      { l: "Cash Idle", v: fmtPct(m.cashIdlePct) },
+      { l: "Max Concurrent", v: String(m.maxConcurrentPositions ?? "—") },
+      { l: "Time in Market", v: fmtPct(m.timeInMarketPct) },
+      { l: "Trades / yr", v: fmtNum(m.tradesPerYear, 1) },
+    ],
+    quality: [
+      { l: "SQN", v: fmtNum(m.sqn) },
+      { l: "Kelly %", v: fmtPct(m.kellyPct) },
+      { l: "Ulcer Index", v: fmtNum(m.ulcerIndex) },
+      { l: "Equity R²", v: fmtNum(m.equityCurveR2) },
+    ],
   };
+}
+
+function BreakdownTable({ title, rows }: { title: string; rows: GroupBreakdownRow[] }) {
+  if (!rows.length) {
+    return <p className="text-sm text-muted-foreground">No {title.toLowerCase()} data yet.</p>;
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-[10px] uppercase tracking-[0.16em] text-muted-foreground border-b border-border/60">
+            <th className="py-2 pr-4 font-medium">Group</th>
+            <th className="py-2 px-4 font-medium text-right">Trades</th>
+            <th className="py-2 px-4 font-medium text-right">Win %</th>
+            <th className="py-2 px-4 font-medium text-right">Net P&amp;L</th>
+            <th className="py-2 pl-4 font-medium text-right">PF</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.Group} className="border-b border-border/40 last:border-0">
+              <td className="py-2 pr-4 font-medium">{r.Group}</td>
+              <td className="py-2 px-4 text-right tabular-nums">{r.Trades ?? "—"}</td>
+              <td className="py-2 px-4 text-right tabular-nums">{fmtPct(r["Win Rate %"])}</td>
+              <td
+                className={`py-2 px-4 text-right tabular-nums ${
+                  (r["Net P&L (Rs)"] ?? 0) >= 0 ? "text-primary" : "text-destructive"
+                }`}
+              >
+                {fmtMoney(r["Net P&L (Rs)"])}
+              </td>
+              <td className="py-2 pl-4 text-right tabular-nums">{fmtNum(r["Profit Factor"])}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export function PulseMetricsView() {
@@ -194,9 +276,39 @@ export function PulseMetricsView() {
 
         <Section title="Trade stats" desc="Across all closed trades" icon={Target}>
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-            {g.trades.map((s) => <Metric key={s.l} label={s.l} value={s.v} tone={(s as any).t} />)}
+            {g.trades.map((s) => <Metric key={s.l} label={s.l} value={s.v} tone={(s as { t?: "default" | "pos" | "neg" }).t} />)}
           </div>
         </Section>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <Section title="Streaks" icon={Repeat}>
+            <div className="grid grid-cols-2 gap-3">{g.streaks.map((s) => <Metric key={s.l} label={s.l} value={s.v} />)}</div>
+          </Section>
+          <Section title="Holding period" icon={Clock}>
+            <div className="grid grid-cols-2 gap-3">{g.holding.map((s) => <Metric key={s.l} label={s.l} value={s.v} />)}</div>
+          </Section>
+        </div>
+
+        <Section title="Execution & exposure" desc="Position sizing, capital deployment, time in market" icon={Layers}>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            {g.execution.map((s) => <Metric key={s.l} label={s.l} value={s.v} />)}
+          </div>
+        </Section>
+
+        <Section title="Trade quality" desc="System Quality Number, Kelly sizing, curve smoothness" icon={Activity}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {g.quality.map((s) => <Metric key={s.l} label={s.l} value={s.v} />)}
+          </div>
+        </Section>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <Section title="Sector breakdown" desc="tracked-universe runs only" icon={BarChart3}>
+            <BreakdownTable title="Sector breakdown" rows={selected.metrics.sectorBreakdown ?? []} />
+          </Section>
+          <Section title="Market cap breakdown" desc="tracked-universe runs only" icon={BarChart3}>
+            <BreakdownTable title="Market cap breakdown" rows={selected.metrics.marketCapBreakdown ?? []} />
+          </Section>
+        </div>
 
         <PulseVariants variants={perf} selected={selected.variant} onSelect={setVariant} />
       </div>

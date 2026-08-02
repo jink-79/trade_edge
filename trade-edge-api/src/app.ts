@@ -14,6 +14,7 @@ import journalRoutes from "./modules/journal/journal.routes";
 import preferencesRoutes from "./modules/preferences/preferences.routes";
 import scannerRoutes from "./modules/scanner/scanner.routes";
 import pulseRoutes from "./modules/pulse/pulse.routes";
+import backtestArchiveRoutes from "./modules/backtest-archive/backtest-archive.routes";
 
 const app = express();
 
@@ -21,10 +22,16 @@ const allowedOrigins = env.CLIENT_URL.split(",")
   .map((o) => o.trim())
   .filter(Boolean);
 
+// The deployed frontend (and its Vercel preview URLs, e.g.
+// trade-edge-frontend-git-<branch>-<user>.vercel.app) is always allowed, so a
+// new preview deploy doesn't need CLIENT_URL updated each time. Add the exact
+// production origin to CLIENT_URL as well for clarity.
+const vercelFrontend = /^https:\/\/trade-edge-frontend[\w-]*\.vercel\.app$/;
+
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin) || vercelFrontend.test(origin)) {
         callback(null, true);
         return;
       }
@@ -66,6 +73,7 @@ app.use("/api/journal", journalRoutes);
 app.use("/api/preferences", preferencesRoutes);
 app.use("/api/scanner", scannerRoutes);
 app.use("/api/pulse", pulseRoutes);
+app.use("/api/backtest-archive", backtestArchiveRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ success: false, message: "Route not found" });

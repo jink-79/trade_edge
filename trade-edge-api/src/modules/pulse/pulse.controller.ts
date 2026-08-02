@@ -10,12 +10,21 @@ import {
   savePulseWeeks,
   listWeeks,
   getWeekByDate,
+  saveSymbolStats,
+  getSymbolStats,
+  savePulseTradeLog,
+  getPulseTradeLog,
 } from "./pulse.service";
 import {
   VariantQuerySchema,
+  WeeksQuerySchema,
+  ScorecardQuerySchema,
+  TradeLogQuerySchema,
   type SavePulseScanInput,
   type SavePulsePerformanceInput,
   type SavePulseWeeksInput,
+  type SaveSymbolScorecardInput,
+  type SavePulseTradeLogInput,
 } from "./pulse.types";
 
 export const saveScan = asyncHandler(async (req: Request, res: Response) => {
@@ -65,8 +74,8 @@ export const saveWeeks = asyncHandler(async (req: Request, res: Response) => {
 
 export const weeks = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.userId;
-  const { variant } = VariantQuerySchema.parse(req.query);
-  const result = await listWeeks(userId, variant);
+  const { variant, from, to } = WeeksQuerySchema.parse(req.query);
+  const result = await listWeeks(userId, variant, { from, to });
   sendSuccess(res, result, "Weeks fetched");
 });
 
@@ -76,4 +85,36 @@ export const weekByDate = asyncHandler(async (req: Request, res: Response) => {
   const date = new Date(req.params.date as string);
   const result = await getWeekByDate(userId, date, variant);
   sendSuccess(res, result, "Week fetched");
+});
+
+export const saveScorecard = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const input = req.body as SaveSymbolScorecardInput;
+  const doc = await saveSymbolStats(userId, input);
+  sendCreated(
+    res,
+    doc,
+    `Saved symbol scorecard for ${input.universe} (${input.symbols.length} symbols)`,
+  );
+});
+
+export const scorecard = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const { variant } = ScorecardQuerySchema.parse(req.query);
+  const doc = await getSymbolStats(userId, variant);
+  sendSuccess(res, doc, "Symbol scorecard fetched");
+});
+
+export const saveTrades = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const input = req.body as SavePulseTradeLogInput;
+  const result = await savePulseTradeLog(userId, input);
+  sendCreated(res, result, `Saved ${result.rows} trade log rows for ${input.variant}`);
+});
+
+export const tradeLog = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const { variant, page, pageSize, symbol } = TradeLogQuerySchema.parse(req.query);
+  const result = await getPulseTradeLog(userId, variant, { page, pageSize, symbol });
+  sendSuccess(res, result, "Trade log fetched");
 });

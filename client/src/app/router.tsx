@@ -14,11 +14,16 @@ import { OverviewPage } from "@/features/overview/pages/overview";
 import { PlaybookPage } from "@/features/playbook/pages/playbook";
 import { PreferencesPage } from "@/features/preferences/pages/preferences-page";
 import { TradeDetailPage } from "@/features/journal/pages/trade-detail-page";
+import { TradeNotesPage } from "@/features/journal/pages/trade-notes-page";
+import { MetricsGraphsPage } from "@/features/backtest-report/pages/metrics-graphs-page";
+import { BlotterPage } from "@/features/backtest-report/pages/blotter-page";
+import { StockPerformancePage } from "@/features/backtest-report/pages/stock-performance-page";
+import { StockDetailPage } from "@/features/backtest-report/pages/stock-detail-page";
+import { DocumentationPage } from "@/features/backtest-report/pages/documentation-page";
+import { UploadPage } from "@/features/backtest-report/pages/upload-page";
 import { ScannerPage } from "@/features/scanner/pages/scanner-page";
 import { PerformancePage } from "@/features/performance/pages/performance-page";
 import { PulsePage } from "@/features/pulse/pages/pulse-page";
-import { SignalsPage } from "@/features/signals/pages/signals-page";
-import { SignalResultsPage } from "@/features/signals/pages/signal-results-page";
 
 export const router = createBrowserRouter([
   {
@@ -55,14 +60,6 @@ export const router = createBrowserRouter([
         element: <HistoryPage />,
       },
       {
-        path: "signals",
-        element: <SignalsPage />,
-      },
-      {
-        path: "signal-results",
-        element: <SignalResultsPage />,
-      },
-      {
         path: "scanner",
         element: <ScannerPage />,
       },
@@ -77,6 +74,34 @@ export const router = createBrowserRouter([
       {
         path: "trades/:id",
         element: <TradeDetailPage />,
+      },
+      {
+        path: "journal/notes",
+        element: <TradeNotesPage />,
+      },
+      {
+        path: "report/metrics",
+        element: <MetricsGraphsPage />,
+      },
+      {
+        path: "report/blotter",
+        element: <BlotterPage />,
+      },
+      {
+        path: "report/stocks",
+        element: <StockPerformancePage />,
+      },
+      {
+        path: "report/stocks/:symbol",
+        element: <StockDetailPage />,
+      },
+      {
+        path: "report/docs",
+        element: <DocumentationPage />,
+      },
+      {
+        path: "report/upload",
+        element: <UploadPage />,
       },
       {
         path: "overview",

@@ -93,6 +93,11 @@ plus several filter experiments at once.
 | POST | `/api/pulse/performance` | Store/replace a variant's backtest snapshot |
 | GET | `/api/pulse/performance` | List snapshots (all variants, or `?variant=`) |
 | GET | `/api/pulse/variants` | Variant list + headline stats (for side-by-side) |
+| POST | `/api/pulse/weeks` | Bulk-upsert a variant's per-week blotter timeline |
+| GET | `/api/pulse/weeks` | Lightweight week summaries (`?variant=`) |
+| GET | `/api/pulse/weeks/:date` | Full blotter for the week containing `:date` |
+| POST | `/api/pulse/symbol-stats` | Store/replace a universe's per-symbol scorecard |
+| GET | `/api/pulse/symbol-stats` | Latest scorecard (`?variant=tracked\|fno`) |
 
 Auth: `authMiddleware` (JWT), same as every other module. Bodies can be large
 (equity curves) → the router parses at a higher limit and is added to the
@@ -173,6 +178,44 @@ week containing :date, snapping to ≤ date).
 only the *current* week's row swaps to the live `positions` ledger; history stays
 backtest-derived.
 
+## Symbol Scorecard (per-symbol keep/review/eliminate)
+
+The aggregate backtest snapshot (`pulse_performance`) tells you if v10 *as a whole*
+works; it doesn't tell you which individual names are dragging it down. The Symbol
+Scorecard re-slices the same trade log by `Symbol` and verdicts each one — same
+"Python owns compute, backend just stores" pattern as `pulse_performance`.
+
+`pulse_trader/courier/symbol_scorecard.py` runs the SAME canonical
+`strategy.signals.run_backtest` engine (no forked logic), groups the closed trades
+by symbol, and computes win rate / PF / Sharpe / avg-hold per symbol, then applies
+simple, transparent thresholds (`MIN_TRADES_FOR_VERDICT=5`, `ELIMINATE_PF=1.0`,
+`REVIEW_PF=1.3`) to tag each symbol `KEEP` / `REVIEW` / `ELIMINATE` / `TOO FEW TRADES`.
+
+```
+pulse_symbol_stats                      // latest scorecard per (user, variant)
+  userId, variant ("tracked" | "fno"),  // the scorecard's universe
+  strategy, universeSize, symbolsWithData,
+  periodStart, periodEnd, generatedAt,
+  symbols: [{ Symbol, Trades, Wins, Losses, "Win Rate %", "Net P&L (Rs)",
+              "Gross Profit (Rs)", "Gross Loss (Rs)", "Total Charges (Rs)",
+              "Profit Factor" (null == infinite), "Avg Trade %", "Best Trade %",
+              "Worst Trade %", "Avg Hold (weeks)", "First Entry", "Last Exit",
+              "Sharpe Ratio", Verdict }],
+  createdAt, updatedAt
+  // unique (userId, variant, generatedAt) — re-posting the same run is an upsert
+```
+
+`symbols` is Mixed, same convention as `metrics` on `pulse_performance` — shape
+owned by the Python side. `python -m courier.symbol_scorecard --universe tracked`
+(or `--universe fno`) writes the local Excel/JSON reports AND posts to
+`/api/pulse/symbol-stats` by default (`--no-publish` to skip); `python -m
+courier.publish scorecard` (or `all`) does the same from the main publish CLI.
+
+UI: `features/pulse/pages/pulse-scorecard-page.tsx` — sortable/filterable table
+(default sort Net P&L desc), Verdict color + filter, symbol search, tracked/fno
+universe switch, and a client-side-only "exclude from universe" checkbox per
+symbol (localStorage, doesn't touch the backtest).
+
 ## Phases
 
 - **Phase 1 ✅ shipped** — backend `pulse` module (collections + POST/GET scan &
@@ -186,6 +229,10 @@ backtest-derived.
 - **Phase 4** — filter variants: pulse_trader backtests filtered universes and
   posts them; the variants panel compares them (IS/OOS discipline per
   filter-discovery to avoid overfitting).
+- **Symbol Scorecard ✅ shipped** — `pulse_symbol_stats` collection + POST/GET
+  `/api/pulse/symbol-stats`; courier posts per-symbol keep/review/eliminate
+  verdicts (`courier/symbol_scorecard.py`, wired into `courier/publish.py`);
+  `features/pulse/pages/pulse-scorecard-page.tsx` sidebar page.
 
 ## Open questions / future
 
