@@ -8,7 +8,12 @@ import { logger } from "./utils/logger";
 import app from "./app";
 
 async function bootstrap(): Promise<void> {
-  await connectDB();
+  try {
+    await connectDB();
+  } catch (err) {
+    logger.error("Startup DB connection failed:", err);
+    process.exit(1);
+  }
 
   const server = app.listen(env.PORT, () => {
     logger.info(

@@ -11,7 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 import { fmtPrice } from "@/features/journal/utils/journal-utils";
 import type { ScannerSignal } from "../types/scanner.types";
 

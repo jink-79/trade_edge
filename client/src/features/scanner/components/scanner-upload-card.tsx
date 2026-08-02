@@ -121,7 +121,7 @@ export function ScannerUploadCard() {
 
   const submit = () => {
     mut.mutate(
-      { rows, note: fileName },
+      { rows, scanName: fileName || "Uploaded scan", note: fileName },
       {
         onSuccess: (r) => {
           toast.success(
