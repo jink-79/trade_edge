@@ -15,6 +15,7 @@ import preferencesRoutes from "./modules/preferences/preferences.routes";
 import scannerRoutes from "./modules/scanner/scanner.routes";
 import pulseRoutes from "./modules/pulse/pulse.routes";
 import backtestArchiveRoutes from "./modules/backtest-archive/backtest-archive.routes";
+import algoSignalsRoutes from "./modules/algo-signals/algo-signals.routes";
 
 const app = express();
 
@@ -74,6 +75,7 @@ app.use("/api/preferences", preferencesRoutes);
 app.use("/api/scanner", scannerRoutes);
 app.use("/api/pulse", pulseRoutes);
 app.use("/api/backtest-archive", backtestArchiveRoutes);
+app.use("/api/algo-signals", algoSignalsRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ success: false, message: "Route not found" });

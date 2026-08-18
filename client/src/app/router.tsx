@@ -24,6 +24,7 @@ import { UploadPage } from "@/features/backtest-report/pages/upload-page";
 import { ScannerPage } from "@/features/scanner/pages/scanner-page";
 import { PerformancePage } from "@/features/performance/pages/performance-page";
 import { PulsePage } from "@/features/pulse/pages/pulse-page";
+import { AlgoSignalsPage } from "@/features/algo-signals/pages/algo-signals-page";
 
 export const router = createBrowserRouter([
   {
@@ -70,6 +71,10 @@ export const router = createBrowserRouter([
       {
         path: "pulse",
         element: <PulsePage />,
+      },
+      {
+        path: "algo-signals",
+        element: <AlgoSignalsPage />,
       },
       {
         path: "trades/:id",

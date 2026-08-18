@@ -12,6 +12,12 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
   JWT_EXPIRES_IN: z.string().default("7d"),
   CLIENT_URL: z.string().default("http://localhost:5173"),
+
+  // Read-only connection to the separate phalanx-live Atlas cluster (Algo
+  // Signals feature). Optional — unset in most dev environments; routes that
+  // need it return a clear 503 if missing rather than failing startup.
+  PHALANX_ATLAS_MONGODB_URI: z.string().optional(),
+  PHALANX_ATLAS_DB_NAME: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
