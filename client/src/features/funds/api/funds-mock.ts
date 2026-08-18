@@ -119,11 +119,14 @@ const byType = MOCK_FUNDS.reduce(
   {} as Record<string, number>,
 );
 
+const mockTotalFunds = MOCK_FUNDS.reduce((s, f) => s + f.amount, 0);
+
 export const MOCK_FUNDS_RESPONSE: FundsResponse = {
   summary: {
-    totalFunds: MOCK_FUNDS.reduce((s, f) => s + f.amount, 0),
+    totalFunds: mockTotalFunds,
     totalEntries: MOCK_FUNDS.length,
     byType: byType as FundsResponse["summary"]["byType"],
+    availableCash: mockTotalFunds,
   },
   data: MOCK_FUNDS,
 };

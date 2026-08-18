@@ -114,7 +114,7 @@ export function PreferencesPage() {
   const saveMut = useSavePreferences();
   const saving = saveMut.isPending;
 
-  const [activeStrategy, setActiveStrategy] = useState<StrategyId>("pulse");
+  const [activeStrategy, setActiveStrategy] = useState<StrategyId>("trend-rs55");
   const [selectedStyles, setSelectedStyles] = useState<string[]>(["swing"]);
   const [timeframe, setTimeframe] = useState("Daily");
   const [capital, setCapital] = useState("100000");
@@ -127,7 +127,7 @@ export function PreferencesPage() {
   // Hydrate the form from saved preferences once they load
   useEffect(() => {
     if (!prefs) return;
-    setActiveStrategy(prefs.activeStrategy ?? "pulse");
+    setActiveStrategy(prefs.activeStrategy ?? "trend-rs55");
     setSelectedStyles(prefs.tradingStyles);
     setTimeframe(prefs.timeframe);
     setCapital(String(prefs.defaultCapital));
@@ -154,7 +154,7 @@ export function PreferencesPage() {
   );
 
   const onReset = () => {
-    setActiveStrategy("pulse");
+    setActiveStrategy("trend-rs55");
     setSelectedStyles(["swing"]);
     setTimeframe("Daily");
     setCapital("100000");

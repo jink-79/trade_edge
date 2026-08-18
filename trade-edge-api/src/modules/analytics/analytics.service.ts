@@ -1,4 +1,4 @@
-import { Trade } from '../history/trades.model'
+import { JournalClosed as Trade } from '../journal/journal.model'
 import type {
   Range,
   AnalyticsResponse,
@@ -111,13 +111,16 @@ function scoreRadar(stats: {
 export async function getAnalytics(userId: string, range: Range): Promise<AnalyticsResponse> {
   const since = getDateFilter(range)
 
-  const trades = await Trade.find({
+  // The journal's flat mirror fields are typed optional/nullable (they're
+  // absent on trades still missing an exit); this query only ever returns
+  // already-closed trades, where they're always populated.
+  const trades = (await Trade.find({
     userId,
     exitDate: { $gte: since },
   })
     .select("-entry.screenshot -exit.screenshot")
     .sort({ exitDate: 1 })
-    .lean()
+    .lean()) as any[]
 
   // ── Base stats ──────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { Wallet, Layers, TrendingUp, PiggyBank } from "lucide-react";
+import { Wallet, Layers, TrendingUp, PiggyBank, Banknote } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -102,7 +102,7 @@ export function FundsStatsBar({ summary }: FundsStatsBarProps) {
   return (
     <div className="space-y-4">
       {/* KPI row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <StatCard
           icon={Wallet}
           label="Total Funds"
@@ -110,6 +110,19 @@ export function FundsStatsBar({ summary }: FundsStatsBarProps) {
           sub={fmtINR(summary.totalFunds)}
           accent
           iconColor="text-primary"
+        />
+        <StatCard
+          icon={Banknote}
+          label="Available Cash"
+          value={`₹${(summary.availableCash / 100000).toFixed(2)}L`}
+          sub={
+            summary.availableCash >= 0
+              ? "after open positions"
+              : "over-deployed"
+          }
+          iconColor={
+            summary.availableCash >= 0 ? "text-primary" : "text-destructive"
+          }
         />
         <StatCard
           icon={TrendingUp}

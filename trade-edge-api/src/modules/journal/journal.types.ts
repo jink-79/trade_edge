@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { STRATEGIES } from "../preferences/preferences.types";
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
 export const DIRECTIONS = ["LONG", "SHORT"] as const;
-export const OUTCOMES = ["TARGET", "STOP", "MANUAL-EXIT", "STILL-OPEN"] as const;
+export const OUTCOMES = ["TARGET", "STOP", "TREND-FLIP", "MANUAL-EXIT", "STILL-OPEN"] as const;
 export const CLOSE_POSITIONS = [
   "at-low",
   "lower-third",
@@ -38,8 +39,10 @@ export const TradeEntrySchema = z.object({
   direction: z.enum(DIRECTIONS),
   entryPrice: z.number().positive(),
   quantity: z.number().positive(),
-  targetPrice: z.number().positive(),
-  stopPrice: z.number().positive(),
+  // Absent for strategies with no fixed exit levels (e.g. trend-flip-only).
+  targetPrice: z.number().positive().optional(),
+  stopPrice: z.number().positive().optional(),
+  rs55Pct: z.number().optional(),
   atr14: z.number().min(0),
 
   // Tier 1 · rule-check VALUES
@@ -82,7 +85,7 @@ export type CreateJournalTradeInput = z.infer<typeof CreateJournalTradeSchema>;
 
 export const ExitJournalTradeSchema = z
   .object({
-    outcome: z.enum(["TARGET", "STOP", "MANUAL-EXIT"]),
+    outcome: z.enum(["TARGET", "STOP", "TREND-FLIP", "MANUAL-EXIT"]),
     exitPrice: z.number().positive(),
     exitDate: z.coerce.date(),
     manualExitReason: z.string().max(500).trim().optional(),
@@ -106,7 +109,7 @@ export type ExitJournalTradeInput = z.infer<typeof ExitJournalTradeSchema>;
 
 // ── Auto-capture (from a Kite trade + candles) ────────────────────────────────
 
-const CandleSchema = z.object({
+export const CandleSchema = z.object({
   date: z.string(),
   open: z.number(),
   high: z.number(),
@@ -121,7 +124,12 @@ export const AutoCaptureSchema = z.object({
   entryPrice: z.number().positive(),
   quantity: z.number().positive(),
   direction: z.enum(DIRECTIONS).default("LONG"),
-  // Optional plan — else derived from ATR × the user's Preferences multipliers.
+  // Which strategy produced this trade — gates whether target/stop get
+  // derived from ATR multiples (only meaningful for "rsi2").
+  strategyId: z.enum(STRATEGIES),
+  rs55Pct: z.number().optional(),
+  // Optional plan — else derived from ATR × the user's Preferences multipliers
+  // (rsi2 only; other strategies leave these unset).
   // (Explicit multipliers here override Preferences; else Preferences win.)
   targetPrice: z.number().positive().optional(),
   stopPrice: z.number().positive().optional(),
@@ -179,11 +187,14 @@ export interface JournalTradeResponse {
   dataQuality: (typeof DATA_QUALITIES)[number];
   dataQualityNote?: string | null;
   source: string;
+  strategyId?: string | null;
   needsReview: boolean;
   gttPlaced: boolean;
   ruleAdherence?: string | null;
   ruleAdherenceNote?: string | null;
   analytics?: Record<string, unknown> | null;
+  markPrice?: number | null;
+  markUpdatedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

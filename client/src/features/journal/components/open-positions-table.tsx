@@ -27,7 +27,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { deriveEntryMetrics, fmtINR, fmtPrice } from "../utils/journal-utils";
+import {
+  deriveEntryMetrics,
+  fmtINR,
+  fmtPrice,
+  fmtSignedINR,
+  isTrendRs55,
+} from "../utils/journal-utils";
 import { useSetGttPlaced } from "../hooks/use-journal";
 import { ExitPositionDialog } from "./exit-position-dialog";
 import { ReviewTradeDialog } from "./review-trade-dialog";
@@ -119,7 +125,8 @@ export function OpenPositionsTable({
                   <TableHead className="text-right">Entry</TableHead>
                   <TableHead className="text-right">Target</TableHead>
                   <TableHead className="text-right">SL</TableHead>
-                  <TableHead className="text-right">RSI(2)</TableHead>
+                  <TableHead className="text-right">Mark / P&amp;L</TableHead>
+                  <TableHead className="text-right">Signal</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right pr-6">Action</TableHead>
                 </TableRow>
@@ -170,6 +177,7 @@ function PositionRow({
 }) {
   const e = t.entry;
   const status = statusOf(t);
+  const trendRs55 = isTrendRs55(t);
   return (
     <>
       <TableRow
@@ -219,14 +227,29 @@ function PositionRow({
         <TableCell className="text-right tabular text-muted-foreground">
           {fmtPrice(e.entryPrice)}
         </TableCell>
-        <TableCell className="text-right tabular text-primary">
-          {fmtPrice(e.targetPrice)}
-        </TableCell>
-        <TableCell className="text-right tabular text-destructive">
-          {fmtPrice(e.stopPrice)}
+        {trendRs55 ? (
+          <TableCell colSpan={2} className="text-center tabular text-muted-foreground text-xs">
+            trend-flip exit
+          </TableCell>
+        ) : (
+          <>
+            <TableCell className="text-right tabular text-primary">
+              {fmtPrice(e.targetPrice)}
+            </TableCell>
+            <TableCell className="text-right tabular text-destructive">
+              {fmtPrice(e.stopPrice)}
+            </TableCell>
+          </>
+        )}
+        <TableCell className="text-right tabular">
+          <MarkCell t={t} />
         </TableCell>
         <TableCell className="text-right tabular">
-          {e.rsi2.toFixed(2)}
+          {trendRs55
+            ? e.rs55Pct != null
+              ? `RS ${e.rs55Pct.toFixed(1)}%`
+              : "—"
+            : e.rsi2.toFixed(2)}
         </TableCell>
         <TableCell>
           <StatusPill status={status} />
@@ -270,12 +293,35 @@ function PositionRow({
 
       {open && (
         <TableRow className="hover:bg-transparent border-border/60">
-          <TableCell colSpan={8} className="p-0">
+          <TableCell colSpan={9} className="p-0">
             <ExpandedDetails t={t} capital={capital} />
           </TableCell>
         </TableRow>
       )}
     </>
+  );
+}
+
+/** Live mark + unrealized P&L, from the last broker-sync mark. Dash when a
+ * trade has never been synced (manual entries, or before the first sync). */
+function MarkCell({ t }: { t: JournalTrade }) {
+  if (t.markPrice == null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const long = t.entry.direction !== "SHORT";
+  const pnlPerShare = long
+    ? t.markPrice - t.entry.entryPrice
+    : t.entry.entryPrice - t.markPrice;
+  const pnl = pnlPerShare * t.entry.quantity;
+  return (
+    <div className="leading-tight">
+      <div>{fmtPrice(t.markPrice)}</div>
+      <div
+        className={`text-xs ${pnl >= 0 ? "text-primary" : "text-destructive"}`}
+      >
+        {fmtSignedINR(pnl)}
+      </div>
+    </div>
   );
 }
 
@@ -302,6 +348,7 @@ function ExpandedDetails({
 }) {
   const setGtt = useSetGttPlaced();
   const e = t.entry;
+  const trendRs55 = isTrendRs55(t);
   const m = deriveEntryMetrics(
     {
       direction: e.direction,
@@ -316,31 +363,58 @@ function ExpandedDetails({
 
   return (
     <div className="bg-background/40 border-t border-border/60 p-6 grid grid-cols-12 gap-6">
-      <DetailBlock
-        title="Risk & reward"
-        icon={<Shield className="size-3.5 text-primary" />}
-      >
-        <DetailRow label="Stop-loss" value={fmtPrice(e.stopPrice)} mono tone="bad" />
-        <DetailRow
-          label="Capital at risk"
-          value={fmtINR(m.capitalAtRisk)}
-          tone="bad"
-        />
-        <DetailRow
-          label="Risk / share"
-          value={fmtPrice(m.initialRiskPerShare)}
-          mono
-        />
-        <DetailRow label="Planned R:R" value={`${m.plannedRR.toFixed(2)} : 1`} />
-      </DetailBlock>
+      {trendRs55 ? (
+        <DetailBlock
+          title="Exit rule"
+          icon={<Shield className="size-3.5 text-primary" />}
+        >
+          <DetailRow label="Exit signal" value="Trend flip" />
+          <DetailRow
+            label="RS-55 at entry"
+            value={e.rs55Pct != null ? `${e.rs55Pct.toFixed(2)}%` : "—"}
+            tone="good"
+          />
+          <DetailRow
+            label="Capital deployed"
+            value={fmtINR(m.capitalDeployed)}
+          />
+        </DetailBlock>
+      ) : (
+        <DetailBlock
+          title="Risk & reward"
+          icon={<Shield className="size-3.5 text-primary" />}
+        >
+          <DetailRow label="Stop-loss" value={fmtPrice(e.stopPrice)} mono tone="bad" />
+          <DetailRow
+            label="Capital at risk"
+            value={fmtINR(m.capitalAtRisk ?? 0)}
+            tone="bad"
+          />
+          <DetailRow
+            label="Risk / share"
+            value={fmtPrice(m.initialRiskPerShare)}
+            mono
+          />
+          <DetailRow
+            label="Planned R:R"
+            value={m.plannedRR != null ? `${m.plannedRR.toFixed(2)} : 1` : "—"}
+          />
+        </DetailBlock>
+      )}
 
       <DetailBlock
         title="Price levels"
         icon={<Target className="size-3.5 text-primary" />}
       >
         <DetailRow label="Entry" value={fmtPrice(e.entryPrice)} mono />
-        <DetailRow label="Target" value={fmtPrice(e.targetPrice)} mono tone="good" />
-        <DetailRow label="Stop" value={fmtPrice(e.stopPrice)} mono tone="bad" />
+        {trendRs55 ? (
+          <DetailRow label="Target / Stop" value="None — trend-flip exit" mono />
+        ) : (
+          <>
+            <DetailRow label="Target" value={fmtPrice(e.targetPrice)} mono tone="good" />
+            <DetailRow label="Stop" value={fmtPrice(e.stopPrice)} mono tone="bad" />
+          </>
+        )}
         <DetailRow label="ATR(14)" value={fmtPrice(e.atr14)} mono />
       </DetailBlock>
 
@@ -382,7 +456,9 @@ function ExpandedDetails({
         />
       </DetailBlock>
 
-      {/* GTT action strip */}
+      {/* GTT action strip — no fixed levels to place a GTT for on a
+          trend-flip-only exit, so this whole strip is rsi2-only */}
+      {!trendRs55 && (
       <div className="col-span-12 flex flex-wrap items-center justify-between gap-3 text-[11px] text-muted-foreground border-t border-border/60 pt-4">
         <span>
           GTT ·{" "}
@@ -418,6 +494,7 @@ function ExpandedDetails({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

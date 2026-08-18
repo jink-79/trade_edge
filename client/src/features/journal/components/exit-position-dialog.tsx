@@ -17,13 +17,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { fmtPrice } from "../utils/journal-utils";
+import { fmtPrice, isTrendRs55 } from "../utils/journal-utils";
 import { useExitJournalTrade } from "../hooks/use-journal";
 import type { JournalTrade, Outcome } from "../types/journal.types";
 
 const REASONS: { label: string; outcome: Exclude<Outcome, "STILL-OPEN"> }[] = [
   { label: "Target hit", outcome: "TARGET" },
   { label: "Stop hit", outcome: "STOP" },
+  { label: "Manual exit", outcome: "MANUAL-EXIT" },
+];
+
+// trend-flip-only strategies have no target/stop concept — just the signal
+// flipping, or a manual override.
+const TREND_REASONS: { label: string; outcome: Exclude<Outcome, "STILL-OPEN"> }[] = [
+  { label: "Trend flip", outcome: "TREND-FLIP" },
   { label: "Manual exit", outcome: "MANUAL-EXIT" },
 ];
 
@@ -37,17 +44,22 @@ export function ExitPositionDialog({
   onClose: () => void;
 }) {
   const exitMut = useExitJournalTrade();
+  const trendRs55 = trade ? isTrendRs55(trade) : false;
+  const reasons = trendRs55 ? TREND_REASONS : REASONS;
   const [exitPrice, setExitPrice] = useState("");
   const [exitDate, setExitDate] = useState(todayISO());
-  const [reason, setReason] = useState<string>("Target hit");
+  const [reason, setReason] = useState<string>(reasons[0].label);
   const [notes, setNotes] = useState("");
 
   // Reset the form each time a different trade is opened.
   useEffect(() => {
     if (trade) {
-      setExitPrice(String(trade.entry.targetPrice ?? trade.entry.entryPrice));
+      const trend = isTrendRs55(trade);
+      setExitPrice(
+        String(trade.entry.targetPrice ?? trade.markPrice ?? trade.entry.entryPrice),
+      );
       setExitDate(todayISO());
-      setReason("Target hit");
+      setReason((trend ? TREND_REASONS : REASONS)[0].label);
       setNotes("");
     }
   }, [trade?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -61,18 +73,19 @@ export function ExitPositionDialog({
     ? (exitN - e.entryPrice) * e.quantity * (long ? 1 : -1)
     : 0;
   const grossPct = e ? (gross / (e.entryPrice * e.quantity)) * 100 : 0;
-  const riskPerShare = e
-    ? long
-      ? e.entryPrice - e.stopPrice
-      : e.stopPrice - e.entryPrice
-    : 0;
+  const riskPerShare =
+    e?.stopPrice == null
+      ? null
+      : long
+        ? e.entryPrice - e.stopPrice
+        : e.stopPrice - e.entryPrice;
   const rMultiple =
-    e && riskPerShare > 0
+    e && riskPerShare != null && riskPerShare > 0
       ? ((long ? exitN - e.entryPrice : e.entryPrice - exitN) / riskPerShare)
       : null;
   const positive = gross >= 0;
 
-  const selected = REASONS.find((r) => r.label === reason) ?? REASONS[0];
+  const selected = reasons.find((r) => r.label === reason) ?? reasons[0];
 
   const handleConfirm = () => {
     if (!trade || !e) return;
@@ -161,8 +174,20 @@ export function ExitPositionDialog({
             <div className="px-6 py-4 grid grid-cols-4 gap-3 border-b border-border/60 bg-background/40">
               <Snap label="Qty" value={String(e.quantity)} />
               <Snap label="Entry" value={fmtPrice(e.entryPrice)} />
-              <Snap label="Target" value={fmtPrice(e.targetPrice)} />
-              <Snap label="Stop" value={fmtPrice(e.stopPrice)} />
+              {trendRs55 ? (
+                <>
+                  <Snap label="Mark" value={fmtPrice(trade?.markPrice)} />
+                  <Snap
+                    label="RS-55"
+                    value={e.rs55Pct != null ? `${e.rs55Pct.toFixed(2)}%` : "—"}
+                  />
+                </>
+              ) : (
+                <>
+                  <Snap label="Target" value={fmtPrice(e.targetPrice)} />
+                  <Snap label="Stop" value={fmtPrice(e.stopPrice)} />
+                </>
+              )}
             </div>
 
             {/* form */}
@@ -201,8 +226,8 @@ export function ExitPositionDialog({
 
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs text-muted-foreground">Exit reason</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {REASONS.map((r) => (
+                <div className={cn("grid gap-2", trendRs55 ? "grid-cols-2" : "grid-cols-3")}>
+                  {reasons.map((r) => (
                     <button
                       key={r.label}
                       type="button"

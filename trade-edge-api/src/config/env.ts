@@ -18,6 +18,15 @@ const envSchema = z.object({
   // need it return a clear 503 if missing rather than failing startup.
   PHALANX_ATLAS_MONGODB_URI: z.string().optional(),
   PHALANX_ATLAS_DB_NAME: z.string().optional(),
+
+  // Daily open-positions newsletter. All optional — the /run route returns a
+  // clear error rather than crashing startup if one's missing.
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default("gemini-flash-latest"),
+  RESEND_API_KEY: z.string().optional(),
+  NEWSLETTER_FROM_EMAIL: z.string().default("onboarding@resend.dev"),
+  // Shared secret Vercel Cron sends as `Authorization: Bearer <CRON_SECRET>`.
+  CRON_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -29,6 +29,8 @@ export interface FundsSummary {
   totalFunds: number;
   totalEntries: number;
   byType: Record<FundType, number>;
+  /** totalFunds − currently-invested-in-open-positions + all-time realized P&L. */
+  availableCash: number;
 }
 
 export interface FundsResponse {

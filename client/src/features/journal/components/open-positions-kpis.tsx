@@ -27,7 +27,7 @@ export function OpenPositionsKpis({
         capital,
       );
       deployed += m.capitalDeployed;
-      atRisk += m.capitalAtRisk;
+      atRisk += m.capitalAtRisk ?? 0;
     }
     return {
       deployed,

@@ -18,6 +18,7 @@ const EMPTY_SUMMARY: FundsSummary = {
   totalFunds: 0,
   totalEntries: 0,
   byType: { trading: 0, savings: 0, emergency: 0, other: 0 },
+  availableCash: 0,
 };
 
 export function FundsPage() {

@@ -30,5 +30,5 @@ export const DEFAULT_PREFERENCES: TradingPreferences = {
   atrPeriod: 14,
   slAtrMultiplier: 0.5,
   targetAtrMultiplier: 1,
-  activeStrategy: "pulse",
+  activeStrategy: "trend-rs55",
 };

@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { fmtINR } from "../utils/journal-utils";
+import { fmtINR, fmtPrice, isTrendRs55 } from "../utils/journal-utils";
 import { useReviewJournalTrade } from "../hooks/use-journal";
 import type { JournalTrade } from "../types/journal.types";
 
@@ -77,6 +77,7 @@ export function ReviewTradeDialog({ trade, onClose }: ReviewTradeDialogProps) {
   const [sector, setSector] = useState("");
 
   const e = trade?.entry;
+  const trendRs55 = trade ? isTrendRs55(trade) : false;
 
   useEffect(() => {
     if (e) {
@@ -164,7 +165,14 @@ export function ReviewTradeDialog({ trade, onClose }: ReviewTradeDialogProps) {
                 <Captured label="ATR(14)" value={e.atr14.toFixed(2)} />
                 <Captured label="Pullback" value={`${e.pullbackDepth.toFixed(2)}%`} />
                 <Captured label="vs 200 EMA" value={`${e.distanceFrom200Ema.toFixed(2)}%`} />
-                <Captured label="Target/Stop" value={`${fmtINR(e.targetPrice)} / ${fmtINR(e.stopPrice)}`} />
+                {trendRs55 ? (
+                  <Captured
+                    label="RS-55"
+                    value={e.rs55Pct != null ? `${e.rs55Pct.toFixed(2)}%` : "—"}
+                  />
+                ) : (
+                  <Captured label="Target/Stop" value={`${fmtPrice(e.targetPrice)} / ${fmtPrice(e.stopPrice)}`} />
+                )}
                 <Captured label="Candle close" value={e.entryCandleClose} />
               </div>
             </div>
@@ -207,15 +215,19 @@ export function ReviewTradeDialog({ trade, onClose }: ReviewTradeDialogProps) {
               </div>
 
               {/* the fields that can't be computed */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Target under resistance?</Label>
-                  <YesNo value={targetUnderResistance} onChange={setTUR} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Stop has support?</Label>
-                  <YesNo value={stopHasSupport} onChange={setSHS} />
-                </div>
+              <div className={cn("grid grid-cols-1 gap-4", trendRs55 ? "sm:grid-cols-1" : "sm:grid-cols-3")}>
+                {!trendRs55 && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Target under resistance?</Label>
+                      <YesNo value={targetUnderResistance} onChange={setTUR} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Stop has support?</Label>
+                      <YesNo value={stopHasSupport} onChange={setSHS} />
+                    </div>
+                  </>
+                )}
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Sector</Label>
                   <Input value={sector} onChange={(ev) => setSector(ev.target.value)} placeholder="e.g. Industrials" />

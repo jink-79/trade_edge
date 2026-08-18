@@ -12,7 +12,7 @@
 ───────────────────────────────────────────────────── */
 
 export type Direction = "LONG" | "SHORT";
-export type Outcome = "TARGET" | "STOP" | "MANUAL-EXIT" | "STILL-OPEN";
+export type Outcome = "TARGET" | "STOP" | "TREND-FLIP" | "MANUAL-EXIT" | "STILL-OPEN";
 
 /** Where the entry candle closed within its own range. */
 export type ClosePosition =
@@ -77,8 +77,10 @@ export interface TradeEntry {
   direction: Direction;
   entryPrice: number;
   quantity: number;
-  targetPrice: number;
-  stopPrice: number;
+  // Absent for strategies with no fixed exit levels (trend-flip-only exits).
+  targetPrice?: number;
+  stopPrice?: number;
+  rs55Pct?: number;
   atr14: number; // ATR(14) at entry
 
   // Tier 1 · four rule-checks — stored as VALUES
@@ -138,11 +140,15 @@ export interface JournalTrade {
   dataQuality: DataQuality;
   dataQualityNote?: string;
   source: "manual" | "auto";
+  strategyId?: string | null;
   needsReview: boolean;
   gttPlaced: boolean;
   ruleAdherence?: RuleAdherence | null;
   ruleAdherenceNote?: string | null;
   analytics?: TradeAnalytics | null;
+  /** Last Kite LTP seen for this open position, set by broker-sync. */
+  markPrice?: number | null;
+  markUpdatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

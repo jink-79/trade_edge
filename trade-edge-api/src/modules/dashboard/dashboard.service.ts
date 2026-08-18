@@ -1,7 +1,6 @@
 import { Types } from "mongoose";
 import { Fund } from "../funds/funds.model";
-import { Position } from "../positions/positions.model";
-import { Trade } from "../history/trades.model";
+import { JournalOpen, JournalClosed } from "../journal/journal.model";
 import { MutualFund } from "../mutual-funds/mutual-funds.model";
 import { FUND_CATEGORIES } from "../mutual-funds/mutual-funds.types";
 import { FUND_TYPES } from "../funds/funds.types";
@@ -213,15 +212,14 @@ export async function getDashboard(userId: string): Promise<DashboardResponse> {
 
   // Each collection has its own scoping reality:
   //  - funds: userId stored as ObjectId (app-written) → scope by ObjectId
-  //  - trades (closedpositions): userId stored as a string → scope by string
-  //  - positions (openpositions): no userId field → not scoped
+  //  - openpositions/closedpositions (journal): userId stored as a string → scope by string
   //  - mutualfunds: not user-scoped → return all
   // Exclude base64 chart screenshots from these scans (journal-shaped docs)
   const noShots = "-entry.screenshot -exit.screenshot";
   const [fundDocs, positionDocs, tradeDocs, mfDocs] = await Promise.all([
     Fund.find({ userId: userObjectId }).lean(),
-    Position.find({}).select(noShots).lean(),
-    Trade.find({ userId }).select(noShots).sort({ exitDate: -1 }).lean(),
+    JournalOpen.find({ userId }).select(noShots).lean(),
+    JournalClosed.find({ userId }).select(noShots).sort({ exitDate: -1 }).lean(),
     MutualFund.find({}).lean(),
   ]);
 

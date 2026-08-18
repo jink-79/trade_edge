@@ -27,11 +27,14 @@ function formatTrade(doc: any): JournalTradeResponse {
     dataQuality: doc.dataQuality,
     dataQualityNote: doc.dataQualityNote ?? null,
     source: doc.source ?? "manual",
+    strategyId: doc.strategyId ?? null,
     needsReview: doc.needsReview ?? false,
     gttPlaced: doc.gttPlaced ?? false,
     ruleAdherence: doc.ruleAdherence ?? null,
     ruleAdherenceNote: doc.ruleAdherenceNote ?? null,
     analytics: doc.analytics ?? null,
+    markPrice: doc.markPrice ?? null,
+    markUpdatedAt: doc.markUpdatedAt ?? null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -164,10 +167,15 @@ export async function autoCreateJournalTrade(
   );
   const regime = computeRegime(input.indexCandles);
 
-  const stopPrice =
-    input.stopPrice ?? round2(input.entryPrice - slMult * ind.atr14);
-  const targetPrice =
-    input.targetPrice ?? round2(input.entryPrice + tgtMult * ind.atr14);
+  // Only rsi2 trades use fixed exit levels; other strategies (trend-flip-only
+  // exits, no stop-loss) leave target/stop unset rather than inventing them.
+  const usesAtrLevels = input.strategyId === "rsi2";
+  const stopPrice = usesAtrLevels
+    ? (input.stopPrice ?? round2(input.entryPrice - slMult * ind.atr14))
+    : input.stopPrice;
+  const targetPrice = usesAtrLevels
+    ? (input.targetPrice ?? round2(input.entryPrice + tgtMult * ind.atr14))
+    : input.targetPrice;
 
   const entry = {
     ticker: input.symbol,
@@ -177,6 +185,7 @@ export async function autoCreateJournalTrade(
     quantity: input.quantity,
     targetPrice,
     stopPrice,
+    rs55Pct: input.rs55Pct ?? null,
     atr14: ind.atr14,
     priceAbove200: ind.priceAbove200,
     distanceFrom200Ema: ind.distanceFrom200Ema,
@@ -209,6 +218,7 @@ export async function autoCreateJournalTrade(
     dataQuality: "clean",
     dataQualityNote: null,
     source: "auto",
+    strategyId: input.strategyId,
     needsReview: true,
     ...entryMirror(entry),
   });
@@ -344,6 +354,43 @@ export async function analyzeJournalTrade(
   }
   await doc.save();
   return formatTrade(doc.toObject());
+}
+
+/** All open trades for a user, raw (used by broker-sync to diff against Kite). */
+export async function getOpenJournalTrades(userId: string) {
+  return JournalOpen.find({ userId }).select(LIST_PROJECTION).lean();
+}
+
+/** A single open trade by symbol, or null — broker-sync's create-vs-update check. */
+export async function findOpenJournalTradeBySymbol(userId: string, symbol: string) {
+  return JournalOpen.findOne({ userId, symbol: symbol.toUpperCase() });
+}
+
+/** Closed trades whose exitDate falls within [start, end) — for the daily P&L snapshot. */
+export async function getJournalTradesClosedBetween(userId: string, start: Date, end: Date) {
+  return JournalClosed.find({ userId, exitDate: { $gte: start, $lt: end } })
+    .select(LIST_PROJECTION)
+    .lean();
+}
+
+/** Broker-sync: refresh an open trade's live mark (and quantity, if it changed in Kite). */
+export async function updateOpenTradeMark(
+  userId: string,
+  id: string,
+  markPrice: number,
+  quantity?: number,
+): Promise<JournalTradeResponse> {
+  const update: Record<string, unknown> = { markPrice, markUpdatedAt: new Date() };
+  if (quantity != null) {
+    update.quantity = quantity;
+    update.qty = quantity;
+    update["entry.quantity"] = quantity;
+  }
+  const trade = await JournalOpen.findOneAndUpdate({ _id: id, userId }, update, {
+    new: true,
+  }).lean();
+  if (!trade) throw AppError.notFound("Open trade not found");
+  return formatTrade(trade);
 }
 
 /** Tag a trade as system-following or discretionary (works open or closed). */

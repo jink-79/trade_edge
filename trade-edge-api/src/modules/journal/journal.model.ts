@@ -26,8 +26,10 @@ const EntrySchema = new Schema(
     direction: { type: String, enum: DIRECTIONS, required: true },
     entryPrice: { type: Number, required: true },
     quantity: { type: Number, required: true },
-    targetPrice: { type: Number, required: true },
-    stopPrice: { type: Number, required: true },
+    // Absent for strategies with no fixed exit levels (e.g. trend-flip-only).
+    targetPrice: { type: Number, default: null },
+    stopPrice: { type: Number, default: null },
+    rs55Pct: { type: Number, default: null },
     atr14: { type: Number, required: true },
 
     priceAbove200: { type: Boolean, required: true },
@@ -80,6 +82,9 @@ export interface IJournalTrade {
   dataQuality: string;
   dataQualityNote: string | null;
   source: string;
+  // which trading strategy produced this trade — absent on trades logged
+  // before strategy tagging was added (treated as "rsi2" by convention)
+  strategyId?: string | null;
   needsReview: boolean;
   gttPlaced: boolean;
   ruleAdherence?: string | null;
@@ -103,6 +108,9 @@ export interface IJournalTrade {
   pnlAmount?: number | null;
   pnlPercent?: number | null;
   rMultiple?: number | null;
+  // last Kite LTP seen for this open position, set by broker-sync
+  markPrice?: number | null;
+  markUpdatedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -117,6 +125,7 @@ const JournalTradeSchema = new Schema<IJournalTrade>(
     dataQuality: { type: String, enum: DATA_QUALITIES, default: "clean" },
     dataQualityNote: { type: String, default: null },
     source: { type: String, enum: ["manual", "auto"], default: "manual" },
+    strategyId: { type: String, default: null },
     needsReview: { type: Boolean, default: false },
     gttPlaced: { type: Boolean, default: false },
     ruleAdherence: { type: String, enum: RULE_ADHERENCES, default: null },
@@ -141,6 +150,8 @@ const JournalTradeSchema = new Schema<IJournalTrade>(
     pnlAmount: { type: Number, default: null },
     pnlPercent: { type: Number, default: null },
     rMultiple: { type: Number, default: null },
+    markPrice: { type: Number, default: null },
+    markUpdatedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

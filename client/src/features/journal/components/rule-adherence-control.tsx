@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useSetRuleAdherence } from "../hooks/use-journal";
+import { isTrendRs55 } from "../utils/journal-utils";
 import type { JournalTrade } from "../types/journal.types";
 
 /**
@@ -19,8 +20,11 @@ import type { JournalTrade } from "../types/journal.types";
 export function RuleAdherenceControl({ trade }: { trade: JournalTrade }) {
   const mut = useSetRuleAdherence();
   const e = trade.entry;
+  const trendRs55 = isTrendRs55(trade);
 
-  // Auto-hint: how many of the four Tier-1 rule-checks the entry actually passed.
+  // Auto-hint (rsi2 only): how many of the four Tier-1 rule-checks the entry
+  // actually passed — the trend-flip strategy has no equivalent checklist,
+  // every trade either matched the signal or it wasn't captured at all.
   const checks = [
     e.priceAbove200,
     e.rsi2 <= 10,
@@ -53,10 +57,13 @@ export function RuleAdherenceControl({ trade }: { trade: JournalTrade }) {
           <ShieldCheck className="size-4 text-primary" /> Rule adherence
         </CardTitle>
         <CardDescription>
-          {passed}/4 entry rule-checks passed
-          {passed === 4
-            ? " — a textbook system entry."
-            : " — some checks failed; was taking it a discretionary call?"}
+          {trendRs55
+            ? "Did you take exactly what the trend-flip + RS-55 signal gave you, or override it?"
+            : `${passed}/4 entry rule-checks passed${
+                passed === 4
+                  ? " — a textbook system entry."
+                  : " — some checks failed; was taking it a discretionary call?"
+              }`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

@@ -16,6 +16,8 @@ import scannerRoutes from "./modules/scanner/scanner.routes";
 import pulseRoutes from "./modules/pulse/pulse.routes";
 import backtestArchiveRoutes from "./modules/backtest-archive/backtest-archive.routes";
 import algoSignalsRoutes from "./modules/algo-signals/algo-signals.routes";
+import brokerSyncRoutes from "./modules/broker-sync/broker-sync.routes";
+import newsletterRoutes from "./modules/newsletter/newsletter.routes";
 
 const app = express();
 
@@ -49,7 +51,8 @@ const skipLargeBody =
   (req, res, next) =>
     req.path.startsWith("/api/journal") ||
     req.path.startsWith("/api/scanner") ||
-    req.path.startsWith("/api/pulse")
+    req.path.startsWith("/api/pulse") ||
+    req.path.startsWith("/api/broker-sync")
       ? next()
       : parser(req, res, next);
 
@@ -76,6 +79,8 @@ app.use("/api/scanner", scannerRoutes);
 app.use("/api/pulse", pulseRoutes);
 app.use("/api/backtest-archive", backtestArchiveRoutes);
 app.use("/api/algo-signals", algoSignalsRoutes);
+app.use("/api/broker-sync", brokerSyncRoutes);
+app.use("/api/newsletter", newsletterRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ success: false, message: "Route not found" });

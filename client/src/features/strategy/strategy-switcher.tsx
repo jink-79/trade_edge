@@ -21,7 +21,7 @@ import { STRATEGIES, strategyMeta, type StrategyId } from "./strategies";
 export function StrategySwitcher() {
   const { data: prefs } = usePreferences();
   const save = useSavePreferences();
-  const current = prefs?.activeStrategy ?? "pulse";
+  const current = prefs?.activeStrategy ?? "trend-rs55";
   const meta = strategyMeta(current);
 
   const onChange = (id: string) => {

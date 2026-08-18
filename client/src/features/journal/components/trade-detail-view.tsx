@@ -35,6 +35,8 @@ import {
   deriveEntryMetrics,
   deriveExitMetrics,
   fmtINR,
+  fmtPrice,
+  isTrendRs55,
 } from "../utils/journal-utils";
 import { useJournalTrade } from "../hooks/use-journal";
 import { TradeExcursionCard } from "./trade-excursion-card";
@@ -354,6 +356,7 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
   const x = trade.exit;
   const isClosed = trade.outcome !== "STILL-OPEN" && !!x;
   const long = e.direction === "LONG";
+  const trendRs55 = isTrendRs55(trade);
 
   return (
     <div className="px-8 py-8 space-y-8 max-w-[1600px]">
@@ -462,6 +465,22 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
               }
             />
           </>
+        ) : trendRs55 ? (
+          <>
+            <Stat
+              icon={Gauge}
+              label="RS-55 at entry"
+              value={e.rs55Pct != null ? `${e.rs55Pct.toFixed(2)}%` : "—"}
+              sub="relative strength vs Nifty"
+              accent
+            />
+            <Stat
+              icon={Target}
+              label="Exit rule"
+              value="Trend flip"
+              sub="no fixed stop or target"
+            />
+          </>
         ) : (
           <>
             <Stat
@@ -469,10 +488,10 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
               label="Target / SL"
               value={
                 <span className="text-xl">
-                  <span className="text-primary">{fmtINR(e.targetPrice)}</span>
+                  <span className="text-primary">{fmtPrice(e.targetPrice)}</span>
                   <span className="text-muted-foreground"> / </span>
                   <span className="text-destructive">
-                    {fmtINR(e.stopPrice)}
+                    {fmtPrice(e.stopPrice)}
                   </span>
                 </span>
               }
@@ -482,7 +501,9 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
               icon={Scale}
               label="Planned R:R"
               value={
-                entryMetrics ? `${entryMetrics.plannedRR.toFixed(2)} : 1` : "—"
+                entryMetrics?.plannedRR != null
+                  ? `${entryMetrics.plannedRR.toFixed(2)} : 1`
+                  : "—"
               }
               sub="reward ÷ risk"
               accent
@@ -626,35 +647,38 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
             </div>
           </SectionCard>
 
-          {/* RULE CHECKS */}
-          <SectionCard
-            icon={CheckCircle2}
-            title="Rule checks"
-            desc="The four Tier-1 conditions for a valid setup."
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <CheckPill label="Price above 200 EMA" ok={e.priceAbove200} />
-              <CheckPill
-                label={`RSI(2) oversold (${e.rsi2.toFixed(2)})`}
-                ok={e.rsi2 <= 10}
-              />
-              <CheckPill
-                label={`Near recent high (${e.candlesFromHigh}/20 bars)`}
-                ok={e.candlesFromHigh <= 20}
-              />
-              <CheckPill
-                label={`Above 200 EMA by ${signedPct(e.distanceFrom200Ema)}`}
-                ok={e.distanceFrom200Ema >= 0}
-              />
-            </div>
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <CheckPill
-                label="Target sits under resistance"
-                ok={e.targetUnderResistance}
-              />
-              <CheckPill label="Stop has support below" ok={e.stopHasSupport} />
-            </div>
-          </SectionCard>
+          {/* RULE CHECKS — the RSI-2 strategy's discretionary entry checklist,
+              not applicable to systematic trend-flip trades */}
+          {!trendRs55 && (
+            <SectionCard
+              icon={CheckCircle2}
+              title="Rule checks"
+              desc="The four Tier-1 conditions for a valid setup."
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <CheckPill label="Price above 200 EMA" ok={e.priceAbove200} />
+                <CheckPill
+                  label={`RSI(2) oversold (${e.rsi2.toFixed(2)})`}
+                  ok={e.rsi2 <= 10}
+                />
+                <CheckPill
+                  label={`Near recent high (${e.candlesFromHigh}/20 bars)`}
+                  ok={e.candlesFromHigh <= 20}
+                />
+                <CheckPill
+                  label={`Above 200 EMA by ${signedPct(e.distanceFrom200Ema)}`}
+                  ok={e.distanceFrom200Ema >= 0}
+                />
+              </div>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <CheckPill
+                  label="Target sits under resistance"
+                  ok={e.targetUnderResistance}
+                />
+                <CheckPill label="Stop has support below" ok={e.stopHasSupport} />
+              </div>
+            </SectionCard>
+          )}
         </div>
 
         {/* RIGHT — execution + context */}
@@ -663,32 +687,47 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
             <Row label="Direction" value={e.direction} />
             <Row label="Entry price" value={fmtINR(e.entryPrice)} />
             <Row label="Quantity" value={e.quantity} />
-            <Row
-              label="Target"
-              value={fmtINR(e.targetPrice)}
-              tone="good"
-            />
-            <Row label="Stop-loss" value={fmtINR(e.stopPrice)} tone="bad" />
-            <Row
-              label="Capital deployed"
-              value={fmtINR(entryMetrics?.capitalDeployed ?? 0)}
-            />
-            <Row
-              label="Capital at risk"
-              value={fmtINR(entryMetrics?.capitalAtRisk ?? 0)}
-              tone="bad"
-            />
-            <Row
-              label="Reward / share"
-              value={fmtINR(entryMetrics?.rewardPerShare ?? 0)}
-              tone="good"
-            />
-            <Row
-              label="Planned R:R"
-              value={
-                entryMetrics ? `${entryMetrics.plannedRR.toFixed(2)} : 1` : "—"
-              }
-            />
+            {trendRs55 ? (
+              <>
+                <Row
+                  label="RS-55 at entry"
+                  value={e.rs55Pct != null ? `${e.rs55Pct.toFixed(2)}%` : "—"}
+                  tone="good"
+                />
+                <Row label="Exit rule" value="Trend flip (no fixed stop/target)" />
+                <Row
+                  label="Capital deployed"
+                  value={fmtINR(entryMetrics?.capitalDeployed ?? 0)}
+                />
+              </>
+            ) : (
+              <>
+                <Row label="Target" value={fmtPrice(e.targetPrice)} tone="good" />
+                <Row label="Stop-loss" value={fmtPrice(e.stopPrice)} tone="bad" />
+                <Row
+                  label="Capital deployed"
+                  value={fmtINR(entryMetrics?.capitalDeployed ?? 0)}
+                />
+                <Row
+                  label="Capital at risk"
+                  value={fmtINR(entryMetrics?.capitalAtRisk ?? 0)}
+                  tone="bad"
+                />
+                <Row
+                  label="Reward / share"
+                  value={fmtINR(entryMetrics?.rewardPerShare ?? 0)}
+                  tone="good"
+                />
+                <Row
+                  label="Planned R:R"
+                  value={
+                    entryMetrics?.plannedRR != null
+                      ? `${entryMetrics.plannedRR.toFixed(2)} : 1`
+                      : "—"
+                  }
+                />
+              </>
+            )}
             <Row label="Entry date" value={fmtDateTime(e.entryDate)} />
           </SectionCard>
 

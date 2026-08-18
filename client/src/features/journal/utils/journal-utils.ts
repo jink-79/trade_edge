@@ -1,10 +1,19 @@
 import type {
   ClosePosition,
   Direction,
+  JournalTrade,
   MarketTrend,
   TradeEntry,
   VolumeCharacter,
 } from "../types/journal.types";
+
+/**
+ * Trades with no `strategyId` predate strategy tagging — all of today's
+ * historical data is rsi2, so that's the safe default for "which fields
+ * should this trade have."
+ */
+export const isTrendRs55 = (t: Pick<JournalTrade, "strategyId">) =>
+  (t.strategyId ?? "rsi2") === "trend-rs55";
 
 export const fmtINR = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -14,12 +23,14 @@ export const fmtINR = (n: number) =>
   }).format(n);
 
 /** Price/money with up to 2 decimals — shows paise only when present. */
-export const fmtPrice = (n: number) =>
-  "₹" +
-  n.toLocaleString("en-IN", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: n % 1 === 0 ? 0 : 2,
-  });
+export const fmtPrice = (n: number | null | undefined) =>
+  n == null
+    ? "—"
+    : "₹" +
+      n.toLocaleString("en-IN", {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: n % 1 === 0 ? 0 : 2,
+      });
 
 /** Signed money, e.g. "+₹1,234" / "−₹1,234". */
 export const fmtSignedINR = (n: number) =>
@@ -59,10 +70,11 @@ export const MARKET_TRENDS: { value: MarketTrend; label: string }[] = [
 
 export interface EntryMetrics {
   capitalDeployed: number; // entry × qty
-  initialRiskPerShare: number; // entry − stop (long)
-  capitalAtRisk: number; // qty × risk/share
-  rewardPerShare: number;
-  plannedRR: number; // reward ÷ risk
+  // null when the strategy has no fixed stop/target (trend-flip-only exits)
+  initialRiskPerShare: number | null; // entry − stop (long)
+  capitalAtRisk: number | null; // qty × risk/share
+  rewardPerShare: number | null;
+  plannedRR: number | null; // reward ÷ risk
   atrPctOfEntry: number; // ATR as % of entry — volatility regime
   positionSizePct: number; // capital deployed ÷ account capital
   priceAbove200: boolean; // entry > ₹200
@@ -76,30 +88,39 @@ export function deriveEntryMetrics(
   e: {
     direction: Direction;
     entryPrice: number;
-    stopPrice: number;
-    targetPrice: number;
+    stopPrice?: number;
+    targetPrice?: number;
     quantity: number;
     atr14: number;
   },
   accountCapital: number,
 ): EntryMetrics {
   const long = e.direction === "LONG";
-  const initialRiskPerShare = long
-    ? e.entryPrice - e.stopPrice
-    : e.stopPrice - e.entryPrice;
-  const rewardPerShare = long
-    ? e.targetPrice - e.entryPrice
-    : e.entryPrice - e.targetPrice;
+  const hasLevels = e.stopPrice != null && e.targetPrice != null;
+  const initialRiskPerShare = hasLevels
+    ? long
+      ? e.entryPrice - e.stopPrice!
+      : e.stopPrice! - e.entryPrice
+    : null;
+  const rewardPerShare = hasLevels
+    ? long
+      ? e.targetPrice! - e.entryPrice
+      : e.entryPrice - e.targetPrice!
+    : null;
 
   const capitalDeployed = e.entryPrice * e.quantity;
-  const capitalAtRisk = Math.max(initialRiskPerShare, 0) * e.quantity;
+  const capitalAtRisk =
+    initialRiskPerShare != null ? Math.max(initialRiskPerShare, 0) * e.quantity : null;
 
   return {
     capitalDeployed,
     initialRiskPerShare,
     capitalAtRisk,
     rewardPerShare,
-    plannedRR: initialRiskPerShare > 0 ? rewardPerShare / initialRiskPerShare : 0,
+    plannedRR:
+      initialRiskPerShare != null && rewardPerShare != null && initialRiskPerShare > 0
+        ? rewardPerShare / initialRiskPerShare
+        : null,
     atrPctOfEntry: e.entryPrice > 0 ? (e.atr14 / e.entryPrice) * 100 : 0,
     positionSizePct:
       accountCapital > 0 ? (capitalDeployed / accountCapital) * 100 : 0,
@@ -119,9 +140,12 @@ export function deriveExitMetrics(
   const pnlPerShare = long
     ? exit.exitPrice - entry.entryPrice
     : entry.entryPrice - exit.exitPrice;
-  const initialRiskPerShare = long
-    ? entry.entryPrice - entry.stopPrice
-    : entry.stopPrice - entry.entryPrice;
+  const initialRiskPerShare =
+    entry.stopPrice == null
+      ? null
+      : long
+        ? entry.entryPrice - entry.stopPrice
+        : entry.stopPrice - entry.entryPrice;
 
   const realizedPnl = pnlPerShare * entry.quantity;
   const invested = entry.entryPrice * entry.quantity;
@@ -138,7 +162,9 @@ export function deriveExitMetrics(
     realizedPnl,
     realizedPnlPct: invested > 0 ? (realizedPnl / invested) * 100 : 0,
     rMultiple:
-      initialRiskPerShare > 0 ? pnlPerShare / initialRiskPerShare : null,
+      initialRiskPerShare != null && initialRiskPerShare > 0
+        ? pnlPerShare / initialRiskPerShare
+        : null,
     daysHeld,
     win: realizedPnl > 0,
   };
