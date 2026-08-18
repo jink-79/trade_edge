@@ -1,0 +1,43 @@
+name: Trend+RS Daily Signal (Atlas)
+
+on:
+  schedule:
+    # 13:30 UTC = 19:00 IST, weekdays, after NSE market close (15:30 IST)
+    - cron: "30 13 * * 1-5"
+  workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab, for testing
+
+jobs:
+  daily-signal:
+    # pinned to 22.04 -- ubuntu-latest (24.04)'s stricter OpenSSL 3.x config
+    # fails the TLS handshake against Atlas (TLSV1_ALERT_INTERNAL_ERROR)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: phalanx-live
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Update Atlas daily OHLCV data
+        env:
+          ATLAS_MONGODB_URI: ${{ secrets.ATLAS_MONGODB_URI }}
+          ATLAS_DB_NAME: ${{ secrets.ATLAS_DB_NAME }}
+        run: python -m live.update_daily
+
+      - name: Trim Atlas daily data to retention window
+        env:
+          ATLAS_MONGODB_URI: ${{ secrets.ATLAS_MONGODB_URI }}
+          ATLAS_DB_NAME: ${{ secrets.ATLAS_DB_NAME }}
+        run: python -m live.retention_daily --execute
+
+      - name: Generate daily signals and save to Atlas
+        env:
+          ATLAS_MONGODB_URI: ${{ secrets.ATLAS_MONGODB_URI }}
+          ATLAS_DB_NAME: ${{ secrets.ATLAS_DB_NAME }}
+        run: python -m live.generate_daily_signals
