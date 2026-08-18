@@ -178,3 +178,14 @@ export function PlaybookSkeleton() {
     </PageWrap>
   );
 }
+
+export function AlgoSignalsSkeleton() {
+  return (
+    <PageWrap>
+      <HeaderSkel />
+      <TilesSkel n={4} />
+      <TableSkel rows={4} cols={2} />
+      <TableSkel rows={8} cols={5} />
+    </PageWrap>
+  );
+}

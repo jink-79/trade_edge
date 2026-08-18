@@ -1,4 +1,4 @@
-import { AlgoSignalsSummary } from "./algo-signals-summary";
+import { AlgoSignalsKpis } from "./algo-signals-kpis";
 import { AlgoSignalsExits } from "./algo-signals-exits";
 import { AlgoSignalsCandidates } from "./algo-signals-candidates";
 import { AlgoSignalsStale } from "./algo-signals-stale";
@@ -7,7 +7,7 @@ import type { DailySignalDoc } from "../types/algo-signals.types";
 export function AlgoSignalsDailyView({ doc }: { doc: DailySignalDoc }) {
   return (
     <div className="space-y-6">
-      <AlgoSignalsSummary doc={doc} />
+      <AlgoSignalsKpis doc={doc} />
       <AlgoSignalsExits exits={doc.exits ?? []} />
       <AlgoSignalsCandidates
         candidates={(doc.buy_candidates_ranked ?? []).map((c) => ({

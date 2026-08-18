@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useDailySignalHistory } from "../hooks/use-algo-signals";
 import { AlgoSignalsDailyView } from "./algo-signals-daily-view";
 import { fmtDate } from "./algo-signals-format";
@@ -29,42 +29,61 @@ export function AlgoSignalsHistory() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-border/70 bg-card/70" style={{ boxShadow: "var(--shadow-card)" }}>
         <CardHeader>
-          <CardTitle>History</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-end gap-4">
+          <CardTitle className="text-base" style={{ fontFamily: "var(--font-display)" }}>
+            History
+          </CardTitle>
+          <CardDescription>
+            Browse past days' signals to spot-check the engine against what the market did
+            afterward.
+          </CardDescription>
+          <div className="flex flex-wrap items-end gap-4 pt-3">
             <div className="space-y-1.5">
-              <Label htmlFor="algo-history-from">From</Label>
-              <Input id="algo-history-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <Label htmlFor="algo-history-from" className="text-xs text-muted-foreground">
+                From
+              </Label>
+              <Input
+                id="algo-history-from"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="w-40"
+              />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="algo-history-to">To</Label>
-              <Input id="algo-history-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+              <Label htmlFor="algo-history-to" className="text-xs text-muted-foreground">
+                To
+              </Label>
+              <Input
+                id="algo-history-to"
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="w-40"
+              />
             </div>
           </div>
-
+        </CardHeader>
+        <CardContent>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading history…</p>
           ) : docs.length === 0 ? (
             <p className="text-sm text-muted-foreground">No signals in this range.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {docs.map((d) => (
-                <button
+                <Button
                   key={d.reference_date}
-                  type="button"
-                  onClick={() => setSelected((cur) => (cur === d.reference_date ? null : d.reference_date))}
+                  size="sm"
+                  variant={selected === d.reference_date ? "default" : "outline"}
+                  onClick={() =>
+                    setSelected((cur) => (cur === d.reference_date ? null : d.reference_date))
+                  }
                 >
-                  <Badge
-                    variant={selected === d.reference_date ? "default" : "outline"}
-                    className="cursor-pointer"
-                  >
-                    {fmtDate(d.reference_date)}
-                    {d.exits?.length ? ` · ${d.exits.length} exit${d.exits.length > 1 ? "s" : ""}` : ""}
-                  </Badge>
-                </button>
+                  {fmtDate(d.reference_date)}
+                  {d.exits?.length ? ` · ${d.exits.length} exit${d.exits.length > 1 ? "s" : ""}` : ""}
+                </Button>
               ))}
             </div>
           )}
