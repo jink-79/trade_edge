@@ -1,6 +1,6 @@
 import { JournalOpen } from "../journal/journal.model";
 import { User } from "../auth/auth.model";
-import { getTodayAndPrevClose } from "./newsletter.ohlcv";
+import { getTodayAndPrevClose } from "../../config/phalanx-ohlcv";
 import { fetchStockUpdate } from "./newsletter.gemini";
 import { sendPositionsNewsletter, type PositionUpdate } from "./newsletter.email";
 import { NewsletterRun } from "./newsletter.model";

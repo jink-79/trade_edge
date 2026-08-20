@@ -143,6 +143,18 @@ export const AutoCaptureSchema = z.object({
 
 export type AutoCaptureInput = z.infer<typeof AutoCaptureSchema>;
 
+// ── Manual entry (Trend+RS-55 only — candles fetched server-side from ─────────
+// phalanx-live's own OHLCV, no Kite session needed) ────────────────────────────
+
+export const ManualEntrySchema = z.object({
+  symbol: z.string().min(1).max(20).trim().toUpperCase(),
+  entryPrice: z.number().positive(),
+  quantity: z.number().positive(),
+  entryDate: z.coerce.date().optional(),
+});
+
+export type ManualEntryInput = z.infer<typeof ManualEntrySchema>;
+
 // ── Review (fill screenshot + Claude's comment, then confirm) ─────────────────
 
 export const ReviewJournalTradeSchema = z.object({

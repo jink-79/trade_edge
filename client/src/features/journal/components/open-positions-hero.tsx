@@ -11,7 +11,7 @@ export function OpenPositionsHero({
     <div>
       <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
         <ListChecks className="size-3.5 text-primary" />
-        Open positions · from Kite
+        Open positions
       </div>
       <h1 className="mt-2 text-3xl md:text-4xl font-semibold">Live book</h1>
       <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
@@ -19,8 +19,8 @@ export function OpenPositionsHero({
         {needsReview > 0
           ? `, ${needsReview} awaiting review`
           : ", all reviewed"}
-        . Place the target/SL GTT, review the setup, then close out when the
-        trade resolves.
+        . Prices refresh automatically daily; close a position out yourself when
+        the trade resolves.
       </p>
     </div>
   );

@@ -6,6 +6,7 @@ import {
   getOne,
   exit,
   autoCreate,
+  manualEntry,
   review,
   gttPlaced,
   analyze,
@@ -17,6 +18,7 @@ import {
   CreateJournalTradeSchema,
   ExitJournalTradeSchema,
   AutoCaptureSchema,
+  ManualEntrySchema,
   ReviewJournalTradeSchema,
   GttPlacedSchema,
   AnalyzeTradeSchema,
@@ -36,6 +38,10 @@ router.post("/", validate(CreateJournalTradeSchema), create);
 
 // POST /api/journal/auto  — auto-capture from a Kite trade + candles
 router.post("/auto", validate(AutoCaptureSchema), autoCreate);
+
+// POST /api/journal/entries  — manual Trend+RS-55 open; candles come from
+// phalanx-live's own OHLCV server-side, no Kite session needed
+router.post("/entries", validate(ManualEntrySchema), manualEntry);
 
 // GET /api/journal
 router.get("/", getAll);

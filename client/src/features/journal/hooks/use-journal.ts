@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createJournalTrade,
+  createManualEntry,
   fetchJournalTrades,
   fetchJournalTrade,
   exitJournalTrade,
@@ -42,6 +43,14 @@ export function useCreateJournalTrade() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createJournalTrade,
+    onSuccess: () => qc.invalidateQueries({ queryKey: journalKeys.all }),
+  });
+}
+
+export function useCreateManualEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createManualEntry,
     onSuccess: () => qc.invalidateQueries({ queryKey: journalKeys.all }),
   });
 }

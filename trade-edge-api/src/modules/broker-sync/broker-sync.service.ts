@@ -6,7 +6,10 @@ import {
   getOpenJournalTrades,
   updateOpenTradeMark,
 } from "../journal/journal.service";
+import { JournalOpen } from "../journal/journal.model";
 import { getFunds } from "../funds/funds.service";
+import { getTodayAndPrevClose } from "../../config/phalanx-ohlcv";
+import { logger } from "../../utils/logger";
 import { DailyPnlSnapshot } from "./broker-sync.model";
 import type { DailyPnlSnapshotResponse, KiteSyncInput, KiteSyncResult } from "./broker-sync.types";
 
@@ -181,4 +184,50 @@ export async function syncKitePositions(userId: string, input: KiteSyncInput): P
 
   const snapshot = await refreshDailySnapshot(userId);
   return { created, updated, closed, snapshot };
+}
+
+export interface MarkRefreshSummary {
+  updated: number;
+  skipped: number;
+  usersRefreshed: number;
+}
+
+/**
+ * The Kite-free daily price refresh: mark every open trade (any user) to
+ * phalanx-live's own latest OHLCV close, then rebuild each affected user's
+ * daily P&L snapshot. Position lifecycle (open/close) isn't touched here —
+ * only manual entry / the exit dialog change what's open.
+ */
+export async function refreshAllMarksFromOhlcv(): Promise<MarkRefreshSummary> {
+  const openTrades = await JournalOpen.find({}).select("userId symbol").lean();
+  const bySymbol = new Map<string, typeof openTrades>();
+  for (const t of openTrades) {
+    const list = bySymbol.get(t.symbol!) ?? [];
+    list.push(t);
+    bySymbol.set(t.symbol!, list);
+  }
+
+  let updated = 0;
+  let skipped = 0;
+  const userIds = new Set<string>();
+
+  for (const [symbol, trades] of bySymbol) {
+    const { today } = await getTodayAndPrevClose(symbol);
+    if (today?.close == null) {
+      logger.warn(`refreshAllMarksFromOhlcv: no OHLCV close for ${symbol}, skipping`);
+      skipped += trades.length;
+      continue;
+    }
+    for (const t of trades) {
+      await updateOpenTradeMark(t.userId, String((t as any)._id), today.close);
+      userIds.add(t.userId);
+      updated++;
+    }
+  }
+
+  for (const userId of userIds) {
+    await refreshDailySnapshot(userId);
+  }
+
+  return { updated, skipped, usersRefreshed: userIds.size };
 }

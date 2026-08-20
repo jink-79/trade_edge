@@ -3,6 +3,7 @@ import { asyncHandler } from "../../utils/async-handler";
 import { sendSuccess, sendCreated } from "../../utils/api-response";
 import {
   createJournalTrade,
+  createManualTrendTrade,
   getJournalTrades,
   getJournalTradeById,
   exitJournalTrade,
@@ -18,6 +19,7 @@ import type {
   CreateJournalTradeInput,
   ExitJournalTradeInput,
   GttPlacedInput,
+  ManualEntryInput,
   ReviewJournalTradeInput,
   SetAdherenceInput,
 } from "./journal.types";
@@ -55,6 +57,13 @@ export const autoCreate = asyncHandler(async (req: Request, res: Response) => {
   const input = req.body as AutoCaptureInput;
   const trade = await autoCreateJournalTrade(userId, input);
   sendCreated(res, trade, "Trade auto-captured — add screenshot & comment");
+});
+
+export const manualEntry = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const input = req.body as ManualEntryInput;
+  const trade = await createManualTrendTrade(userId, input);
+  sendCreated(res, trade, "Position added");
 });
 
 export const review = asyncHandler(async (req: Request, res: Response) => {

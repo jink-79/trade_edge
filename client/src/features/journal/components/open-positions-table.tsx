@@ -113,7 +113,7 @@ export function OpenPositionsTable({
           {rows.length === 0 ? (
             <div className="py-16 text-center text-sm text-muted-foreground">
               {trades.length === 0
-                ? "No open positions yet. They appear here after the daily capture picks up your Kite trades."
+                ? "No open positions yet. Use \"Add Entry\" above to record one."
                 : "No positions match your search."}
             </div>
           ) : (

@@ -4,12 +4,14 @@ import { AppError } from "../../utils/api-error";
 import { computeEntryIndicators, computeRegime } from "./journal.compute";
 import { analyzeTradePath } from "./journal.analytics";
 import { getPreferences } from "../preferences/preferences.service";
+import { getRecentCandles } from "../../config/phalanx-ohlcv";
 import type {
   AnalyzeTradeInput,
   AutoCaptureInput,
   CreateJournalTradeInput,
   ExitJournalTradeInput,
   JournalTradeResponse,
+  ManualEntryInput,
   ReviewJournalTradeInput,
   SetAdherenceInput,
 } from "./journal.types";
@@ -224,6 +226,46 @@ export async function autoCreateJournalTrade(
   });
 
   return formatTrade(doc.toObject());
+}
+
+/**
+ * Manual open for the Trend+RS-55 strategy — no Kite session needed. Candles
+ * come straight from phalanx-live's own OHLCV (already refreshed daily by
+ * its GitHub Action), so this is just autoCreateJournalTrade with a
+ * different candle source; needsReview is false since these were typed in
+ * directly, not auto-captured from a broker feed to be sanity-checked later.
+ */
+export async function createManualTrendTrade(
+  userId: string,
+  input: ManualEntryInput,
+): Promise<JournalTradeResponse> {
+  const [candles, indexCandles] = await Promise.all([
+    getRecentCandles(input.symbol),
+    getRecentCandles("NIFTY"),
+  ]);
+  if (candles.length < 2) {
+    throw AppError.badRequest(
+      `${input.symbol} has no price history in Atlas yet — phalanx-live may not track this symbol.`,
+    );
+  }
+
+  const trade = await autoCreateJournalTrade(userId, {
+    symbol: input.symbol,
+    entryDate: input.entryDate ?? new Date(),
+    entryPrice: input.entryPrice,
+    quantity: input.quantity,
+    direction: "LONG",
+    strategyId: "trend-rs55",
+    candles,
+    indexCandles,
+  });
+
+  const doc = await JournalOpen.findOneAndUpdate(
+    { _id: trade.id, userId },
+    { needsReview: false },
+    { new: true },
+  ).lean();
+  return formatTrade(doc);
 }
 
 export async function reviewJournalTrade(

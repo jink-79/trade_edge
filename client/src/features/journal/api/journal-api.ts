@@ -17,6 +17,25 @@ export async function createJournalTrade(
   return data.data;
 }
 
+export interface ManualEntryPayload {
+  symbol: string;
+  entryPrice: number;
+  quantity: number;
+  entryDate?: string;
+}
+
+/** Trend+RS-55 manual open — candles are fetched server-side from
+ * phalanx-live's own OHLCV, no Kite session needed. */
+export async function createManualEntry(
+  payload: ManualEntryPayload,
+): Promise<JournalTrade> {
+  const { data } = await axiosInstance.post<ApiEnvelope<JournalTrade>>(
+    "/journal/entries",
+    payload,
+  );
+  return data.data;
+}
+
 /** List — screenshots are excluded server-side to keep the payload light. */
 export async function fetchJournalTrades(): Promise<JournalTrade[]> {
   const { data } =
