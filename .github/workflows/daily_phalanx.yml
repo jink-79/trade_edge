@@ -2,8 +2,9 @@ name: Trend+RS Daily Signal (Atlas)
 
 on:
   schedule:
-    # 13:30 UTC = 19:00 IST, weekdays, after NSE market close (15:30 IST)
-    - cron: "30 13 * * 1-5"
+    # 11:00 UTC = 16:30 IST, weekdays — 1hr after NSE close (15:30 IST), safely
+    # past update_daily.py's own 15:45 IST same-day-complete buffer
+    - cron: "0 11 * * 1-5"
   workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab, for testing
 
 jobs:

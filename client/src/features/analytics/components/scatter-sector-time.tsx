@@ -29,12 +29,14 @@ import type {
 
 interface ScatterSectorTimeProps {
   heldVsR: ScatterPoint[];
+  rDistributionMode: "r" | "pct";
   sectorPerf: SectorPerf[];
   hourly: HourlyPnl[];
 }
 
 export function ScatterSectorTime({
   heldVsR,
+  rDistributionMode,
   sectorPerf,
   hourly,
 }: ScatterSectorTimeProps) {
@@ -49,9 +51,13 @@ export function ScatterSectorTime({
             className="text-base"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            Hold time vs R
+            {rDistributionMode === "r" ? "Hold time vs R" : "Hold time vs return %"}
           </CardTitle>
-          <CardDescription>Sweet spot: 30-90 min holds.</CardDescription>
+          <CardDescription>
+            {rDistributionMode === "r"
+              ? "Sweet spot: 30-90 min holds."
+              : "No fixed stop-loss on this strategy — plotted against realized return % instead."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-60">
@@ -70,11 +76,11 @@ export function ScatterSectorTime({
                 <YAxis
                   type="number"
                   dataKey="y"
-                  name="R"
+                  name={rDistributionMode === "r" ? "R" : "%"}
                   tick={CHART_STYLE.tick}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `${v}R`}
+                  tickFormatter={(v) => (rDistributionMode === "r" ? `${v}R` : `${v}%`)}
                 />
                 <ZAxis type="number" dataKey="z" range={[40, 180]} />
                 <Tooltip

@@ -57,6 +57,16 @@ function rBucketLabel(r: number): string {
   return `${floored >= 0 ? '+' : ''}${floored}R`
 }
 
+// ── %-return bucket label (fallback when no trade has an rMultiple, e.g. ─────
+// trend-rs55 which has no fixed stop-loss) — 5-point-wide buckets
+
+function pctBucketLabel(pct: number): string {
+  const floored = Math.floor(pct / 5) * 5
+  if (floored <= -20) return '≤-20%'
+  if (floored >= 20) return '≥+20%'
+  return `${floored >= 0 ? '+' : ''}${floored}%`
+}
+
 // ── Streak calculation ────────────────────────────────────────────────────────
 
 function calcStreaks(wins: boolean[]): { best: number; worst: number } {
@@ -206,15 +216,20 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
     return { m, r: inv > 0 ? round2((pnl / inv) * 100) : 0 }
   })
 
-  // ── R Distribution (only trades with rMultiple set) ─────────────────────────
+  // ── R Distribution (only trades with rMultiple set) — falls back to a ───────
+  // %-return distribution when none do (trend-rs55 has no stop-loss, so
+  // rMultiple is never set for those trades)
 
   const rTrades = trades.filter((t) => t.rMultiple !== null)
-  const rBucketMap = new Map<string, number>()
-  for (const t of rTrades) {
-    const label = rBucketLabel(t.rMultiple!)
-    rBucketMap.set(label, (rBucketMap.get(label) ?? 0) + 1)
+  const rDistributionMode: 'r' | 'pct' = rTrades.length > 0 ? 'r' : 'pct'
+  const distSource = rDistributionMode === 'r' ? rTrades : trades
+  const bucketMap = new Map<string, number>()
+  for (const t of distSource) {
+    const label =
+      rDistributionMode === 'r' ? rBucketLabel(t.rMultiple!) : pctBucketLabel(t.pnlPercent ?? 0)
+    bucketMap.set(label, (bucketMap.get(label) ?? 0) + 1)
   }
-  const rDistribution: RBucket[] = Array.from(rBucketMap.entries())
+  const rDistribution: RBucket[] = Array.from(bucketMap.entries())
     .map(([bucket, n]) => ({ bucket, n }))
     .sort((a, b) => a.bucket.localeCompare(b.bucket))
 
@@ -267,11 +282,11 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
 
   const radar: RadarPoint[] = scoreRadar({ winRate, profitFactor, payoff, maxDd, totalTrades, expectancy })
 
-  // ── Held vs R scatter (only trades with rMultiple) ──────────────────────────
+  // ── Held vs R scatter — falls back to held vs %-return when no rMultiple ────
 
-  const heldVsR: ScatterPoint[] = rTrades.map((t) => ({
+  const heldVsR: ScatterPoint[] = distSource.map((t) => ({
     x: holdMinutes(new Date(t.entryDate), new Date(t.exitDate)),
-    y: round2(t.rMultiple!),
+    y: round2(rDistributionMode === 'r' ? t.rMultiple! : (t.pnlPercent ?? 0)),
     z: t.entryPrice * t.qty,
   }))
 
@@ -302,6 +317,7 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
     equityVsBench,
     monthlyReturns,
     rDistribution,
+    rDistributionMode,
     setupEdge,
     sectorPerf,
     hourly,

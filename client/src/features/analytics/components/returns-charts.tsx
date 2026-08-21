@@ -24,11 +24,13 @@ import type { MonthlyReturn, RBucket } from "../types/analytics.types";
 interface ReturnsChartsProps {
   monthlyReturns: MonthlyReturn[];
   rDistribution: RBucket[];
+  rDistributionMode: "r" | "pct";
 }
 
 export function ReturnsCharts({
   monthlyReturns,
   rDistribution,
+  rDistributionMode,
 }: ReturnsChartsProps) {
   const greenMonths = monthlyReturns.filter((m) => m.r >= 0).length;
   const bestMonth = monthlyReturns.reduce((a, b) => (b.r > a.r ? b : a));
@@ -103,9 +105,13 @@ export function ReturnsCharts({
             className="text-base"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            R-multiple distribution
+            {rDistributionMode === "r" ? "R-multiple distribution" : "Return % distribution"}
           </CardTitle>
-          <CardDescription>Right-tailed — your edge.</CardDescription>
+          <CardDescription>
+            {rDistributionMode === "r"
+              ? "Right-tailed — your edge."
+              : "No fixed stop-loss on this strategy, so bucketed by realized return % instead of R-multiple."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-60">
@@ -134,7 +140,7 @@ export function ReturnsCharts({
                       fill={
                         b.bucket.startsWith("-")
                           ? "var(--destructive)"
-                          : b.bucket === "0R"
+                          : b.bucket === "0R" || b.bucket === "0%"
                             ? "var(--muted-foreground)"
                             : "var(--primary)"
                       }

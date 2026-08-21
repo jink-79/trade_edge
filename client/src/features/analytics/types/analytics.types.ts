@@ -91,6 +91,10 @@ export interface AnalyticsResponse {
   equityVsBench: EquityPoint[];
   monthlyReturns: MonthlyReturn[];
   rDistribution: RBucket[];
+  // "pct" when trades have no rMultiple (e.g. trend-rs55, which has no fixed
+  // stop-loss) — rDistribution/heldVsR are then bucketed/plotted by realized
+  // return % instead of R-multiple.
+  rDistributionMode: "r" | "pct";
   setupEdge: SetupEdge[];
   sectorPerf: SectorPerf[];
   hourly: HourlyPnl[];

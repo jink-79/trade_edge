@@ -15,6 +15,7 @@ import argparse
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -32,6 +33,23 @@ EXCHANGE = "NSE"
 DEFAULT_BUFFER_DAYS = 3
 NIFTY_SYMBOL = "NIFTY"
 
+IST = ZoneInfo("Asia/Kolkata")
+# NSE closes 15:30 IST; a 15-min buffer covers TradingView's own candle
+# finalization lag. This job runs at 19:00 IST, well past this.
+MARKET_CLOSE_BUFFER_IST = pd.Timedelta(hours=15, minutes=45)
+
+
+def _now_ist() -> pd.Timestamp:
+    """Naive Timestamp at the current IST wall-clock instant. Bars are dated
+    by their IST/exchange-local trading day, so every date-boundary
+    comparison in this module needs to use IST "now" — using the runner's
+    system clock (UTC on GitHub Actions) instead was a real bug: at the
+    19:00 IST (13:30 UTC) scheduled run, UTC's calendar day hasn't rolled
+    over yet, so a naive UTC "today" comparison perpetually treated
+    yesterday's bar as already up to date and silently skipped fetching the
+    day's actual close — the pipeline never advanced a single day."""
+    return pd.Timestamp(datetime.now(IST).replace(tzinfo=None))
+
 
 def _tv_symbol_candidates(symbol: str):
     seen = set()
@@ -46,8 +64,18 @@ def _tv_symbol_candidates(symbol: str):
             yield cand
 
 
-def _is_complete_daily(bar_date: pd.Timestamp, now: pd.Timestamp) -> bool:
-    return bar_date.normalize() < now.normalize()
+def _is_complete_daily(bar_date: pd.Timestamp, now_ist: pd.Timestamp) -> bool:
+    """A bar dated a prior IST day is always complete. A bar dated *today*
+    (IST) is complete only once we're past NSE's close for that day —
+    calendar-date alone isn't enough, since this job runs the same IST
+    calendar day the bar it needs is dated."""
+    bar_day = bar_date.normalize()
+    today_ist = now_ist.normalize()
+    if bar_day < today_ist:
+        return True
+    if bar_day > today_ist:
+        return False
+    return (now_ist - today_ist) >= MARKET_CLOSE_BUFFER_IST
 
 
 def last_bar(database, symbol: str):
@@ -108,7 +136,8 @@ def update(
         tv = TvDatafeed()
 
     now = datetime.now(timezone.utc)
-    now_ts = pd.Timestamp.now()
+    now_ts = _now_ist()
+    today_ist = now_ts.normalize()
     failed, new_bars, seeded, updated, uptodate = [], 0, 0, 0, 0
 
     for i, symbol in enumerate(symbols, 1):
@@ -117,12 +146,15 @@ def update(
         if last is None:
             n = SEED_BARS
         else:
-            if last.normalize() >= now_ts.normalize() - pd.Timedelta(days=1) and last_ok:
+            # Only truly up to date once we HAVE today's (IST) bar AND it's
+            # marked complete (past market close) — "last is yesterday, close
+            # enough" was the bug: it made every run skip fetching entirely.
+            if last.normalize() >= today_ist and last_ok:
                 uptodate += 1
                 if verbose:
                     print(f"  [{i:>3}/{len(symbols)}] ok  {symbol:14} up-to-date: {last.date()}", flush=True)
                 continue
-            gap_days = max(0, (now_ts.normalize() - last.normalize()).days)
+            gap_days = max(0, (today_ist - last.normalize()).days)
             n = gap_days + buffer_days
 
         df = _fetch_n(tv, symbol, n)

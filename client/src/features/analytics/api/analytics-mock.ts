@@ -143,6 +143,7 @@ export const MOCK_ANALYTICS_RESPONSE: AnalyticsResponse = {
   equityVsBench: MOCK_EQUITY_VS_BENCH,
   monthlyReturns: MOCK_MONTHLY_RETURNS,
   rDistribution: MOCK_R_DISTRIBUTION,
+  rDistributionMode: "r",
   setupEdge: MOCK_SETUP_EDGE,
   sectorPerf: MOCK_SECTOR_PERF,
   hourly: MOCK_HOURLY,

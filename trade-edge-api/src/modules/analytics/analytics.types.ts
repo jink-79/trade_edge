@@ -90,6 +90,10 @@ export interface AnalyticsResponse {
   equityVsBench: EquityPoint[]
   monthlyReturns: MonthlyReturn[]
   rDistribution: RBucket[]
+  // "r" when trades have a stop-loss-derived rMultiple (rsi2); "pct" when they
+  // don't (trend-rs55 has no fixed stop, so rDistribution/heldVsR fall back
+  // to bucketing/plotting by realized return % instead of R-multiple.
+  rDistributionMode: 'r' | 'pct'
   setupEdge: SetupEdge[]
   sectorPerf: SectorPerf[]
   hourly: HourlyPnl[]

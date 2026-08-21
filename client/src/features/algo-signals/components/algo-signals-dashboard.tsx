@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLatestDailySignal } from "../hooks/use-algo-signals";
+import { useJournalTrades } from "@/features/journal/hooks/use-journal";
 import { AlgoSignalsHero } from "./algo-signals-hero";
 import { AlgoSignalsDailyView } from "./algo-signals-daily-view";
 import { AlgoSignalsHistory } from "./algo-signals-history";
@@ -11,7 +12,13 @@ import { AlgoSignalsHistory } from "./algo-signals-history";
 // another view later without changing this layout.
 export function AlgoSignalsDashboard() {
   const { data: latest, isLoading, error } = useLatestDailySignal();
+  const { data: trades = [] } = useJournalTrades();
   const [view, setView] = useState<"today" | "history">("today");
+
+  const heldSymbols = useMemo(
+    () => trades.filter((t) => t.outcome === "STILL-OPEN").map((t) => t.entry.ticker),
+    [trades],
+  );
 
   return (
     <div className="px-8 py-8 space-y-8 max-w-[1600px]">
@@ -38,7 +45,7 @@ export function AlgoSignalsDashboard() {
             No daily signals yet. phalanx-live runs weekday evenings.
           </p>
         ) : (
-          <AlgoSignalsDailyView doc={latest} />
+          <AlgoSignalsDailyView doc={latest} heldSymbols={heldSymbols} />
         )
       ) : (
         <AlgoSignalsHistory />

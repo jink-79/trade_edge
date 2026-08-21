@@ -142,12 +142,14 @@ export function AnalyticsPage() {
       <ReturnsCharts
         monthlyReturns={data.monthlyReturns}
         rDistribution={data.rDistribution}
+        rDistributionMode={data.rDistributionMode}
       />
 
       <SetupEdgeTable setupEdge={data.setupEdge} radar={data.radar} />
 
       <ScatterSectorTime
         heldVsR={data.heldVsR}
+        rDistributionMode={data.rDistributionMode}
         sectorPerf={data.sectorPerf}
         hourly={data.hourly}
       />

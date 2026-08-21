@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useSetRuleAdherence } from "../hooks/use-journal";
+import { useDailySignalHistory } from "@/features/algo-signals/hooks/use-algo-signals";
 import { isTrendRs55 } from "../utils/journal-utils";
 import type { JournalTrade } from "../types/journal.types";
 
@@ -33,6 +34,22 @@ export function RuleAdherenceControl({ trade }: { trade: JournalTrade }) {
   ];
   const passed = checks.filter(Boolean).length;
 
+  // Auto-verified (trend-rs55 only): did this symbol actually appear in that
+  // day's daily_signals — real signal-following verification instead of a
+  // vague self-report. `to` is entry date + 1 day since reference_date is
+  // stored with a time component and would otherwise miss a same-day match.
+  const entryDateStr = e.entryDate.slice(0, 10);
+  const nextDayStr = new Date(new Date(entryDateStr).getTime() + 86400000)
+    .toISOString()
+    .slice(0, 10);
+  const { data: signalDocs, isLoading: signalLoading } = useDailySignalHistory(
+    trendRs55 ? { from: entryDateStr, to: nextDayStr, limit: 5 } : undefined,
+  );
+  const signalDoc = signalDocs?.find((d) => d.reference_date.slice(0, 10) === entryDateStr);
+  const inToBuy = signalDoc?.to_buy?.includes(e.ticker) ?? false;
+  const candidateRank = signalDoc?.buy_candidates_ranked?.findIndex((c) => c.symbol === e.ticker);
+  const inCandidates = candidateRank != null && candidateRank >= 0;
+
   const set = (value: "system" | "discretionary") => {
     const next = trade.ruleAdherence === value ? null : value;
     mut.mutate(
@@ -47,6 +64,16 @@ export function RuleAdherenceControl({ trade }: { trade: JournalTrade }) {
     );
   };
 
+  const trendRs55Description = signalLoading
+    ? "Checking that day's Trend+RS-55 signal…"
+    : !signalDoc
+      ? "No signal data for this entry date — can't auto-verify. Tag it yourself."
+      : inToBuy
+        ? "✓ Matched that day's sized picks — a real system entry."
+        : inCandidates
+          ? `Ranked #${candidateRank! + 1} in that day's candidates but not sized (capital/slots) — you took it anyway.`
+          : "⚠ This symbol wasn't in that day's ranked candidates at all — looks like a discretionary override.";
+
   return (
     <Card
       className="border-border/70 bg-card/70"
@@ -58,7 +85,7 @@ export function RuleAdherenceControl({ trade }: { trade: JournalTrade }) {
         </CardTitle>
         <CardDescription>
           {trendRs55
-            ? "Did you take exactly what the trend-flip + RS-55 signal gave you, or override it?"
+            ? trendRs55Description
             : `${passed}/4 entry rule-checks passed${
                 passed === 4
                   ? " — a textbook system entry."

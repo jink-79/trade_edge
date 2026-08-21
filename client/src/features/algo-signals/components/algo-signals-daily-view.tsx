@@ -4,7 +4,13 @@ import { AlgoSignalsCandidates } from "./algo-signals-candidates";
 import { AlgoSignalsStale } from "./algo-signals-stale";
 import type { DailySignalDoc } from "../types/algo-signals.types";
 
-export function AlgoSignalsDailyView({ doc }: { doc: DailySignalDoc }) {
+export function AlgoSignalsDailyView({
+  doc,
+  heldSymbols = [],
+}: {
+  doc: DailySignalDoc;
+  heldSymbols?: string[];
+}) {
   return (
     <div className="space-y-6">
       <AlgoSignalsKpis doc={doc} />
@@ -18,7 +24,7 @@ export function AlgoSignalsDailyView({ doc }: { doc: DailySignalDoc }) {
         sized={doc.to_buy_sized}
         metricLabel="RS-55"
       />
-      <AlgoSignalsStale symbols={doc.stale_symbols ?? []} />
+      <AlgoSignalsStale symbols={doc.stale_symbols ?? []} heldSymbols={heldSymbols} />
     </div>
   );
 }
