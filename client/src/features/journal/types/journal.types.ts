@@ -101,6 +101,7 @@ export interface TradeEntry {
   niftyVs200Ema: MarketTrend;
   niftyRsi2: number;
   sector: string;
+  marketCapCategory?: string | null;
   gappedIntoEntry: boolean;
   candlesAvailable: number; // days since listing / candles available
   eventWithinWindow: boolean; // earnings/event inside holding window

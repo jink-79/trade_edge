@@ -47,6 +47,9 @@ const EntrySchema = new Schema(
     niftyVs200Ema: { type: String, enum: MARKET_TRENDS, required: true },
     niftyRsi2: { type: Number, required: true },
     sector: { type: String, default: "", trim: true },
+    // phalanx-live's own sector/cap-bucket reference data (symbols
+    // collection) — null when phalanx hasn't backfilled that symbol yet.
+    marketCapCategory: { type: String, default: null },
     gappedIntoEntry: { type: Boolean, required: true },
     candlesAvailable: { type: Number, required: true },
     eventWithinWindow: { type: Boolean, required: true },

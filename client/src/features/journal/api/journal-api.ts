@@ -104,6 +104,15 @@ export async function analyzeTrade(
   return data.data;
 }
 
+/** On-demand AI take on a held position — not cached server-side, fetched
+ * fresh each time the user asks. */
+export async function fetchAiReview(id: string): Promise<{ aiReview: string }> {
+  const { data } = await axiosInstance.post<ApiEnvelope<{ aiReview: string }>>(
+    `/journal/${id}/ai-review`,
+  );
+  return data.data;
+}
+
 export async function setRuleAdherence(
   id: string,
   payload: {

@@ -4,7 +4,8 @@ import { AppError } from "../../utils/api-error";
 import { computeEntryIndicators, computeRegime } from "./journal.compute";
 import { analyzeTradePath } from "./journal.analytics";
 import { getPreferences } from "../preferences/preferences.service";
-import { getRecentCandles } from "../../config/phalanx-ohlcv";
+import { getRecentCandles, getSymbolMeta } from "../../config/phalanx-ohlcv";
+import { fetchPositionAiReview } from "./journal.ai-review";
 import type {
   AnalyzeTradeInput,
   AutoCaptureInput,
@@ -169,6 +170,14 @@ export async function autoCreateJournalTrade(
   );
   const regime = computeRegime(input.indexCandles);
 
+  // Backfill sector/market-cap bucket from phalanx-live's own reference data
+  // when the caller didn't already supply one — never overrides an explicit
+  // value (e.g. from a manual review edit).
+  const meta =
+    input.sector == null || input.marketCapCategory == null
+      ? await getSymbolMeta(input.symbol)
+      : null;
+
   // Only rsi2 trades use fixed exit levels; other strategies (trend-flip-only
   // exits, no stop-loss) leave target/stop unset rather than inventing them.
   const usesAtrLevels = input.strategyId === "rsi2";
@@ -201,7 +210,8 @@ export async function autoCreateJournalTrade(
     stopHasSupport: false,
     niftyVs200Ema: regime.niftyVs200Ema,
     niftyRsi2: regime.niftyRsi2,
-    sector: input.sector ?? "Unknown",
+    sector: input.sector ?? meta?.sector ?? "Unknown",
+    marketCapCategory: input.marketCapCategory ?? meta?.marketCapCategory ?? null,
     gappedIntoEntry: ind.gappedIntoEntry,
     candlesAvailable: input.candlesAvailable ?? input.candles.length,
     eventWithinWindow: false,
@@ -266,6 +276,27 @@ export async function createManualTrendTrade(
     { new: true },
   ).lean();
   return formatTrade(doc);
+}
+
+/** On-demand AI take on a held position — not persisted, fetched fresh each
+ * time the user asks for it. */
+export async function getAiReviewForTrade(
+  userId: string,
+  id: string,
+): Promise<{ aiReview: string }> {
+  const trade = await JournalOpen.findOne({ _id: id, userId }).lean();
+  if (!trade) throw AppError.notFound("Open trade not found");
+  const entry = trade.entry as Record<string, any>;
+
+  const aiReview = await fetchPositionAiReview({
+    symbol: entry.ticker,
+    entryPrice: entry.entryPrice,
+    entryDate: entry.entryDate,
+    markPrice: trade.markPrice ?? null,
+    sector: entry.sector ?? null,
+    marketCapCategory: entry.marketCapCategory ?? null,
+  });
+  return { aiReview };
 }
 
 export async function reviewJournalTrade(

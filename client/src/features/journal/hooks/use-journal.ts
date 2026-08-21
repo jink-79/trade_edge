@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createJournalTrade,
   createManualEntry,
+  fetchAiReview,
   fetchJournalTrades,
   fetchJournalTrade,
   exitJournalTrade,
@@ -70,6 +71,12 @@ export function useReviewJournalTrade() {
     mutationFn: ({ id, payload }: { id: string; payload: ReviewPayload }) =>
       reviewJournalTrade(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: journalKeys.all }),
+  });
+}
+
+export function useAiReview() {
+  return useMutation({
+    mutationFn: (id: string) => fetchAiReview(id),
   });
 }
 

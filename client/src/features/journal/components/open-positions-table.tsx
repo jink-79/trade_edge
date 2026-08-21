@@ -4,15 +4,14 @@ import {
   Activity,
   CheckCircle2,
   ChevronDown,
-  CircleDot,
   ExternalLink,
   Filter,
   ListChecks,
   LogOut,
   Search,
   Shield,
+  Sparkles,
   Target,
-  Wand2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +35,7 @@ import {
 } from "../utils/journal-utils";
 import { useSetGttPlaced } from "../hooks/use-journal";
 import { ExitPositionDialog } from "./exit-position-dialog";
-import { ReviewTradeDialog } from "./review-trade-dialog";
+import { AiReviewDialog } from "./ai-review-dialog";
 import type { JournalTrade } from "../types/journal.types";
 
 const KITE_GTT_URL = "https://kite.zerodha.com/gtt";
@@ -51,13 +50,6 @@ const fmtDate = (iso: string) =>
 const holdingDays = (iso: string) =>
   Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
 
-type Status = { label: string; tone: "active" | "review" | "pending" };
-function statusOf(t: JournalTrade): Status {
-  if (t.needsReview) return { label: "Review", tone: "review" };
-  if (t.gttPlaced) return { label: "Active", tone: "active" };
-  return { label: "GTT pending", tone: "pending" };
-}
-
 export function OpenPositionsTable({
   trades,
   capital,
@@ -70,7 +62,7 @@ export function OpenPositionsTable({
     trades[0]?.id ?? null,
   );
   const [exiting, setExiting] = useState<JournalTrade | null>(null);
-  const [reviewing, setReviewing] = useState<JournalTrade | null>(null);
+  const [reviewingAi, setReviewingAi] = useState<JournalTrade | null>(null);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -123,11 +115,7 @@ export function OpenPositionsTable({
                   <TableHead className="w-[260px] pl-6">Symbol</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
                   <TableHead className="text-right">Entry</TableHead>
-                  <TableHead className="text-right">Target</TableHead>
-                  <TableHead className="text-right">SL</TableHead>
                   <TableHead className="text-right">Mark / P&amp;L</TableHead>
-                  <TableHead className="text-right">Signal</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead className="text-right pr-6">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -142,7 +130,7 @@ export function OpenPositionsTable({
                       setExpanded(expanded === t.id ? null : t.id)
                     }
                     onExit={() => setExiting(t)}
-                    onReview={() => setReviewing(t)}
+                    onAiReview={() => setReviewingAi(t)}
                   />
                 ))}
               </TableBody>
@@ -152,9 +140,9 @@ export function OpenPositionsTable({
       </Card>
 
       <ExitPositionDialog trade={exiting} onClose={() => setExiting(null)} />
-      <ReviewTradeDialog
-        trade={reviewing}
-        onClose={() => setReviewing(null)}
+      <AiReviewDialog
+        trade={reviewingAi}
+        onClose={() => setReviewingAi(null)}
       />
     </>
   );
@@ -166,18 +154,16 @@ function PositionRow({
   open,
   onToggle,
   onExit,
-  onReview,
+  onAiReview,
 }: {
   t: JournalTrade;
   capital: number;
   open: boolean;
   onToggle: () => void;
   onExit: () => void;
-  onReview: () => void;
+  onAiReview: () => void;
 }) {
   const e = t.entry;
-  const status = statusOf(t);
-  const trendRs55 = isTrendRs55(t);
   return (
     <>
       <TableRow
@@ -227,60 +213,33 @@ function PositionRow({
         <TableCell className="text-right tabular text-muted-foreground">
           {fmtPrice(e.entryPrice)}
         </TableCell>
-        {trendRs55 ? (
-          <TableCell colSpan={2} className="text-center tabular text-muted-foreground text-xs">
-            trend-flip exit
-          </TableCell>
-        ) : (
-          <>
-            <TableCell className="text-right tabular text-primary">
-              {fmtPrice(e.targetPrice)}
-            </TableCell>
-            <TableCell className="text-right tabular text-destructive">
-              {fmtPrice(e.stopPrice)}
-            </TableCell>
-          </>
-        )}
         <TableCell className="text-right tabular">
           <MarkCell t={t} />
         </TableCell>
-        <TableCell className="text-right tabular">
-          {trendRs55
-            ? e.rs55Pct != null
-              ? `RS ${e.rs55Pct.toFixed(1)}%`
-              : "—"
-            : e.rsi2.toFixed(2)}
-        </TableCell>
-        <TableCell>
-          <StatusPill status={status} />
-        </TableCell>
         <TableCell className="text-right pr-6">
           <div className="flex items-center justify-end gap-1.5">
-            {t.needsReview ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-400"
-                onClick={(ev) => {
-                  ev.stopPropagation();
-                  onReview();
-                }}
-              >
-                <Wand2 className="size-3.5" /> Review
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={(ev) => {
-                  ev.stopPropagation();
-                  onExit();
-                }}
-              >
-                <LogOut className="size-3.5" /> Exit
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 border-border/70"
+              onClick={(ev) => {
+                ev.stopPropagation();
+                onAiReview();
+              }}
+            >
+              <Sparkles className="size-3.5" /> AI review
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={(ev) => {
+                ev.stopPropagation();
+                onExit();
+              }}
+            >
+              <LogOut className="size-3.5" /> Exit
+            </Button>
             <ChevronDown
               className={cn(
                 "size-4 text-muted-foreground transition-transform",
@@ -293,7 +252,7 @@ function PositionRow({
 
       {open && (
         <TableRow className="hover:bg-transparent border-border/60">
-          <TableCell colSpan={9} className="p-0">
+          <TableCell colSpan={5} className="p-0">
             <ExpandedDetails t={t} capital={capital} />
           </TableCell>
         </TableRow>
@@ -322,20 +281,6 @@ function MarkCell({ t }: { t: JournalTrade }) {
         {fmtSignedINR(pnl)}
       </div>
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: Status }) {
-  const map = {
-    active: "bg-primary/10 text-primary border-primary/30",
-    review: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-    pending: "bg-secondary/50 text-muted-foreground border-border/60",
-  } as const;
-  return (
-    <Badge className={cn("border gap-1.5 hover:bg-transparent", map[status.tone])}>
-      <CircleDot className="size-3" />
-      {status.label}
-    </Badge>
   );
 }
 
@@ -418,29 +363,52 @@ function ExpandedDetails({
         <DetailRow label="ATR(14)" value={fmtPrice(e.atr14)} mono />
       </DetailBlock>
 
-      <DetailBlock
-        title="Setup"
-        icon={<Activity className="size-3.5 text-primary" />}
-      >
-        <DetailRow
-          label="RSI(2)"
-          value={e.rsi2.toFixed(2)}
-          tone={e.rsi2 <= 10 ? "good" : "muted"}
-        />
-        <DetailRow
-          label="Pullback depth"
-          value={`${e.pullbackDepth.toFixed(2)}%`}
-        />
-        <DetailRow
-          label="Dist. 200 EMA"
-          value={`${e.distanceFrom200Ema >= 0 ? "+" : ""}${e.distanceFrom200Ema.toFixed(2)}%`}
-          tone={e.distanceFrom200Ema >= 0 ? "good" : "bad"}
-        />
-        <DetailRow
-          label="Candles from high"
-          value={`${e.candlesFromHigh} / 20`}
-        />
-      </DetailBlock>
+      {trendRs55 ? (
+        <DetailBlock
+          title="Setup"
+          icon={<Activity className="size-3.5 text-primary" />}
+        >
+          <DetailRow
+            label="Dist. 200 EMA"
+            value={`${e.distanceFrom200Ema >= 0 ? "+" : ""}${e.distanceFrom200Ema.toFixed(2)}%`}
+            tone={e.distanceFrom200Ema >= 0 ? "good" : "bad"}
+          />
+          <DetailRow
+            label="Dist. 50 EMA"
+            value={`${e.distanceTo50Ema >= 0 ? "+" : ""}${e.distanceTo50Ema.toFixed(2)}%`}
+            tone={e.distanceTo50Ema >= 0 ? "good" : "bad"}
+          />
+          <DetailRow
+            label="Market regime"
+            value={e.niftyVs200Ema === "up" ? "Nifty above 200 EMA" : "Nifty below 200 EMA"}
+            tone={e.niftyVs200Ema === "up" ? "good" : "bad"}
+          />
+        </DetailBlock>
+      ) : (
+        <DetailBlock
+          title="Setup"
+          icon={<Activity className="size-3.5 text-primary" />}
+        >
+          <DetailRow
+            label="RSI(2)"
+            value={e.rsi2.toFixed(2)}
+            tone={e.rsi2 <= 10 ? "good" : "muted"}
+          />
+          <DetailRow
+            label="Pullback depth"
+            value={`${e.pullbackDepth.toFixed(2)}%`}
+          />
+          <DetailRow
+            label="Dist. 200 EMA"
+            value={`${e.distanceFrom200Ema >= 0 ? "+" : ""}${e.distanceFrom200Ema.toFixed(2)}%`}
+            tone={e.distanceFrom200Ema >= 0 ? "good" : "bad"}
+          />
+          <DetailRow
+            label="Candles from high"
+            value={`${e.candlesFromHigh} / 20`}
+          />
+        </DetailBlock>
+      )}
 
       <DetailBlock
         title="Position meta"
@@ -449,11 +417,7 @@ function ExpandedDetails({
         <DetailRow label="Entry date" value={fmtDate(e.entryDate)} />
         <DetailRow label="Holding days" value={`${holdingDays(e.entryDate)}d`} />
         <DetailRow label="Sector" value={e.sector || "—"} />
-        <DetailRow
-          label="Data quality"
-          value={t.dataQuality === "clean" ? "Clean" : "Excludable"}
-          tone={t.dataQuality === "clean" ? "good" : "muted"}
-        />
+        <DetailRow label="Market cap" value={e.marketCapCategory || "—"} />
       </DetailBlock>
 
       {/* GTT action strip — no fixed levels to place a GTT for on a

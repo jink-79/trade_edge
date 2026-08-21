@@ -77,3 +77,30 @@ export async function getRecentCandles(symbol: string, days = 300): Promise<Plai
       volume: b.volume,
     }));
 }
+
+export interface SymbolMeta {
+  symbol: string;
+  name: string | null;
+  sector: string | null;
+  marketCapCategory: string | null;
+}
+
+function symbolsCollection() {
+  return phalanxConnection?.db?.collection("symbols") ?? null;
+}
+
+/** phalanx-live's own reference data for a symbol (name/sector/market-cap
+ * bucket) — ingested once per symbol, not derived from OHLCV. Null fields
+ * when phalanx hasn't backfilled that symbol yet. */
+export async function getSymbolMeta(symbol: string): Promise<SymbolMeta | null> {
+  const col = symbolsCollection();
+  if (!col) return null;
+  const doc = await col.findOne({ symbol });
+  if (!doc) return null;
+  return {
+    symbol,
+    name: doc.name ?? null,
+    sector: doc.sector ?? null,
+    marketCapCategory: doc.market_cap_category ?? null,
+  };
+}

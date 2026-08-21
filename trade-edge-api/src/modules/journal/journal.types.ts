@@ -63,6 +63,7 @@ export const TradeEntrySchema = z.object({
   niftyVs200Ema: z.enum(MARKET_TRENDS),
   niftyRsi2: z.number(),
   sector: z.string().max(100).trim().default(""),
+  marketCapCategory: z.string().max(50).trim().optional(),
   gappedIntoEntry: z.boolean(),
   candlesAvailable: z.number().min(0),
   eventWithinWindow: z.boolean(),
@@ -136,6 +137,7 @@ export const AutoCaptureSchema = z.object({
   slAtrMultiplier: z.number().positive().optional(),
   targetAtrMultiplier: z.number().positive().optional(),
   sector: z.string().max(100).trim().optional(),
+  marketCapCategory: z.string().max(50).trim().optional(),
   candlesAvailable: z.number().optional(),
   candles: z.array(CandleSchema).min(2), // stock daily OHLCV
   indexCandles: z.array(CandleSchema).default([]), // Nifty daily OHLCV

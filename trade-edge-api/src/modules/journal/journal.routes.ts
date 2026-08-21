@@ -7,6 +7,7 @@ import {
   exit,
   autoCreate,
   manualEntry,
+  aiReview,
   review,
   gttPlaced,
   analyze,
@@ -51,6 +52,9 @@ router.get("/:id", getOne);
 
 // POST /api/journal/:id/exit  — record exit and lock the trade
 router.post("/:id/exit", validate(ExitJournalTradeSchema), exit);
+
+// POST /api/journal/:id/ai-review  — on-demand AI take on a held position
+router.post("/:id/ai-review", aiReview);
 
 // POST /api/journal/:id/review  — attach screenshot + comment, clear needs-review
 router.post("/:id/review", validate(ReviewJournalTradeSchema), review);

@@ -8,6 +8,7 @@ import {
   getJournalTradeById,
   exitJournalTrade,
   autoCreateJournalTrade,
+  getAiReviewForTrade,
   reviewJournalTrade,
   setGttPlaced,
   analyzeJournalTrade,
@@ -64,6 +65,13 @@ export const manualEntry = asyncHandler(async (req: Request, res: Response) => {
   const input = req.body as ManualEntryInput;
   const trade = await createManualTrendTrade(userId, input);
   sendCreated(res, trade, "Position added");
+});
+
+export const aiReview = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const id = req.params.id as string;
+  const result = await getAiReviewForTrade(userId, id);
+  sendSuccess(res, result, "AI review fetched");
 });
 
 export const review = asyncHandler(async (req: Request, res: Response) => {
