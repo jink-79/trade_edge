@@ -3,7 +3,11 @@ import { User } from "../auth/auth.model";
 import { getTodayAndPrevClose } from "../../config/phalanx-ohlcv";
 import { getLatestDailySignal } from "../algo-signals/algo-signals.service";
 import { fetchStockUpdate } from "./newsletter.gemini";
-import { sendPositionsNewsletter, type PositionUpdate } from "./newsletter.email";
+import {
+  sendPositionsNewsletter,
+  type PositionUpdate,
+  type NewsletterSummary,
+} from "./newsletter.email";
 import { NewsletterRun } from "./newsletter.model";
 import { logger } from "../../utils/logger";
 
@@ -11,19 +15,28 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Today's phalanx-live exit + stale-data symbols — empty sets if Algo
- * Signals isn't configured or hasn't run yet, never a hard failure for the
- * newsletter. Stale matters much more for a HELD symbol (flying blind on a
- * real position) than for a candidate never taken. */
-async function getTodaysSignalSets(): Promise<{ exits: Set<string>; stale: Set<string> }> {
+/** Today's phalanx-live exit + stale-data symbols, and the strategy's max
+ * concurrent positions — empty/null if Algo Signals isn't configured or
+ * hasn't run yet, never a hard failure for the newsletter. Stale matters much
+ * more for a HELD symbol (flying blind on a real position) than for a
+ * candidate never taken. */
+async function getTodaysSignalSets(): Promise<{
+  exits: Set<string>;
+  stale: Set<string>;
+  maxPositions: number | null;
+}> {
   try {
     const doc = await getLatestDailySignal();
-    return { exits: new Set(doc?.exits ?? []), stale: new Set(doc?.stale_symbols ?? []) };
+    return {
+      exits: new Set(doc?.exits ?? []),
+      stale: new Set(doc?.stale_symbols ?? []),
+      maxPositions: doc?.max_positions ?? null,
+    };
   } catch (err) {
     logger.warn(
       `getTodaysSignalSets: could not read daily_signals (${err instanceof Error ? err.message : "unknown error"})`,
     );
-    return { exits: new Set(), stale: new Set() };
+    return { exits: new Set(), stale: new Set(), maxPositions: null };
   }
 }
 
@@ -35,6 +48,7 @@ async function buildPositionUpdate(
   const symbol = trade.symbol as string;
   const entryPrice = trade.entryPrice as number;
   const quantity = trade.quantity as number;
+  const entryDate = trade.entryDate as Date;
 
   const { today, prev } = await getTodayAndPrevClose(symbol);
   const todayClose = today?.close ?? null;
@@ -59,12 +73,33 @@ async function buildPositionUpdate(
     symbol,
     quantity,
     entryPrice,
+    entryDate,
     todayClose,
     sinceEntryPct,
     todayChangePct,
     aiTake,
     sellSignal: exitSymbols.has(symbol),
     dataStale: staleSymbols.has(symbol),
+  };
+}
+
+function buildSummary(positions: PositionUpdate[], maxPositions: number | null): NewsletterSummary {
+  const capitalDeployed = positions.reduce((s, p) => s + p.entryPrice * p.quantity, 0);
+  const currentValue = positions.reduce(
+    (s, p) => s + (p.todayClose ?? p.entryPrice) * p.quantity,
+    0,
+  );
+  const pnlAmount = round2(currentValue - capitalDeployed);
+  const pnlPct = capitalDeployed > 0 ? round2((pnlAmount / capitalDeployed) * 100) : null;
+
+  return {
+    positionCount: positions.length,
+    capitalDeployed: round2(capitalDeployed),
+    currentValue: round2(currentValue),
+    pnlAmount,
+    pnlPct,
+    maxPositions,
+    freeSlots: maxPositions != null ? Math.max(maxPositions - positions.length, 0) : null,
   };
 }
 
@@ -78,7 +113,9 @@ export interface NewsletterRunSummary {
 /** Groups every user's open trades, builds and sends one newsletter per user
  * who has at least one open position, and logs a NewsletterRun per attempt. */
 export async function runDailyNewsletter(): Promise<NewsletterRunSummary> {
-  const openTrades = await JournalOpen.find({}).select("userId symbol entryPrice quantity").lean();
+  const openTrades = await JournalOpen.find({})
+    .select("userId symbol entryPrice quantity entryDate")
+    .lean();
   const byUser = new Map<string, any[]>();
   for (const t of openTrades) {
     if (!t.symbol) continue;
@@ -87,7 +124,7 @@ export async function runDailyNewsletter(): Promise<NewsletterRunSummary> {
     byUser.set(t.userId, list);
   }
 
-  const { exits: exitSymbols, stale: staleSymbols } = await getTodaysSignalSets();
+  const { exits: exitSymbols, stale: staleSymbols, maxPositions } = await getTodaysSignalSets();
 
   const date = new Date();
   date.setUTCHours(0, 0, 0, 0);
@@ -113,7 +150,8 @@ export async function runDailyNewsletter(): Promise<NewsletterRunSummary> {
         trades.map((t) => buildPositionUpdate(t, exitSymbols, staleSymbols)),
       );
       sellAlerts += positions.filter((p) => p.sellSignal).length;
-      await sendPositionsNewsletter(user.email, positions);
+      const summary = buildSummary(positions, maxPositions);
+      await sendPositionsNewsletter(user.email, positions, summary);
 
       sent++;
       await NewsletterRun.create({
