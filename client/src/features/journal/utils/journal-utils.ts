@@ -128,6 +128,47 @@ export function deriveEntryMetrics(
   };
 }
 
+/**
+ * Client-side mirror of the backend's journal.charges.ts — same Zerodha-style
+ * equity-delivery rate card, so the exit dialog can show a live preview
+ * before submit. The backend recomputes and stores the authoritative figure.
+ */
+export interface ChargesEstimate {
+  brokerage: number;
+  stt: number;
+  exchangeCharges: number;
+  sebiCharges: number;
+  stampDuty: number;
+  dpCharges: number;
+  gst: number;
+  totalCharges: number;
+}
+
+const CHARGE_RATES = {
+  sttPct: 0.001,
+  exchangeTxnPct: 0.0000297,
+  sebiPct: 0.000001,
+  stampDutyPct: 0.00015,
+  dpChargesFlat: 15.93,
+  gstPct: 0.18,
+};
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export function estimateCharges(buyValue: number, sellValue: number): ChargesEstimate {
+  const brokerage = 0;
+  const stt = round2((buyValue + sellValue) * CHARGE_RATES.sttPct);
+  const exchangeCharges = round2((buyValue + sellValue) * CHARGE_RATES.exchangeTxnPct);
+  const sebiCharges = round2((buyValue + sellValue) * CHARGE_RATES.sebiPct);
+  const stampDuty = round2(buyValue * CHARGE_RATES.stampDutyPct);
+  const dpCharges = CHARGE_RATES.dpChargesFlat;
+  const gst = round2((brokerage + exchangeCharges + sebiCharges) * CHARGE_RATES.gstPct);
+  const totalCharges = round2(
+    brokerage + stt + exchangeCharges + sebiCharges + stampDuty + dpCharges + gst,
+  );
+  return { brokerage, stt, exchangeCharges, sebiCharges, stampDuty, dpCharges, gst, totalCharges };
+}
+
 /** Realised metrics — computed once an exit exists. */
 export function deriveExitMetrics(
   entry: Pick<

@@ -3,12 +3,14 @@ import {
   createJournalTrade,
   createManualEntry,
   fetchAiReview,
+  fetchExitSummary,
   fetchJournalTrades,
   fetchJournalTrade,
   exitJournalTrade,
   reviewJournalTrade,
   setGttPlaced,
   setRuleAdherence,
+  type ExitSummaryPayload,
 } from "../api/journal-api";
 import type {
   ExitTradePayload,
@@ -77,6 +79,13 @@ export function useReviewJournalTrade() {
 export function useAiReview() {
   return useMutation({
     mutationFn: (id: string) => fetchAiReview(id),
+  });
+}
+
+export function useExitSummary() {
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ExitSummaryPayload }) =>
+      fetchExitSummary(id, payload),
   });
 }
 

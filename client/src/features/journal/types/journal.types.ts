@@ -115,10 +115,23 @@ export interface TradeEntry {
 
 // ── Exit object — written in Phase 2 ──────────────────────────────────────────
 
+export interface ChargesBreakdown {
+  brokerage: number;
+  stt: number;
+  exchangeCharges: number;
+  sebiCharges: number;
+  stampDuty: number;
+  dpCharges: number;
+  gst: number;
+  totalCharges: number;
+}
+
 export interface TradeExit {
   outcome: Exclude<Outcome, "STILL-OPEN">;
   exitPrice: number;
   exitDate: string; // ISO datetime
+  // Quantity actually exited — absent/equal to the full position on a full exit.
+  quantity?: number;
   manualExitReason?: string; // required when outcome === "MANUAL-EXIT"
   // Intraday excursion flags — did price touch the opposite level first?
   stopWickedThenRecovered?: boolean;
@@ -128,6 +141,8 @@ export interface TradeExit {
   // Chart + Claude's read, captured at exit (SL / target)
   screenshot?: string | null;
   aiAnalysis?: string;
+  charges?: ChargesBreakdown | null;
+  netPnlAmount?: number | null;
 }
 
 // ── Full record ───────────────────────────────────────────────────────────────
@@ -178,6 +193,8 @@ export interface ExitTradePayload {
   outcome: Exclude<Outcome, "STILL-OPEN">;
   exitPrice: number;
   exitDate: string;
+  // Omit to exit the full held quantity; a partial exit leaves the rest open.
+  quantity?: number;
   manualExitReason?: string;
   stopWickedThenRecovered?: boolean;
   targetTaggedThenReversed?: boolean;

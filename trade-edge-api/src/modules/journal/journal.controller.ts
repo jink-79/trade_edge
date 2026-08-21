@@ -7,6 +7,7 @@ import {
   getJournalTrades,
   getJournalTradeById,
   exitJournalTrade,
+  getExitSummaryPreview,
   autoCreateJournalTrade,
   getAiReviewForTrade,
   backfillPositionMeta,
@@ -20,6 +21,7 @@ import type {
   AutoCaptureInput,
   CreateJournalTradeInput,
   ExitJournalTradeInput,
+  ExitSummaryInput,
   GttPlacedInput,
   ManualEntryInput,
   ReviewJournalTradeInput,
@@ -52,6 +54,14 @@ export const exit = asyncHandler(async (req: Request, res: Response) => {
   const input = req.body as ExitJournalTradeInput;
   const trade = await exitJournalTrade(userId, id, input);
   sendSuccess(res, trade, "Exit recorded — trade closed");
+});
+
+export const exitSummary = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const id = req.params.id as string;
+  const input = req.body as ExitSummaryInput;
+  const result = await getExitSummaryPreview(userId, id, input);
+  sendSuccess(res, result, "Exit summary generated");
 });
 
 export const autoCreate = asyncHandler(async (req: Request, res: Response) => {

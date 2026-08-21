@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LogOut, X } from "lucide-react";
+import { Loader2, LogOut, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,10 +15,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { fmtPrice, isTrendRs55 } from "../utils/journal-utils";
-import { useExitJournalTrade } from "../hooks/use-journal";
+import { estimateCharges, fmtPrice, isTrendRs55 } from "../utils/journal-utils";
+import { useExitJournalTrade, useExitSummary } from "../hooks/use-journal";
 import type { JournalTrade, Outcome } from "../types/journal.types";
 
 const REASONS: { label: string; outcome: Exclude<Outcome, "STILL-OPEN"> }[] = [
@@ -36,6 +35,13 @@ const TREND_REASONS: { label: string; outcome: Exclude<Outcome, "STILL-OPEN"> }[
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+const QTY_PRESETS = [
+  { label: "25%", fraction: 0.25 },
+  { label: "50%", fraction: 0.5 },
+  { label: "75%", fraction: 0.75 },
+  { label: "All", fraction: 1 },
+];
+
 export function ExitPositionDialog({
   trade,
   onClose,
@@ -44,12 +50,14 @@ export function ExitPositionDialog({
   onClose: () => void;
 }) {
   const exitMut = useExitJournalTrade();
+  const summaryMut = useExitSummary();
   const trendRs55 = trade ? isTrendRs55(trade) : false;
   const reasons = trendRs55 ? TREND_REASONS : REASONS;
   const [exitPrice, setExitPrice] = useState("");
   const [exitDate, setExitDate] = useState(todayISO());
+  const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState<string>(reasons[0].label);
-  const [notes, setNotes] = useState("");
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
 
   // Reset the form each time a different trade is opened.
   useEffect(() => {
@@ -59,8 +67,9 @@ export function ExitPositionDialog({
         String(trade.entry.targetPrice ?? trade.markPrice ?? trade.entry.entryPrice),
       );
       setExitDate(todayISO());
+      setQuantity(String(trade.entry.quantity));
       setReason((trend ? TREND_REASONS : REASONS)[0].label);
-      setNotes("");
+      setAiSummary(null);
     }
   }, [trade?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -68,11 +77,15 @@ export function ExitPositionDialog({
   const e = trade?.entry;
   const long = e?.direction === "LONG";
   const exitN = parseFloat(exitPrice) || 0;
+  const fullQty = e?.quantity ?? 0;
+  const qtyN = Math.min(Math.max(parseFloat(quantity) || 0, 0), fullQty);
+  const isPartial = qtyN > 0 && qtyN < fullQty;
+  const invalidQty = qtyN <= 0 || qtyN > fullQty;
 
-  const gross = e
-    ? (exitN - e.entryPrice) * e.quantity * (long ? 1 : -1)
-    : 0;
-  const grossPct = e ? (gross / (e.entryPrice * e.quantity)) * 100 : 0;
+  const gross = e ? (exitN - e.entryPrice) * qtyN * (long ? 1 : -1) : 0;
+  const grossPct = e && qtyN > 0 ? (gross / (e.entryPrice * qtyN)) * 100 : 0;
+  const charges = e ? estimateCharges(e.entryPrice * qtyN, exitN * qtyN) : null;
+  const net = charges ? gross - charges.totalCharges : gross;
   const riskPerShare =
     e?.stopPrice == null
       ? null
@@ -83,9 +96,36 @@ export function ExitPositionDialog({
     e && riskPerShare != null && riskPerShare > 0
       ? ((long ? exitN - e.entryPrice : e.entryPrice - exitN) / riskPerShare)
       : null;
-  const positive = gross >= 0;
+  const positive = net >= 0;
 
   const selected = reasons.find((r) => r.label === reason) ?? reasons[0];
+
+  const handleGenerateSummary = () => {
+    if (!trade || !e) return;
+    if (!exitN || invalidQty) {
+      toast.error("Enter a valid exit price and quantity first");
+      return;
+    }
+    summaryMut.mutate(
+      {
+        id: trade.id,
+        payload: {
+          outcome: selected.outcome,
+          exitPrice: exitN,
+          exitDate: new Date(exitDate).toISOString(),
+          quantity: qtyN,
+        },
+      },
+      {
+        onSuccess: (data) => setAiSummary(data.summary),
+        onError: (err: unknown) =>
+          toast.error(
+            (err as { response?: { data?: { message?: string } } })?.response
+              ?.data?.message ?? "Could not generate a summary right now",
+          ),
+      },
+    );
+  };
 
   const handleConfirm = () => {
     if (!trade || !e) return;
@@ -93,8 +133,12 @@ export function ExitPositionDialog({
       toast.error("Enter an exit price");
       return;
     }
-    if (selected.outcome === "MANUAL-EXIT" && !notes.trim()) {
-      toast.error("Add a note explaining the manual exit");
+    if (invalidQty) {
+      toast.error(`Enter a quantity between 1 and ${fullQty}`);
+      return;
+    }
+    if (selected.outcome === "MANUAL-EXIT" && !aiSummary) {
+      toast.error("Generate an AI summary first — it's used as the exit reason");
       return;
     }
     exitMut.mutate(
@@ -104,20 +148,19 @@ export function ExitPositionDialog({
           outcome: selected.outcome,
           exitPrice: exitN,
           exitDate: new Date(exitDate).toISOString(),
+          quantity: qtyN,
           ...(selected.outcome === "MANUAL-EXIT"
-            ? { manualExitReason: notes.trim() }
+            ? { manualExitReason: aiSummary! }
             : {}),
-          ...(notes.trim() && selected.outcome !== "MANUAL-EXIT"
-            ? { aiAnalysis: notes.trim() }
-            : {}),
+          ...(aiSummary ? { aiAnalysis: aiSummary } : {}),
         },
       },
       {
         onSuccess: () => {
-          toast.success(`${e.ticker} closed`, {
-            description: `${e.quantity} @ ${fmtPrice(exitN)} · ${
+          toast.success(`${e.ticker} ${isPartial ? "partially exited" : "closed"}`, {
+            description: `${qtyN} @ ${fmtPrice(exitN)} · ${
               positive ? "+" : "−"
-            }${fmtPrice(Math.abs(gross))}`,
+            }${fmtPrice(Math.abs(net))} net`,
           });
           onClose();
         },
@@ -172,7 +215,7 @@ export function ExitPositionDialog({
 
             {/* snapshot */}
             <div className="px-6 py-4 grid grid-cols-4 gap-3 border-b border-border/60 bg-background/40">
-              <Snap label="Qty" value={String(e.quantity)} />
+              <Snap label="Held qty" value={String(e.quantity)} />
               <Snap label="Entry" value={fmtPrice(e.entryPrice)} />
               {trendRs55 ? (
                 <>
@@ -225,6 +268,44 @@ export function ExitPositionDialog({
               </div>
 
               <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs text-muted-foreground">
+                  Quantity to exit <span className="text-primary">*</span>{" "}
+                  <span className="text-muted-foreground/60">(of {fullQty} held)</span>
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    step="1"
+                    min={1}
+                    max={fullQty}
+                    inputMode="numeric"
+                    value={quantity}
+                    onChange={(ev) => setQuantity(ev.target.value)}
+                    className="tabular w-28"
+                  />
+                  <div className="flex gap-1.5">
+                    {QTY_PRESETS.map((p) => (
+                      <button
+                        key={p.label}
+                        type="button"
+                        onClick={() =>
+                          setQuantity(String(Math.max(1, Math.round(fullQty * p.fraction))))
+                        }
+                        className="h-8 px-2.5 rounded-md text-xs font-medium border border-border/60 text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  {isPartial && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {fullQty - qtyN} will stay open
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs text-muted-foreground">Exit reason</Label>
                 <div className={cn("grid gap-2", trendRs55 ? "grid-cols-2" : "grid-cols-3")}>
                   {reasons.map((r) => (
@@ -246,20 +327,42 @@ export function ExitPositionDialog({
               </div>
 
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs text-muted-foreground">
-                  Notes{" "}
-                  {selected.outcome === "MANUAL-EXIT" ? (
-                    <span className="text-primary">*</span>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">
+                    Exit summary{" "}
+                    {selected.outcome === "MANUAL-EXIT" ? (
+                      <span className="text-primary">*</span>
+                    ) : (
+                      <span className="text-muted-foreground/60">(optional)</span>
+                    )}
+                  </Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1.5 text-xs"
+                    disabled={summaryMut.isPending}
+                    onClick={handleGenerateSummary}
+                  >
+                    {summaryMut.isPending ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-3.5" />
+                    )}
+                    {aiSummary ? "Regenerate" : "Generate"}
+                  </Button>
+                </div>
+                <div className="min-h-[64px] rounded-md border border-border/60 bg-background/40 p-3 text-sm leading-relaxed">
+                  {summaryMut.isPending ? (
+                    <span className="text-muted-foreground">Writing summary…</span>
+                  ) : aiSummary ? (
+                    <span className="whitespace-pre-line">{aiSummary}</span>
                   ) : (
-                    <span className="text-muted-foreground/60">(optional)</span>
+                    <span className="text-muted-foreground/60">
+                      Generated automatically from this trade's numbers — click Generate.
+                    </span>
                   )}
-                </Label>
-                <Textarea
-                  rows={2}
-                  placeholder="What changed? Anything to remember for next time."
-                  value={notes}
-                  onChange={(ev) => setNotes(ev.target.value)}
-                />
+                </div>
               </div>
             </div>
 
@@ -267,7 +370,7 @@ export function ExitPositionDialog({
             <div className="mx-6 mb-5 rounded-xl border border-border/60 bg-gradient-to-b from-background/60 to-background/20 p-4">
               <div className="flex items-center justify-between">
                 <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                  Realised P&L preview
+                  {isPartial ? "Realised P&L preview (partial)" : "Realised P&L preview"}
                 </div>
                 <Badge
                   className={cn(
@@ -280,34 +383,48 @@ export function ExitPositionDialog({
                   {positive ? "Profit" : "Loss"}
                 </Badge>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-4">
+              <div className="mt-3 grid grid-cols-4 gap-4">
                 <PnlStat
-                  label="P&L (₹)"
-                  value={`${positive ? "+" : "−"}${fmtPrice(Math.abs(gross))}`}
+                  label="Gross P&L"
+                  value={`${gross >= 0 ? "+" : "−"}${fmtPrice(Math.abs(gross))}`}
+                  tone={gross >= 0 ? "good" : "bad"}
+                />
+                <PnlStat
+                  label="Charges (est.)"
+                  value={charges ? `−${fmtPrice(charges.totalCharges)}` : "—"}
+                  tone="muted"
+                />
+                <PnlStat
+                  label="Net P&L"
+                  value={`${positive ? "+" : "−"}${fmtPrice(Math.abs(net))}`}
                   tone={positive ? "good" : "bad"}
                   big
                 />
                 <PnlStat
-                  label="P&L (%)"
+                  label="Net P&L (%)"
                   value={`${grossPct >= 0 ? "+" : ""}${grossPct.toFixed(2)}%`}
                   tone={positive ? "good" : "bad"}
                 />
-                <PnlStat
-                  label="R multiple"
-                  value={
-                    rMultiple != null
-                      ? `${rMultiple >= 0 ? "+" : ""}${rMultiple.toFixed(2)}R`
-                      : "—"
-                  }
-                  tone={
-                    rMultiple != null
-                      ? rMultiple >= 0
-                        ? "good"
-                        : "bad"
-                      : "muted"
-                  }
-                />
               </div>
+              {charges && (
+                <div className="mt-3 pt-3 border-t border-border/60 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                  <span>STT {fmtPrice(charges.stt)}</span>
+                  <span>Exchange {fmtPrice(charges.exchangeCharges)}</span>
+                  <span>SEBI {fmtPrice(charges.sebiCharges)}</span>
+                  <span>Stamp duty {fmtPrice(charges.stampDuty)}</span>
+                  <span>DP {fmtPrice(charges.dpCharges)}</span>
+                  <span>GST {fmtPrice(charges.gst)}</span>
+                </div>
+              )}
+              {rMultiple != null && (
+                <div className="mt-2 text-[11px] text-muted-foreground">
+                  R multiple:{" "}
+                  <span className={rMultiple >= 0 ? "text-primary" : "text-destructive"}>
+                    {rMultiple >= 0 ? "+" : ""}
+                    {rMultiple.toFixed(2)}R
+                  </span>
+                </div>
+              )}
             </div>
 
             <DialogFooter className="px-6 py-4 border-t border-border/60 bg-background/40 sm:justify-between">
@@ -324,7 +441,11 @@ export function ExitPositionDialog({
                 className="gap-2 bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 <LogOut className="size-4" />{" "}
-                {exitMut.isPending ? "Closing…" : "Confirm exit"}
+                {exitMut.isPending
+                  ? "Closing…"
+                  : isPartial
+                    ? `Exit ${qtyN} of ${fullQty}`
+                    : "Confirm exit"}
               </Button>
             </DialogFooter>
           </>

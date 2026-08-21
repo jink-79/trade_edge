@@ -7,11 +7,14 @@ import { getPreferences } from "../preferences/preferences.service";
 import { getRecentCandles, getSymbolMeta } from "../../config/phalanx-ohlcv";
 import { logger } from "../../utils/logger";
 import { fetchPositionAiReview } from "./journal.ai-review";
+import { fetchExitSummary } from "./journal.exit-ai";
+import { computeCharges } from "./journal.charges";
 import type {
   AnalyzeTradeInput,
   AutoCaptureInput,
   CreateJournalTradeInput,
   ExitJournalTradeInput,
+  ExitSummaryInput,
   JournalTradeResponse,
   ManualEntryInput,
   ReviewJournalTradeInput,
@@ -69,6 +72,9 @@ function entryMirror(entry: any) {
   };
 }
 
+/** `entry.quantity` here is the EXITED quantity (the full quantity for a full
+ * exit, a scaled-down slice for a partial one) — the caller is responsible
+ * for passing the right slice in. */
 function computeExitMetrics(entry: any, exit: any) {
   const long = String(entry.direction ?? "LONG") === "LONG";
   const pnlPerShare = long
@@ -79,10 +85,16 @@ function computeExitMetrics(entry: any, exit: any) {
   const risk = long
     ? entry.entryPrice - entry.stopPrice
     : entry.stopPrice - entry.entryPrice;
+
+  const charges = computeCharges(invested, entry.quantity * exit.exitPrice);
+  const netPnlAmount = round2(pnlAmount - charges.totalCharges);
+
   return {
     pnlAmount,
     pnlPercent: invested > 0 ? round2((pnlAmount / invested) * 100) : 0,
     rMultiple: risk > 0 ? round2(pnlPerShare / risk) : null,
+    charges,
+    netPnlAmount,
   };
 }
 
@@ -397,9 +409,23 @@ export async function reviewJournalTrade(
   return formatTrade(trade.toObject());
 }
 
+/** Days between entry and exit — used both for the closed-doc snapshot and
+ * for the AI exit-summary context. */
+function holdingDaysBetween(entryDate: Date | string, exitDate: Date | string): number {
+  return Math.max(
+    0,
+    Math.floor((new Date(exitDate).getTime() - new Date(entryDate).getTime()) / 86_400_000),
+  );
+}
+
 /**
- * Records the exit and MOVES the trade from openpositions → closedpositions,
- * computing realised P&L / R (stored flat for dashboard & analytics). Atomic.
+ * Records the exit. A FULL exit (quantity omitted, or equal to the position's
+ * full held quantity) moves the trade from openpositions → closedpositions,
+ * same as before. A PARTIAL exit (quantity < held quantity) instead creates a
+ * new closed doc for just the exited slice and decrements the open doc's
+ * quantity by that amount — the position stays open with the remainder.
+ * Both paths compute realised P&L / R / charges (stored flat for
+ * dashboard & analytics). Atomic either way.
  */
 export async function exitJournalTrade(
   userId: string,
@@ -409,10 +435,20 @@ export async function exitJournalTrade(
   const open: any = await JournalOpen.findOne({ _id: id, userId }).lean();
   if (!open) throw AppError.notFound("Open trade not found");
 
+  const fullQuantity = open.entry.quantity as number;
+  const exitQuantity = input.quantity ?? fullQuantity;
+  if (exitQuantity > fullQuantity) {
+    throw AppError.badRequest(
+      `Can't exit ${exitQuantity} shares — only ${fullQuantity} are held.`,
+    );
+  }
+  const isPartial = exitQuantity < fullQuantity;
+
   const exit = {
     outcome: input.outcome,
     exitPrice: input.exitPrice,
     exitDate: input.exitDate,
+    quantity: exitQuantity,
     manualExitReason: input.manualExitReason ?? null,
     stopWickedThenRecovered: input.stopWickedThenRecovered ?? null,
     targetTaggedThenReversed: input.targetTaggedThenReversed ?? null,
@@ -420,42 +456,101 @@ export async function exitJournalTrade(
     screenshot: input.screenshot ?? null,
     aiAnalysis: input.aiAnalysis ?? null,
   };
-  const metrics = computeExitMetrics(open.entry, exit);
+  // The exited slice's own entry snapshot — same entry data, scaled quantity.
+  const exitedEntry = { ...open.entry, quantity: exitQuantity };
+  const metrics = computeExitMetrics(exitedEntry, exit);
 
   const closedDoc = {
-    _id: open._id,
+    _id: isPartial ? new mongoose.Types.ObjectId() : open._id,
     userId: open.userId,
     tradeNumber: open.tradeNumber,
-    entry: open.entry,
-    exit,
+    entry: exitedEntry,
+    exit: { ...exit, charges: metrics.charges, netPnlAmount: metrics.netPnlAmount },
     outcome: input.outcome,
     dataQuality: open.dataQuality,
     dataQualityNote: open.dataQualityNote ?? null,
     source: open.source,
     needsReview: false,
     gttPlaced: open.gttPlaced,
-    createdAt: open.createdAt,
-    ...entryMirror(open.entry),
+    createdAt: isPartial ? new Date() : open.createdAt,
+    ...entryMirror(exitedEntry),
     exitPrice: exit.exitPrice,
     exitDate: exit.exitDate,
     exitReason: exit.outcome,
     pnlAmount: metrics.pnlAmount,
     pnlPercent: metrics.pnlPercent,
     rMultiple: metrics.rMultiple,
+    netPnlAmount: metrics.netPnlAmount,
+    totalCharges: metrics.charges.totalCharges,
   };
 
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
       await JournalClosed.create([closedDoc], { session });
-      await JournalOpen.deleteOne({ _id: id }, { session });
+      if (isPartial) {
+        const remaining = fullQuantity - exitQuantity;
+        await JournalOpen.updateOne(
+          { _id: id },
+          {
+            $set: {
+              "entry.quantity": remaining,
+              quantity: remaining,
+              qty: remaining,
+            },
+          },
+          { session },
+        );
+      } else {
+        await JournalOpen.deleteOne({ _id: id }, { session });
+      }
     });
   } finally {
     await session.endSession();
   }
 
-  const created = await JournalClosed.findById(id).lean();
+  const created = await JournalClosed.findById(closedDoc._id).lean();
   return formatTrade(created);
+}
+
+/**
+ * On-demand, not-yet-persisted exit summary — generated from the draft exit
+ * inputs so the user can see (and regenerate) it before confirming the exit.
+ * The frontend sends this text back as `aiAnalysis` on the real exit call.
+ */
+export async function getExitSummaryPreview(
+  userId: string,
+  id: string,
+  input: ExitSummaryInput,
+): Promise<{ summary: string }> {
+  const open: any = await JournalOpen.findOne({ _id: id, userId }).lean();
+  if (!open) throw AppError.notFound("Open trade not found");
+
+  const fullQuantity = open.entry.quantity as number;
+  const exitQuantity = input.quantity ?? fullQuantity;
+  if (exitQuantity > fullQuantity) {
+    throw AppError.badRequest(
+      `Can't exit ${exitQuantity} shares — only ${fullQuantity} are held.`,
+    );
+  }
+
+  const exitedEntry = { ...open.entry, quantity: exitQuantity };
+  const metrics = computeExitMetrics(exitedEntry, { exitPrice: input.exitPrice });
+
+  const summary = await fetchExitSummary({
+    symbol: open.entry.ticker,
+    direction: open.entry.direction,
+    entryPrice: open.entry.entryPrice,
+    exitPrice: input.exitPrice,
+    exitQuantity,
+    fullQuantity,
+    holdingDays: holdingDaysBetween(open.entry.entryDate, input.exitDate),
+    pnlPercent: metrics.pnlPercent,
+    netPnlAmount: metrics.netPnlAmount,
+    totalCharges: metrics.charges.totalCharges,
+    outcome: input.outcome,
+  });
+  return { summary };
 }
 
 /**

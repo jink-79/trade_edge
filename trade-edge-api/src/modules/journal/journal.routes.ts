@@ -5,6 +5,7 @@ import {
   getAll,
   getOne,
   exit,
+  exitSummary,
   autoCreate,
   manualEntry,
   aiReview,
@@ -20,6 +21,7 @@ import { validate } from "../../middleware/validate.middleware";
 import {
   CreateJournalTradeSchema,
   ExitJournalTradeSchema,
+  ExitSummarySchema,
   AutoCaptureSchema,
   ManualEntrySchema,
   ReviewJournalTradeSchema,
@@ -57,8 +59,12 @@ router.get("/", getAll);
 // GET /api/journal/:id
 router.get("/:id", getOne);
 
-// POST /api/journal/:id/exit  — record exit and lock the trade
+// POST /api/journal/:id/exit  — record a full or partial exit
 router.post("/:id/exit", validate(ExitJournalTradeSchema), exit);
+
+// POST /api/journal/:id/exit-summary  — on-demand AI note for a draft exit,
+// not persisted until the real exit is submitted
+router.post("/:id/exit-summary", validate(ExitSummarySchema), exitSummary);
 
 // POST /api/journal/:id/ai-review  — on-demand AI take on a held position
 router.post("/:id/ai-review", aiReview);

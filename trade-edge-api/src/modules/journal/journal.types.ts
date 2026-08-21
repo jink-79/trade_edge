@@ -89,6 +89,8 @@ export const ExitJournalTradeSchema = z
     outcome: z.enum(["TARGET", "STOP", "TREND-FLIP", "MANUAL-EXIT"]),
     exitPrice: z.number().positive(),
     exitDate: z.coerce.date(),
+    // Omitted = exit the full held quantity. Partial exits leave the rest open.
+    quantity: z.number().positive().optional(),
     manualExitReason: z.string().max(500).trim().optional(),
     stopWickedThenRecovered: z.boolean().optional(),
     targetTaggedThenReversed: z.boolean().optional(),
@@ -107,6 +109,16 @@ export const ExitJournalTradeSchema = z
   );
 
 export type ExitJournalTradeInput = z.infer<typeof ExitJournalTradeSchema>;
+
+// ── On-demand exit summary (AI-generated note, not persisted until submit) ────
+
+export const ExitSummarySchema = z.object({
+  outcome: z.enum(["TARGET", "STOP", "TREND-FLIP", "MANUAL-EXIT"]),
+  exitPrice: z.number().positive(),
+  exitDate: z.coerce.date(),
+  quantity: z.number().positive().optional(),
+});
+export type ExitSummaryInput = z.infer<typeof ExitSummarySchema>;
 
 // ── Auto-capture (from a Kite trade + candles) ────────────────────────────────
 

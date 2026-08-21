@@ -61,17 +61,36 @@ const EntrySchema = new Schema(
   { _id: false },
 );
 
+const ChargesSchema = new Schema(
+  {
+    brokerage: { type: Number, required: true },
+    stt: { type: Number, required: true },
+    exchangeCharges: { type: Number, required: true },
+    sebiCharges: { type: Number, required: true },
+    stampDuty: { type: Number, required: true },
+    dpCharges: { type: Number, required: true },
+    gst: { type: Number, required: true },
+    totalCharges: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
 const ExitSchema = new Schema(
   {
     outcome: { type: String, enum: OUTCOMES.filter((o) => o !== "STILL-OPEN") },
     exitPrice: { type: Number },
     exitDate: { type: Date },
+    // Quantity actually exited — may be less than the position's full
+    // quantity for a partial exit; the open doc keeps the remainder.
+    quantity: { type: Number, default: null },
     manualExitReason: { type: String, default: null },
     stopWickedThenRecovered: { type: Boolean, default: null },
     targetTaggedThenReversed: { type: Boolean, default: null },
     maxAdverseExcursion: { type: Number, default: null },
     screenshot: { type: String, default: null },
     aiAnalysis: { type: String, default: null },
+    charges: { type: ChargesSchema, default: null },
+    netPnlAmount: { type: Number, default: null },
   },
   { _id: false },
 );
@@ -111,6 +130,8 @@ export interface IJournalTrade {
   pnlAmount?: number | null;
   pnlPercent?: number | null;
   rMultiple?: number | null;
+  netPnlAmount?: number | null;
+  totalCharges?: number | null;
   // last Kite LTP seen for this open position, set by broker-sync
   markPrice?: number | null;
   markUpdatedAt?: Date | null;
@@ -153,6 +174,8 @@ const JournalTradeSchema = new Schema<IJournalTrade>(
     pnlAmount: { type: Number, default: null },
     pnlPercent: { type: Number, default: null },
     rMultiple: { type: Number, default: null },
+    netPnlAmount: { type: Number, default: null },
+    totalCharges: { type: Number, default: null },
     markPrice: { type: Number, default: null },
     markUpdatedAt: { type: Date, default: null },
   },

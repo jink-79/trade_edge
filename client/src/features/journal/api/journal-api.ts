@@ -4,6 +4,7 @@ import type {
   ExitTradePayload,
   JournalTrade,
   NewTradePayload,
+  Outcome,
   ReviewPayload,
 } from "../types/journal.types";
 
@@ -56,6 +57,26 @@ export async function exitJournalTrade(
 ): Promise<JournalTrade> {
   const { data } = await axiosInstance.post<ApiEnvelope<JournalTrade>>(
     `/journal/${id}/exit`,
+    payload,
+  );
+  return data.data;
+}
+
+export interface ExitSummaryPayload {
+  outcome: Exclude<Outcome, "STILL-OPEN">;
+  exitPrice: number;
+  exitDate: string;
+  quantity?: number;
+}
+
+/** On-demand AI exit note for a draft exit — not persisted until the real
+ * exit is submitted with this text as `aiAnalysis`. */
+export async function fetchExitSummary(
+  id: string,
+  payload: ExitSummaryPayload,
+): Promise<{ summary: string }> {
+  const { data } = await axiosInstance.post<ApiEnvelope<{ summary: string }>>(
+    `/journal/${id}/exit-summary`,
     payload,
   );
   return data.data;
