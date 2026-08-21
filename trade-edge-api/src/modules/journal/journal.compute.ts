@@ -172,6 +172,33 @@ export function computeEntryIndicators(
   };
 }
 
+/**
+ * RS-55 exactly as phalanx-live computes it (core/daily_rules.py):
+ * (stock 55-trading-day return) / (Nifty 55-trading-day return) - 1, as a %.
+ * Null when either series doesn't have 55 bars of history before the entry
+ * candle — matches phalanx-live's own NaN-and-skip behavior.
+ */
+export function computeRs55(
+  candles: Candle[],
+  indexCandles: Candle[],
+  entryDate: string,
+): number | null {
+  if (candles.length === 0 || indexCandles.length === 0) return null;
+  const idx = entryIndex(candles, entryDate);
+  const niftyIdx = entryIndex(indexCandles, entryDate);
+  if (idx < 55 || niftyIdx < 55) return null;
+
+  const stockPrev = candles[idx - 55].close;
+  const niftyPrev = indexCandles[niftyIdx - 55].close;
+  if (stockPrev === 0 || niftyPrev === 0) return null;
+
+  const stockFactor = candles[idx].close / stockPrev;
+  const niftyFactor = indexCandles[niftyIdx].close / niftyPrev;
+  if (niftyFactor === 0) return null;
+
+  return round2((stockFactor / niftyFactor - 1) * 100);
+}
+
 export interface Regime {
   niftyVs200Ema: MarketTrend;
   niftyRsi2: number;

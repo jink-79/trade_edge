@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
 import { JournalOpen, JournalClosed } from "./journal.model";
 import { AppError } from "../../utils/api-error";
-import { computeEntryIndicators, computeRegime } from "./journal.compute";
+import { computeEntryIndicators, computeRegime, computeRs55 } from "./journal.compute";
 import { analyzeTradePath } from "./journal.analytics";
 import { getPreferences } from "../preferences/preferences.service";
 import { getRecentCandles, getSymbolMeta } from "../../config/phalanx-ohlcv";
+import { logger } from "../../utils/logger";
 import { fetchPositionAiReview } from "./journal.ai-review";
 import type {
   AnalyzeTradeInput,
@@ -170,6 +171,13 @@ export async function autoCreateJournalTrade(
   );
   const regime = computeRegime(input.indexCandles);
 
+  // Backfill RS-55 the same way phalanx-live computes it (55-trading-day
+  // stock return vs Nifty return) when the caller didn't already supply a
+  // value — e.g. a manual entry for a stock that wasn't that day's ranked
+  // buy candidate still gets a real RS-55 reading, not a blank dash.
+  const rs55Pct =
+    input.rs55Pct ?? computeRs55(input.candles, input.indexCandles, entryDateIso);
+
   // Backfill sector/market-cap bucket from phalanx-live's own reference data
   // when the caller didn't already supply one — never overrides an explicit
   // value (e.g. from a manual review edit).
@@ -196,7 +204,7 @@ export async function autoCreateJournalTrade(
     quantity: input.quantity,
     targetPrice,
     stopPrice,
-    rs55Pct: input.rs55Pct ?? null,
+    rs55Pct,
     atr14: ind.atr14,
     priceAbove200: ind.priceAbove200,
     distanceFrom200Ema: ind.distanceFrom200Ema,
@@ -297,6 +305,65 @@ export async function getAiReviewForTrade(
     marketCapCategory: entry.marketCapCategory ?? null,
   });
   return { aiReview };
+}
+
+/**
+ * One-time-per-symbol backfill for open positions created before sector /
+ * market-cap-category / RS-55 were sourced automatically. Only fills gaps —
+ * never overwrites a value that's already set — and is safe to re-run as
+ * phalanx-live backfills more symbols over time.
+ */
+export async function backfillPositionMeta(): Promise<{
+  checked: number;
+  updated: number;
+  stillMissing: string[];
+}> {
+  const openTrades = await JournalOpen.find({}).lean();
+  let updated = 0;
+  const stillMissing: string[] = [];
+
+  for (const trade of openTrades as any[]) {
+    const entry = trade.entry as Record<string, any>;
+    const needsSector = !entry.sector || entry.sector === "Unknown";
+    const needsMcap = entry.marketCapCategory == null;
+    const needsRs55 = entry.rs55Pct == null;
+    if (!needsSector && !needsMcap && !needsRs55) continue;
+
+    const meta = needsSector || needsMcap ? await getSymbolMeta(entry.ticker) : null;
+
+    const update: Record<string, unknown> = {};
+    if (needsSector && meta?.sector) {
+      update["entry.sector"] = meta.sector;
+      update.sector = meta.sector; // keep the flat mirror in sync
+    }
+    if (needsMcap && meta?.marketCapCategory) {
+      update["entry.marketCapCategory"] = meta.marketCapCategory;
+    }
+    if (needsRs55) {
+      const [candles, indexCandles] = await Promise.all([
+        getRecentCandles(entry.ticker),
+        getRecentCandles("NIFTY"),
+      ]);
+      const rs55Pct = computeRs55(
+        candles,
+        indexCandles,
+        new Date(entry.entryDate).toISOString(),
+      );
+      if (rs55Pct != null) update["entry.rs55Pct"] = rs55Pct;
+    }
+
+    if (Object.keys(update).length > 0) {
+      await JournalOpen.updateOne({ _id: trade._id }, { $set: update });
+      updated++;
+    } else if (needsSector || needsMcap) {
+      stillMissing.push(entry.ticker);
+    }
+  }
+
+  logger.info(
+    `backfillPositionMeta: checked ${openTrades.length}, updated ${updated}, still missing meta for [${stillMissing.join(", ")}]`,
+  );
+  return { checked: openTrades.length, updated, stillMissing };
 }
 
 export async function reviewJournalTrade(

@@ -112,9 +112,11 @@ export function OpenPositionsTable({
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-border/60">
-                  <TableHead className="w-[260px] pl-6">Symbol</TableHead>
+                  <TableHead className="w-[240px] pl-6">Symbol</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
                   <TableHead className="text-right">Entry</TableHead>
+                  <TableHead className="text-right">RS-55</TableHead>
+                  <TableHead className="text-right">Since entry</TableHead>
                   <TableHead className="text-right">Mark / P&amp;L</TableHead>
                   <TableHead className="text-right pr-6">Action</TableHead>
                 </TableRow>
@@ -164,6 +166,7 @@ function PositionRow({
   onAiReview: () => void;
 }) {
   const e = t.entry;
+  const trendRs55 = isTrendRs55(t);
   return (
     <>
       <TableRow
@@ -204,7 +207,7 @@ function PositionRow({
                 )}
               </div>
               <div className="text-xs text-muted-foreground">
-                {e.sector || "—"}
+                {[e.sector, e.marketCapCategory].filter(Boolean).join(" · ") || "—"}
               </div>
             </div>
           </div>
@@ -212,6 +215,16 @@ function PositionRow({
         <TableCell className="text-right tabular">{e.quantity}</TableCell>
         <TableCell className="text-right tabular text-muted-foreground">
           {fmtPrice(e.entryPrice)}
+        </TableCell>
+        <TableCell className="text-right tabular">
+          {trendRs55
+            ? e.rs55Pct != null
+              ? `${e.rs55Pct >= 0 ? "+" : ""}${e.rs55Pct.toFixed(1)}%`
+              : "—"
+            : e.rsi2.toFixed(2)}
+        </TableCell>
+        <TableCell className="text-right tabular">
+          <SinceEntryCell t={t} />
         </TableCell>
         <TableCell className="text-right tabular">
           <MarkCell t={t} />
@@ -252,12 +265,30 @@ function PositionRow({
 
       {open && (
         <TableRow className="hover:bg-transparent border-border/60">
-          <TableCell colSpan={5} className="p-0">
+          <TableCell colSpan={7} className="p-0">
             <ExpandedDetails t={t} capital={capital} />
           </TableCell>
         </TableRow>
       )}
     </>
+  );
+}
+
+/** % move since entry, from the last broker-sync mark. Dash when a trade has
+ * never been synced (manual entries, or before the first sync). */
+function SinceEntryCell({ t }: { t: JournalTrade }) {
+  if (t.markPrice == null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const long = t.entry.direction !== "SHORT";
+  const pct = long
+    ? ((t.markPrice - t.entry.entryPrice) / t.entry.entryPrice) * 100
+    : ((t.entry.entryPrice - t.markPrice) / t.entry.entryPrice) * 100;
+  return (
+    <span className={pct >= 0 ? "text-primary" : "text-destructive"}>
+      {pct >= 0 ? "+" : ""}
+      {pct.toFixed(2)}%
+    </span>
   );
 }
 

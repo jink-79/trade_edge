@@ -8,12 +8,14 @@ import {
   autoCreate,
   manualEntry,
   aiReview,
+  backfillMeta,
   review,
   gttPlaced,
   analyze,
   adherence,
 } from "./journal.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
+import { requireCronSecret } from "../../middleware/cron-auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import {
   CreateJournalTradeSchema,
@@ -31,6 +33,11 @@ const router = Router();
 // Journal payloads carry base64 chart screenshots — allow a larger body here.
 // (The global parser skips /api/journal; see app.ts.)
 router.use(express.json({ limit: "10mb" }));
+
+// POST /api/journal/backfill-meta  — one-time maintenance across ALL users'
+// open trades, not a single user's action, so it's cron-secret-gated ahead
+// of authMiddleware rather than scoped to req.user.
+router.post("/backfill-meta", requireCronSecret, backfillMeta);
 
 router.use(authMiddleware);
 

@@ -9,6 +9,7 @@ import {
   exitJournalTrade,
   autoCreateJournalTrade,
   getAiReviewForTrade,
+  backfillPositionMeta,
   reviewJournalTrade,
   setGttPlaced,
   analyzeJournalTrade,
@@ -72,6 +73,11 @@ export const aiReview = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const result = await getAiReviewForTrade(userId, id);
   sendSuccess(res, result, "AI review fetched");
+});
+
+export const backfillMeta = asyncHandler(async (_req: Request, res: Response) => {
+  const result = await backfillPositionMeta();
+  sendSuccess(res, result, "Backfill complete");
 });
 
 export const review = asyncHandler(async (req: Request, res: Response) => {
