@@ -45,13 +45,14 @@ async function buildPositionUpdate(
       ? round2(((todayClose - prev.close) / prev.close) * 100)
       : null;
 
-  let summary: string;
+  let aiTake: string | null;
   try {
-    summary = await fetchStockUpdate(symbol);
+    aiTake = await fetchStockUpdate(symbol);
   } catch (err) {
-    summary = `⚠️ Could not fetch a market update for ${symbol} (${
-      err instanceof Error ? err.message : "unknown error"
-    }).`;
+    logger.warn(
+      `fetchStockUpdate failed for ${symbol}: ${err instanceof Error ? err.message : "unknown error"}`,
+    );
+    aiTake = null; // omit the section entirely rather than showing an error inline
   }
 
   return {
@@ -61,7 +62,7 @@ async function buildPositionUpdate(
     todayClose,
     sinceEntryPct,
     todayChangePct,
-    summary,
+    aiTake,
     sellSignal: exitSymbols.has(symbol),
     dataStale: staleSymbols.has(symbol),
   };

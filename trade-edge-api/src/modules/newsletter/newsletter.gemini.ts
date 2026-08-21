@@ -2,34 +2,26 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { env } from "../../config/env";
 
 /**
- * One Gemini call per symbol, with Google Search grounding enabled, so the
- * summary reflects what actually happened today — not the model's training
- * data. Deliberately NOT forced into a JSON response schema: grounding tools
- * and strict structured output don't reliably combine in the Gemini API, so
- * this returns plain text and the caller renders it as-is.
+ * One Gemini call per symbol. Deliberately NOT using Google Search grounding
+ * — that tool has its own, much stricter quota separate from the regular
+ * Gemini API quota, and hit a 429 wall on the free tier almost immediately.
+ * This uses the model's general knowledge instead: no live/today's-news
+ * awareness, so the caller must present this as an AI perspective, not news
+ * — see PositionUpdate.aiTake / the "not live news" labeling in the email.
  */
 export async function fetchStockUpdate(symbol: string): Promise<string> {
   if (!env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not configured");
   }
   const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
-    model: env.GEMINI_MODEL,
-    tools: [{ googleSearchRetrieval: {} }],
-  });
-
-  const today = new Date().toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  const model = genAI.getGenerativeModel({ model: env.GEMINI_MODEL });
 
   const result = await model.generateContent(
-    `Today is ${today}. Search for and summarize what happened today with ` +
-      `${symbol} on the NSE (National Stock Exchange of India) — price action, ` +
-      `any news, quarterly results, or announcements from the last 1-2 days. ` +
-      `3-4 sentences, plain text, mention specific dates/figures if you find them. ` +
-      `If you find nothing notable, say so plainly instead of inventing anything.`,
+    `You're briefing a trader on ${symbol}, an NSE-listed (India) stock they currently hold. ` +
+      `Give 2-3 sentences of useful context from what you know about the company: sector, ` +
+      `business quality, typical volatility/catalysts, or anything a holder should keep in mind. ` +
+      `You have no access to live data — do not claim to know today's price, news, or results. ` +
+      `Plain text, no markdown.`,
   );
 
   return result.response.text().trim();
