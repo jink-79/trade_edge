@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { Loader2, LogOut, Sparkles, X } from "lucide-react";
+import { Loader2, LogOut, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -83,9 +82,10 @@ export function ExitPositionDialog({
   const invalidQty = qtyN <= 0 || qtyN > fullQty;
 
   const gross = e ? (exitN - e.entryPrice) * qtyN * (long ? 1 : -1) : 0;
-  const grossPct = e && qtyN > 0 ? (gross / (e.entryPrice * qtyN)) * 100 : 0;
+  const invested = e && qtyN > 0 ? e.entryPrice * qtyN : 0;
   const charges = e ? estimateCharges(e.entryPrice * qtyN, exitN * qtyN) : null;
   const net = charges ? gross - charges.totalCharges : gross;
+  const netPct = invested > 0 ? (net / invested) * 100 : 0;
   const riskPerShare =
     e?.stopPrice == null
       ? null
@@ -175,7 +175,7 @@ export function ExitPositionDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl border-border/60 bg-card/95 backdrop-blur-xl p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-3xl border-border/60 bg-card/95 backdrop-blur-xl p-0 gap-0 overflow-hidden">
         {trade && e && (
           <>
             <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/60">
@@ -201,15 +201,6 @@ export function ExitPositionDialog({
                     {e.sector || "—"} · entered {fmtDate(e.entryDate)}
                   </DialogDescription>
                 </div>
-                <DialogClose asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 -mr-2 text-muted-foreground"
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </DialogClose>
               </div>
             </DialogHeader>
 
@@ -367,7 +358,7 @@ export function ExitPositionDialog({
             </div>
 
             {/* P&L preview */}
-            <div className="mx-6 mb-5 rounded-xl border border-border/60 bg-gradient-to-b from-background/60 to-background/20 p-4">
+            <div className="mx-6 mb-5 rounded-xl border border-border/60 bg-gradient-to-b from-background/60 to-background/20 p-5">
               <div className="flex items-center justify-between">
                 <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   {isPartial ? "Realised P&L preview (partial)" : "Realised P&L preview"}
@@ -383,46 +374,57 @@ export function ExitPositionDialog({
                   {positive ? "Profit" : "Loss"}
                 </Badge>
               </div>
-              <div className="mt-3 grid grid-cols-4 gap-4">
-                <PnlStat
+
+              {/* Gross → Charges → Net waterfall */}
+              <div className="mt-4 flex items-center gap-2.5">
+                <PnlBox
                   label="Gross P&L"
                   value={`${gross >= 0 ? "+" : "−"}${fmtPrice(Math.abs(gross))}`}
                   tone={gross >= 0 ? "good" : "bad"}
                 />
-                <PnlStat
+                <span className="text-muted-foreground text-lg shrink-0">−</span>
+                <PnlBox
                   label="Charges (est.)"
-                  value={charges ? `−${fmtPrice(charges.totalCharges)}` : "—"}
+                  value={charges ? fmtPrice(charges.totalCharges) : "—"}
                   tone="muted"
                 />
-                <PnlStat
+                <span className="text-muted-foreground text-lg shrink-0">=</span>
+                <PnlBox
                   label="Net P&L"
                   value={`${positive ? "+" : "−"}${fmtPrice(Math.abs(net))}`}
                   tone={positive ? "good" : "bad"}
-                  big
-                />
-                <PnlStat
-                  label="Net P&L (%)"
-                  value={`${grossPct >= 0 ? "+" : ""}${grossPct.toFixed(2)}%`}
-                  tone={positive ? "good" : "bad"}
+                  emphasize
                 />
               </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                <PnlBox
+                  label="Net return"
+                  value={`${netPct >= 0 ? "+" : ""}${netPct.toFixed(2)}%`}
+                  tone={positive ? "good" : "bad"}
+                  compact
+                />
+                <PnlBox
+                  label="R multiple"
+                  value={rMultiple != null ? `${rMultiple >= 0 ? "+" : ""}${rMultiple.toFixed(2)}R` : "—"}
+                  tone={rMultiple == null ? "muted" : rMultiple >= 0 ? "good" : "bad"}
+                  compact
+                />
+              </div>
+
               {charges && (
-                <div className="mt-3 pt-3 border-t border-border/60 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                  <span>STT {fmtPrice(charges.stt)}</span>
-                  <span>Exchange {fmtPrice(charges.exchangeCharges)}</span>
-                  <span>SEBI {fmtPrice(charges.sebiCharges)}</span>
-                  <span>Stamp duty {fmtPrice(charges.stampDuty)}</span>
-                  <span>DP {fmtPrice(charges.dpCharges)}</span>
-                  <span>GST {fmtPrice(charges.gst)}</span>
-                </div>
-              )}
-              {rMultiple != null && (
-                <div className="mt-2 text-[11px] text-muted-foreground">
-                  R multiple:{" "}
-                  <span className={rMultiple >= 0 ? "text-primary" : "text-destructive"}>
-                    {rMultiple >= 0 ? "+" : ""}
-                    {rMultiple.toFixed(2)}R
-                  </span>
+                <div className="mt-4 pt-4 border-t border-border/60">
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">
+                    Estimated charges breakdown
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    <ChargeChip label="STT" value={charges.stt} />
+                    <ChargeChip label="Exchange" value={charges.exchangeCharges} />
+                    <ChargeChip label="SEBI" value={charges.sebiCharges} />
+                    <ChargeChip label="Stamp duty" value={charges.stampDuty} />
+                    <ChargeChip label="DP" value={charges.dpCharges} />
+                    <ChargeChip label="GST" value={charges.gst} />
+                  </div>
                 </div>
               )}
             </div>
@@ -474,26 +476,37 @@ function Snap({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PnlStat({
+function PnlBox({
   label,
   value,
   tone,
-  big,
+  emphasize,
+  compact,
 }: {
   label: string;
   value: string;
   tone: "good" | "bad" | "muted";
-  big?: boolean;
+  emphasize?: boolean;
+  compact?: boolean;
 }) {
   return (
-    <div>
-      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+    <div
+      className={cn(
+        "flex-1 min-w-0 rounded-lg border p-3",
+        emphasize
+          ? tone === "good"
+            ? "border-primary/40 bg-primary/10"
+            : "border-destructive/40 bg-destructive/10"
+          : "border-border/60 bg-card/40",
+      )}
+    >
+      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground truncate">
         {label}
       </div>
       <div
         className={cn(
-          "mt-1 tabular font-medium",
-          big ? "text-xl font-semibold" : "text-sm",
+          "mt-1 tabular font-semibold truncate",
+          emphasize ? "text-xl" : compact ? "text-base" : "text-sm",
           tone === "good" && "text-primary",
           tone === "bad" && "text-destructive",
           tone === "muted" && "text-muted-foreground",
@@ -501,6 +514,17 @@ function PnlStat({
       >
         {value}
       </div>
+    </div>
+  );
+}
+
+function ChargeChip({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-border/60 bg-card/40 px-2.5 py-1.5">
+      <div className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground truncate">
+        {label}
+      </div>
+      <div className="mt-0.5 text-xs tabular font-medium">{fmtPrice(value)}</div>
     </div>
   );
 }
