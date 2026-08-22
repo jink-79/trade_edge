@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   ArrowUpRight,
   ArrowDownRight,
-  CalendarClock,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -10,6 +9,8 @@ import {
   Clock,
   Download,
   Filter,
+  Percent,
+  TrendingDown,
   TrendingUp,
   X,
 } from "lucide-react";
@@ -144,14 +145,32 @@ export function CalendarPage() {
     }
     let bestDay: number | null = null;
     let bestPnl = 0;
+    let worstDay: number | null = null;
+    let worstPnl = 0;
     for (const [day, pnl] of pnlByDay) {
       if (bestDay === null || pnl > bestPnl) {
         bestDay = day;
         bestPnl = pnl;
       }
+      if (worstDay === null || pnl < worstPnl) {
+        worstDay = day;
+        worstPnl = pnl;
+      }
     }
 
-    return { entries, exits: exits.length, realized, wr, bestDay, bestPnl };
+    const avgPnl = exits.length ? realized / exits.length : 0;
+
+    return {
+      entries,
+      exits: exits.length,
+      realized,
+      wr,
+      avgPnl,
+      bestDay,
+      bestPnl,
+      worstDay,
+      worstPnl,
+    };
   }, [visibleEvents]);
 
   const selectedEvents = selectedDay ? byDay.get(selectedDay) ?? [] : [];
@@ -222,25 +241,32 @@ export function CalendarPage() {
           </div>
 
           {/* KPIs */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
             <Kpi
               label="Entries"
               value={totals.entries}
               sub="positions opened"
               icon={ArrowUpRight}
-              tone="text-primary"
+              tone="text-amber-400"
             />
             <Kpi
               label="Exits"
               value={totals.exits}
-              sub={`${totals.wr.toFixed(0)}% win rate`}
+              sub="positions closed"
               icon={ArrowDownRight}
               tone="text-emerald-400"
             />
             <Kpi
+              label="Win Rate"
+              value={`${totals.wr.toFixed(0)}%`}
+              sub="of exits this month"
+              icon={Percent}
+              tone={totals.wr >= 50 ? "text-emerald-400" : "text-destructive"}
+            />
+            <Kpi
               label="Realized P&L"
               value={fmtInr(totals.realized)}
-              sub="this month"
+              sub={totals.exits ? `avg ${fmtInr(totals.avgPnl)}/trade` : "this month"}
               icon={TrendingUp}
               tone={totals.realized >= 0 ? "text-emerald-400" : "text-destructive"}
             />
@@ -248,8 +274,15 @@ export function CalendarPage() {
               label="Best day"
               value={totals.bestDay != null ? String(totals.bestDay) : "—"}
               sub={totals.bestDay != null ? fmtInr(totals.bestPnl) : "no exits yet"}
-              icon={CalendarClock}
-              tone="text-amber-400"
+              icon={TrendingUp}
+              tone="text-emerald-400"
+            />
+            <Kpi
+              label="Worst day"
+              value={totals.worstDay != null ? String(totals.worstDay) : "—"}
+              sub={totals.worstDay != null ? fmtInr(totals.worstPnl) : "no exits yet"}
+              icon={TrendingDown}
+              tone="text-destructive"
             />
           </section>
 
