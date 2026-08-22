@@ -14,7 +14,6 @@ import { OverviewPage } from "@/features/overview/pages/overview";
 import { PlaybookPage } from "@/features/playbook/pages/playbook";
 import { PreferencesPage } from "@/features/preferences/pages/preferences-page";
 import { TradeDetailPage } from "@/features/journal/pages/trade-detail-page";
-import { TradeNotesPage } from "@/features/journal/pages/trade-notes-page";
 import { MetricsGraphsPage } from "@/features/backtest-report/pages/metrics-graphs-page";
 import { BlotterPage } from "@/features/backtest-report/pages/blotter-page";
 import { StockPerformancePage } from "@/features/backtest-report/pages/stock-performance-page";
@@ -84,10 +83,6 @@ export const router = createBrowserRouter([
       {
         path: "trades/:id",
         element: <TradeDetailPage />,
-      },
-      {
-        path: "journal/notes",
-        element: <TradeNotesPage />,
       },
       {
         path: "report/metrics",

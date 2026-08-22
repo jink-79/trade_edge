@@ -215,3 +215,21 @@ export async function setRuleAdherence(
   );
   return data.data;
 }
+
+/** Saves the trader's own edit to the free-form review note. */
+export async function saveReviewNote(id: string, text: string): Promise<JournalTrade> {
+  const { data } = await axiosInstance.post<ApiEnvelope<JournalTrade>>(
+    `/journal/${id}/note`,
+    { text },
+  );
+  return data.data;
+}
+
+/** AI drafts (no note yet) or refines (a note already exists) the review
+ * note, and persists the result. */
+export async function generateReviewNote(id: string): Promise<JournalTrade> {
+  const { data } = await axiosInstance.post<ApiEnvelope<JournalTrade>>(
+    `/journal/${id}/note/ai`,
+  );
+  return data.data;
+}

@@ -181,6 +181,12 @@ export interface JournalTrade {
     };
     generatedAt: string;
   } | null;
+  /** Free-form review note — unlike entry.notes (locked once the trade
+   * closes), this is editable any time by the trader or by AI. Works on
+   * open or closed trades. */
+  reviewNote?: string | null;
+  reviewNoteSource?: "user" | "ai" | null;
+  reviewNoteUpdatedAt?: string | null;
   /** Last price mark seen for this open position (from phalanx-live's daily
    * OHLCV, refreshed by the tvdatafeed cron — not a broker LTP). */
   markPrice?: number | null;

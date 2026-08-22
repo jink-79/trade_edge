@@ -13,6 +13,8 @@ import {
   reviewJournalTrade,
   setGttPlaced,
   setRuleAdherence,
+  saveReviewNote,
+  generateReviewNote,
   type ExitSummaryPayload,
 } from "../api/journal-api";
 import type {
@@ -146,6 +148,28 @@ export function useSetRuleAdherence() {
     onSuccess: (trade) => {
       qc.invalidateQueries({ queryKey: journalKeys.all });
       qc.setQueryData(journalKeys.detail(trade.id), trade);
+    },
+  });
+}
+
+export function useSaveReviewNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, text }: { id: string; text: string }) => saveReviewNote(id, text),
+    onSuccess: (trade) => {
+      qc.setQueryData(journalKeys.detail(trade.id), trade);
+      qc.invalidateQueries({ queryKey: journalKeys.list() });
+    },
+  });
+}
+
+export function useGenerateReviewNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => generateReviewNote(id),
+    onSuccess: (trade) => {
+      qc.setQueryData(journalKeys.detail(trade.id), trade);
+      qc.invalidateQueries({ queryKey: journalKeys.list() });
     },
   });
 }

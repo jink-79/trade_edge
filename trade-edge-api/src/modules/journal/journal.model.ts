@@ -152,6 +152,12 @@ export interface IJournalTrade {
     exitCheck: Record<string, any>;
     generatedAt: Date;
   } | null;
+  // Free-form review note — unlike entry.notes (locked once the trade
+  // closes), this is editable any time, by the trader or by AI. "source"
+  // records who wrote the CURRENT text, not a full edit history.
+  reviewNote?: string | null;
+  reviewNoteSource?: "user" | "ai" | null;
+  reviewNoteUpdatedAt?: Date | null;
   // ── flat mirrors (read by dashboard/analytics Position & Trade models) ──
   symbol?: string;
   stockName?: string;
@@ -208,6 +214,9 @@ const JournalTradeSchema = new Schema<IJournalTrade>(
     analytics: { type: Schema.Types.Mixed, default: null },
     chartSnapshot: { type: ChartSnapshotSchema, default: null },
     tradeInsight: { type: Schema.Types.Mixed, default: null },
+    reviewNote: { type: String, default: null },
+    reviewNoteSource: { type: String, enum: ["user", "ai"], default: null },
+    reviewNoteUpdatedAt: { type: Date, default: null },
 
     // flat mirrors
     symbol: { type: String, default: null },

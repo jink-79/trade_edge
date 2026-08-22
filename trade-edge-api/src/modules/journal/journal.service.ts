@@ -18,6 +18,7 @@ import { fetchExitSummary } from "./journal.exit-ai";
 import { computeCharges } from "./journal.charges";
 import { checkEntryAdherence, checkExitAdherence } from "./journal.rule-check";
 import { fetchTradeInsight } from "./journal.trade-insight";
+import { fetchReviewNoteDraft } from "./journal.review-note-ai";
 import type {
   AnalyzeTradeInput,
   AutoCaptureInput,
@@ -28,6 +29,7 @@ import type {
   ManualEntryInput,
   ReviewJournalTradeInput,
   SetAdherenceInput,
+  SetReviewNoteInput,
 } from "./journal.types";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -50,6 +52,9 @@ function formatTrade(doc: any): JournalTradeResponse {
     ruleAdherenceNote: doc.ruleAdherenceNote ?? null,
     analytics: doc.analytics ?? null,
     tradeInsight: doc.tradeInsight ?? null,
+    reviewNote: doc.reviewNote ?? null,
+    reviewNoteSource: doc.reviewNoteSource ?? null,
+    reviewNoteUpdatedAt: doc.reviewNoteUpdatedAt ?? null,
     markPrice: doc.markPrice ?? null,
     markUpdatedAt: doc.markUpdatedAt ?? null,
     markDate: doc.markDate ?? null,
@@ -860,6 +865,59 @@ export async function setRuleAdherence(
   if (!doc) throw AppError.notFound("Trade not found");
   doc.set("ruleAdherence", input.ruleAdherence);
   doc.set("ruleAdherenceNote", input.ruleAdherenceNote ?? null);
+  await doc.save();
+  return formatTrade(doc.toObject());
+}
+
+/** Save the trader's own edit to the review note (works open or closed). */
+export async function setReviewNote(
+  userId: string,
+  id: string,
+  input: SetReviewNoteInput,
+): Promise<JournalTradeResponse> {
+  const doc = await findEitherDoc(userId, id);
+  if (!doc) throw AppError.notFound("Trade not found");
+  doc.set("reviewNote", input.text);
+  doc.set("reviewNoteSource", "user");
+  doc.set("reviewNoteUpdatedAt", new Date());
+  await doc.save();
+  return formatTrade(doc.toObject());
+}
+
+/**
+ * AI drafts (no note yet) or refines (a note already exists) the review
+ * note in place — works on open or closed trades, unlike the formal
+ * rules-adherence review which only makes sense once a trade is closed.
+ */
+export async function generateReviewNoteDraft(
+  userId: string,
+  id: string,
+): Promise<JournalTradeResponse> {
+  const doc = await findEitherDoc(userId, id);
+  if (!doc) throw AppError.notFound("Trade not found");
+
+  const entry = doc.entry as Record<string, any>;
+  const exit = doc.exit as Record<string, any> | null;
+  const existingNote = (doc as any).reviewNote ?? null;
+  const tradeInsight = (doc as any).tradeInsight?.text ?? null;
+
+  const text = await fetchReviewNoteDraft({
+    symbol: entry.ticker,
+    direction: entry.direction,
+    entryDate: new Date(entry.entryDate).toISOString(),
+    entryPrice: entry.entryPrice,
+    quantity: entry.quantity,
+    isClosed: !!exit,
+    exitDate: exit ? new Date(exit.exitDate).toISOString() : null,
+    exitPrice: exit?.exitPrice ?? null,
+    outcome: doc.outcome,
+    existingNote,
+    tradeInsight,
+  });
+
+  doc.set("reviewNote", text);
+  doc.set("reviewNoteSource", "ai");
+  doc.set("reviewNoteUpdatedAt", new Date());
   await doc.save();
   return formatTrade(doc.toObject());
 }

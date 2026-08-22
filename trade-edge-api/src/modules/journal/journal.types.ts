@@ -195,6 +195,13 @@ export const SetAdherenceSchema = z.object({
 });
 export type SetAdherenceInput = z.infer<typeof SetAdherenceSchema>;
 
+// ── Review note (free-form, user- or AI-authored, always editable) ───────────
+
+export const SetReviewNoteSchema = z.object({
+  text: z.string().max(4000).trim(),
+});
+export type SetReviewNoteInput = z.infer<typeof SetReviewNoteSchema>;
+
 // ── Trade-path analytics (MAE/MFE + exit optimizer) ───────────────────────────
 
 export const AnalyzeTradeSchema = z.object({
@@ -220,6 +227,9 @@ export interface JournalTradeResponse {
   ruleAdherenceNote?: string | null;
   analytics?: Record<string, unknown> | null;
   tradeInsight?: Record<string, unknown> | null;
+  reviewNote?: string | null;
+  reviewNoteSource?: "user" | "ai" | null;
+  reviewNoteUpdatedAt?: Date | null;
   markPrice?: number | null;
   markUpdatedAt?: Date | null;
   markDate?: Date | null;

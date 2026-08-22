@@ -18,6 +18,8 @@ import {
   setGttPlaced,
   analyzeJournalTrade,
   setRuleAdherence,
+  setReviewNote,
+  generateReviewNoteDraft,
 } from "./journal.service";
 import type {
   AnalyzeTradeInput,
@@ -29,6 +31,7 @@ import type {
   ManualEntryInput,
   ReviewJournalTradeInput,
   SetAdherenceInput,
+  SetReviewNoteInput,
 } from "./journal.types";
 
 export const create = asyncHandler(async (req: Request, res: Response) => {
@@ -144,4 +147,19 @@ export const adherence = asyncHandler(async (req: Request, res: Response) => {
   const input = req.body as SetAdherenceInput;
   const trade = await setRuleAdherence(userId, id, input);
   sendSuccess(res, trade, "Rule adherence updated");
+});
+
+export const saveNote = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const id = req.params.id as string;
+  const input = req.body as SetReviewNoteInput;
+  const trade = await setReviewNote(userId, id, input);
+  sendSuccess(res, trade, "Note saved");
+});
+
+export const aiNote = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const id = req.params.id as string;
+  const trade = await generateReviewNoteDraft(userId, id);
+  sendSuccess(res, trade, "AI note generated");
 });

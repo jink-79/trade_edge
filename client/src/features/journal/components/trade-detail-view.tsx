@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import {
   Activity,
   ArrowLeft,
@@ -13,6 +14,7 @@ import {
   Layers,
   LineChart,
   Loader2,
+  NotebookPen,
   Ruler,
   Scale,
   ShieldAlert,
@@ -33,6 +35,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -48,7 +51,12 @@ import {
   fmtPrice,
   isTrendRs55,
 } from "../utils/journal-utils";
-import { useJournalTrade, useGenerateTradeInsight } from "../hooks/use-journal";
+import {
+  useJournalTrade,
+  useGenerateTradeInsight,
+  useSaveReviewNote,
+  useGenerateReviewNote,
+} from "../hooks/use-journal";
 import { TradeChart } from "./trade-chart";
 import { StockStrengthCard } from "./stock-strength-card";
 import { TradeExcursionCard } from "./trade-excursion-card";
@@ -1066,6 +1074,8 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
 
         {/* NOTES & MEDIA */}
         <TabsContent value="notes" className="mt-6 space-y-6">
+          <ReviewNoteCard trade={trade} />
+
           {(e.screenshot || x?.screenshot) && (
             <SectionCard
               icon={ImageOff}
@@ -1119,7 +1129,7 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
           )}
 
           {(e.notes || trade.dataQualityNote) && (
-            <SectionCard icon={Sparkles} title="Notes">
+            <SectionCard icon={Sparkles} title="Entry note" desc="Captured at entry — locked once the trade closes.">
               {e.notes && (
                 <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
                   {e.notes}
@@ -1131,12 +1141,6 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
                 </p>
               )}
             </SectionCard>
-          )}
-
-          {!e.screenshot && !x?.screenshot && !e.aiAnalysis && !x?.aiAnalysis && !e.notes && !trade.dataQualityNote && (
-            <div className="rounded-xl border border-dashed border-border/60 bg-card/40 py-12 text-center text-sm text-muted-foreground">
-              No screenshots or notes attached to this trade yet.
-            </div>
           )}
         </TabsContent>
       </Tabs>
@@ -1226,6 +1230,104 @@ function TradeReviewCard({ trade }: { trade: JournalTrade }) {
           could have gone better.
         </p>
       )}
+    </SectionCard>
+  );
+}
+
+/* ── Review note (free-form, editable, user- or AI-authored) ──────────── */
+
+function ReviewNoteCard({ trade }: { trade: JournalTrade }) {
+  const saveMut = useSaveReviewNote();
+  const aiMut = useGenerateReviewNote();
+  const [text, setText] = useState(trade.reviewNote ?? "");
+
+  // Re-sync local draft whenever a different trade loads, or the AI
+  // generates/refines new text server-side — but not on every keystroke.
+  useEffect(() => {
+    setText(trade.reviewNote ?? "");
+  }, [trade.id, trade.reviewNote]);
+
+  const dirty = text !== (trade.reviewNote ?? "");
+  const busy = saveMut.isPending || aiMut.isPending;
+
+  const handleSave = () => {
+    saveMut.mutate(
+      { id: trade.id, text },
+      {
+        onError: (err: unknown) =>
+          toast.error(
+            (err as { response?: { data?: { message?: string } } })?.response?.data
+              ?.message ?? "Could not save the note",
+          ),
+      },
+    );
+  };
+
+  const handleAi = () => {
+    aiMut.mutate(trade.id, {
+      onSuccess: () => toast.success(trade.reviewNote ? "Note refined" : "Note drafted"),
+      onError: (err: unknown) =>
+        toast.error(
+          (err as { response?: { data?: { message?: string } } })?.response?.data
+            ?.message ?? "Could not generate a note right now",
+        ),
+    });
+  };
+
+  return (
+    <SectionCard
+      icon={NotebookPen}
+      title="Review note"
+      desc="Your own take on this trade — write it yourself, or let AI draft or refine it."
+      right={
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 text-xs"
+          disabled={busy}
+          onClick={handleAi}
+        >
+          {aiMut.isPending ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="size-3.5" />
+          )}
+          {trade.reviewNote ? "Improve with AI" : "Draft with AI"}
+        </Button>
+      }
+    >
+      <div className="space-y-3">
+        <Textarea
+          value={text}
+          onChange={(ev) => setText(ev.target.value)}
+          placeholder="Write your thesis, what went well, what you'd do differently…"
+          className="min-h-[140px] resize-y bg-background/40 leading-relaxed text-sm"
+          disabled={busy}
+        />
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[11px] text-muted-foreground">
+            {trade.reviewNoteUpdatedAt ? (
+              <>
+                {trade.reviewNoteSource === "ai" ? "AI draft" : "Edited by you"} ·{" "}
+                {fmtDateTime(trade.reviewNoteUpdatedAt)}
+              </>
+            ) : (
+              "No note yet"
+            )}
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8"
+            disabled={!dirty || busy}
+            onClick={handleSave}
+          >
+            {saveMut.isPending && <Loader2 className="size-3.5 animate-spin" />}
+            Save
+          </Button>
+        </div>
+      </div>
     </SectionCard>
   );
 }

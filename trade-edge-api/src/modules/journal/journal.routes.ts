@@ -17,6 +17,8 @@ import {
   gttPlaced,
   analyze,
   adherence,
+  saveNote,
+  aiNote,
 } from "./journal.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
 import { requireCronSecret } from "../../middleware/cron-auth.middleware";
@@ -31,6 +33,7 @@ import {
   GttPlacedSchema,
   AnalyzeTradeSchema,
   SetAdherenceSchema,
+  SetReviewNoteSchema,
 } from "./journal.types";
 
 const router = Router();
@@ -95,5 +98,11 @@ router.post("/:id/analytics", validate(AnalyzeTradeSchema), analyze);
 
 // POST /api/journal/:id/adherence  — tag system-following vs discretionary
 router.post("/:id/adherence", validate(SetAdherenceSchema), adherence);
+
+// POST /api/journal/:id/note  — save the trader's own edit to the review note
+router.post("/:id/note", validate(SetReviewNoteSchema), saveNote);
+
+// POST /api/journal/:id/note/ai  — AI drafts (or refines) the review note
+router.post("/:id/note/ai", aiNote);
 
 export default router;
