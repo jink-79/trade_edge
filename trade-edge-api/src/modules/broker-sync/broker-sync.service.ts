@@ -219,7 +219,13 @@ export async function refreshAllMarksFromOhlcv(): Promise<MarkRefreshSummary> {
       continue;
     }
     for (const t of trades) {
-      await updateOpenTradeMark(t.userId, String((t as any)._id), today.close);
+      await updateOpenTradeMark(
+        t.userId,
+        String((t as any)._id),
+        today.close,
+        undefined,
+        new Date(today.date),
+      );
       userIds.add(t.userId);
       updated++;
     }

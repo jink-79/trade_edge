@@ -135,6 +135,10 @@ export interface IJournalTrade {
   // last Kite LTP seen for this open position, set by broker-sync
   markPrice?: number | null;
   markUpdatedAt?: Date | null;
+  // the OHLCV bar's own trading-day date behind markPrice (null for a Kite
+  // LTP mark, which has no dated close) — this is "as of" data freshness,
+  // distinct from markUpdatedAt which is just when the refresh job ran.
+  markDate?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -178,6 +182,7 @@ const JournalTradeSchema = new Schema<IJournalTrade>(
     totalCharges: { type: Number, default: null },
     markPrice: { type: Number, default: null },
     markUpdatedAt: { type: Date, default: null },
+    markDate: { type: Date, default: null },
   },
   { timestamps: true },
 );

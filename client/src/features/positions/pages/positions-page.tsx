@@ -26,12 +26,10 @@ export function PositionsPage() {
     () => open.filter((t) => t.needsReview).length,
     [open],
   );
-  const lastRefreshedAt = useMemo(() => {
-    const stamps = open
-      .map((t) => t.markUpdatedAt)
-      .filter((d): d is string => !!d);
-    if (stamps.length === 0) return null;
-    return stamps.reduce((latest, d) => (d > latest ? d : latest));
+  const pricesAsOf = useMemo(() => {
+    const dates = open.map((t) => t.markDate).filter((d): d is string => !!d);
+    if (dates.length === 0) return null;
+    return dates.reduce((latest, d) => (d > latest ? d : latest));
   }, [open]);
 
   const handleAdd = (payload: ManualEntryPayload) => {
@@ -57,7 +55,7 @@ export function PositionsPage() {
             <OpenPositionsHero
               count={open.length}
               needsReview={needsReview}
-              lastRefreshedAt={lastRefreshedAt}
+              pricesAsOf={pricesAsOf}
             />
             <Button
               onClick={() => setShowForm((v) => !v)}

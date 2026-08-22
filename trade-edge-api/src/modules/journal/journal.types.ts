@@ -221,6 +221,7 @@ export interface JournalTradeResponse {
   analytics?: Record<string, unknown> | null;
   markPrice?: number | null;
   markUpdatedAt?: Date | null;
+  markDate?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

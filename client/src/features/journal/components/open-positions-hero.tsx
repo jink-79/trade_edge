@@ -1,21 +1,24 @@
 import { ListChecks } from "lucide-react";
 
-const fmtRefreshedAt = (iso: string) =>
-  new Date(iso).toLocaleString("en-IN", {
+const fmtAsOfDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", {
+    weekday: "short",
     day: "2-digit",
     month: "short",
-    hour: "numeric",
-    minute: "2-digit",
+    year: "numeric",
   });
 
 export function OpenPositionsHero({
   count,
   needsReview,
-  lastRefreshedAt,
+  pricesAsOf,
 }: {
   count: number;
   needsReview: number;
-  lastRefreshedAt: string | null;
+  /** The OHLCV bar date behind the current mark prices — i.e. which trading
+   * day's close phalanx-live's tvdatafeed cron last wrote to Atlas. Null
+   * when no open position has been priced yet. */
+  pricesAsOf: string | null;
 }) {
   return (
     <div>
@@ -33,9 +36,9 @@ export function OpenPositionsHero({
         the trade resolves.
       </p>
       <p className="mt-1 text-xs text-muted-foreground/70">
-        {lastRefreshedAt
-          ? `Prices last refreshed ${fmtRefreshedAt(lastRefreshedAt)}`
-          : "Prices not yet refreshed for these positions"}
+        {pricesAsOf
+          ? `Prices as of ${fmtAsOfDate(pricesAsOf)} close`
+          : "No priced positions yet — phalanx-live hasn't tracked this symbol"}
       </p>
     </div>
   );

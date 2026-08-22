@@ -42,6 +42,7 @@ function formatTrade(doc: any): JournalTradeResponse {
     analytics: doc.analytics ?? null,
     markPrice: doc.markPrice ?? null,
     markUpdatedAt: doc.markUpdatedAt ?? null,
+    markDate: doc.markDate ?? null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -614,8 +615,13 @@ export async function updateOpenTradeMark(
   id: string,
   markPrice: number,
   quantity?: number,
+  markDate?: Date,
 ): Promise<JournalTradeResponse> {
-  const update: Record<string, unknown> = { markPrice, markUpdatedAt: new Date() };
+  const update: Record<string, unknown> = {
+    markPrice,
+    markUpdatedAt: new Date(),
+    markDate: markDate ?? null,
+  };
   if (quantity != null) {
     update.quantity = quantity;
     update.qty = quantity;

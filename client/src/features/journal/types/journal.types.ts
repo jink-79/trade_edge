@@ -162,9 +162,13 @@ export interface JournalTrade {
   ruleAdherence?: RuleAdherence | null;
   ruleAdherenceNote?: string | null;
   analytics?: TradeAnalytics | null;
-  /** Last Kite LTP seen for this open position, set by broker-sync. */
+  /** Last price mark seen for this open position (from phalanx-live's daily
+   * OHLCV, refreshed by the tvdatafeed cron — not a broker LTP). */
   markPrice?: number | null;
   markUpdatedAt?: string | null;
+  /** The OHLCV bar's own trading-day date behind markPrice — this is the
+   * real "data as of" date; markUpdatedAt is just when the refresh job ran. */
+  markDate?: string | null;
   createdAt: string;
   updatedAt: string;
 }
