@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Filter, Search } from "lucide-react";
+import { Filter, Info, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { fmtPrice, fmtSignedINR } from "../utils/journal-utils";
 import { metricsFor } from "./trade-history-kpis";
@@ -54,6 +60,7 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
   }, [trades, query]);
 
   return (
+    <TooltipProvider>
     <Card className="border-border/60 bg-card/60 backdrop-blur overflow-hidden">
       <CardHeader className="pb-4 flex flex-row items-center justify-between gap-4">
         <div>
@@ -100,7 +107,22 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
                   <TableHead className="text-right">Charges</TableHead>
                   <TableHead className="text-right">Realised P&amp;L</TableHead>
                   <TableHead className="text-right">Days</TableHead>
-                  <TableHead className="text-right">R</TableHead>
+                  <TableHead className="text-right">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 cursor-help">
+                          R <Info className="size-3 text-muted-foreground" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[260px] text-left">
+                        R-multiple = profit ÷ risk per share. Normally "risk" is
+                        the entry-to-stop-loss distance, but Trend+RS-55 has no
+                        stop-loss. Trades without one use ATR(14) at entry
+                        instead (marked "vs ATR") — profit measured against the
+                        stock's typical daily swing, not a real stop distance.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TableHead>
                   <TableHead>Outcome</TableHead>
                 </TableRow>
               </TableHeader>
@@ -119,6 +141,7 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
         )}
       </CardContent>
     </Card>
+    </TooltipProvider>
   );
 }
 
@@ -222,7 +245,18 @@ function HistoryRow({
               {m.rMultiple.toFixed(2)}R
             </div>
             {m.rMultipleBasis === "atr" && (
-              <div className="text-[10px] text-muted-foreground font-normal">vs ATR</div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-[10px] text-muted-foreground font-normal cursor-help underline decoration-dotted underline-offset-2">
+                    vs ATR
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px] text-left">
+                  No stop-loss on this trade, so R is measured against ATR(14) at
+                  entry (the stock's typical daily swing) instead of a real risk
+                  distance — not the standard R-multiple calculation.
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         ) : (

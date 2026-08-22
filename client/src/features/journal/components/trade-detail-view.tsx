@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   Gauge,
   ImageOff,
+  Info,
   Layers,
   LineChart,
   Loader2,
@@ -32,6 +33,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { usePreferences } from "@/features/preferences/hooks/use-preferences";
 import {
@@ -172,7 +179,7 @@ function Row({
   value,
   tone = "default",
 }: {
-  label: string;
+  label: React.ReactNode;
   value: React.ReactNode;
   tone?: "default" | "good" | "bad" | "muted";
 }) {
@@ -387,6 +394,7 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
       : Math.max(0, Math.floor((Date.now() - new Date(e.entryDate).getTime()) / 86_400_000));
 
   return (
+    <TooltipProvider>
     <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 max-w-[1600px]">
       {/* HEADER */}
       <div className="space-y-4">
@@ -730,9 +738,23 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
                   {exitMetrics.rMultiple != null && (
                     <Row
                       label={
-                        exitMetrics.rMultipleBasis === "atr"
-                          ? "R multiple (vs ATR)"
-                          : "R multiple"
+                        exitMetrics.rMultipleBasis === "atr" ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted underline-offset-2">
+                                R multiple (vs ATR) <Info className="size-3" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[260px] text-left">
+                              No stop-loss on this trade, so R is measured against
+                              ATR(14) at entry (the stock's typical daily swing)
+                              instead of a real risk distance — not the standard
+                              R-multiple calculation.
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          "R multiple"
+                        )
                       }
                       value={`${exitMetrics.rMultiple >= 0 ? "+" : ""}${exitMetrics.rMultiple.toFixed(2)}R`}
                       tone={exitMetrics.rMultiple >= 0 ? "good" : "bad"}
@@ -1119,6 +1141,7 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
         </TabsContent>
       </Tabs>
     </div>
+    </TooltipProvider>
   );
 }
 
