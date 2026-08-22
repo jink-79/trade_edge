@@ -3,6 +3,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -33,7 +34,24 @@ export function ReturnsCharts({
   rDistributionMode,
 }: ReturnsChartsProps) {
   const greenMonths = monthlyReturns.filter((m) => m.r >= 0).length;
-  const bestMonth = monthlyReturns.reduce((a, b) => (b.r > a.r ? b : a));
+  const bestMonth =
+    monthlyReturns.length > 0
+      ? monthlyReturns.reduce((a, b) => (b.r > a.r ? b : a))
+      : null;
+
+  const totalBucketed = rDistribution.reduce((s, b) => s + b.n, 0);
+  const negativeCount = rDistribution
+    .filter((b) => b.bucket.startsWith("-") || b.bucket.startsWith("≤"))
+    .reduce((s, b) => s + b.n, 0);
+  const positiveCount = totalBucketed - negativeCount;
+  const distDescription =
+    totalBucketed === 0
+      ? "No closed trades in this range yet."
+      : positiveCount > negativeCount
+        ? `${positiveCount} of ${totalBucketed} trades landed positive — skewed right.`
+        : positiveCount < negativeCount
+          ? `${negativeCount} of ${totalBucketed} trades landed negative — skewed left.`
+          : `Split evenly between positive and negative outcomes.`;
 
   return (
     <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -48,53 +66,72 @@ export function ReturnsCharts({
               Monthly returns
             </CardTitle>
             <CardDescription>
-              {greenMonths} green months, {monthlyReturns.length - greenMonths}{" "}
-              red. Best: {bestMonth.m} {fmtPct(bestMonth.r)}.
+              {monthlyReturns.length === 0
+                ? "No closed trades in this range yet."
+                : bestMonth
+                  ? `${greenMonths} green months, ${monthlyReturns.length - greenMonths} red. Best: ${bestMonth.m} ${fmtPct(bestMonth.r)}.`
+                  : ""}
             </CardDescription>
           </div>
           <Badge
             variant="outline"
             className="text-[10px] uppercase tracking-[0.14em]"
           >
-            <CalendarRange className="size-3 mr-1" /> 12 mo
+            <CalendarRange className="size-3 mr-1" /> {monthlyReturns.length} mo
           </Badge>
         </CardHeader>
         <CardContent>
-          <div className="h-60">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={monthlyReturns}
-                margin={{ left: 0, right: 8, top: 8 }}
-              >
-                <CartesianGrid {...CHART_STYLE.grid} vertical={false} />
-                <XAxis
-                  dataKey="m"
-                  tick={CHART_STYLE.tick}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={CHART_STYLE.tick}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `${v}%`}
-                />
-                <Tooltip
-                  contentStyle={CHART_STYLE.tooltip}
-                  formatter={(v) => (typeof v === "number" ? fmtPct(v) : "")}
-                />
-                <ReferenceLine y={0} stroke="var(--border)" />
-                <Bar dataKey="r" radius={[6, 6, 2, 2]}>
-                  {monthlyReturns.map((m, i) => (
-                    <Cell
-                      key={i}
-                      fill={m.r >= 0 ? "var(--primary)" : "var(--destructive)"}
+          {monthlyReturns.length === 0 ? (
+            <div className="h-60 grid place-items-center text-sm text-muted-foreground">
+              No closed trades in this range yet.
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={monthlyReturns}
+                  margin={{ left: 0, right: 8, top: 20 }}
+                >
+                  <CartesianGrid {...CHART_STYLE.grid} vertical={false} />
+                  <XAxis
+                    dataKey="m"
+                    tick={CHART_STYLE.tick}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={CHART_STYLE.tick}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => `${v}%`}
+                  />
+                  <Tooltip
+                    contentStyle={CHART_STYLE.tooltip}
+                    formatter={(v) => (typeof v === "number" ? fmtPct(v) : "")}
+                  />
+                  <ReferenceLine y={0} stroke="var(--border)" />
+                  {/* Equal corner radius on every side — a per-side radius
+                      like [6,6,2,2] rounds the wrong end for bars that dip
+                      below zero (their "far" tip is the bottom, not top). */}
+                  <Bar dataKey="r" radius={[4, 4, 4, 4]} maxBarSize={36}>
+                    <LabelList
+                      dataKey="r"
+                      position="top"
+                      formatter={(v: number) => fmtPct(v)}
+                      style={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                     />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+                    {monthlyReturns.map((m, i) => (
+                      <Cell
+                        key={i}
+                        fill={m.r >= 0 ? "var(--primary)" : "var(--destructive)"}
+                        fillOpacity={0.85}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -108,12 +145,17 @@ export function ReturnsCharts({
             {rDistributionMode === "r" ? "R-multiple distribution" : "Return % distribution"}
           </CardTitle>
           <CardDescription>
-            {rDistributionMode === "r"
-              ? "Right-tailed — your edge."
-              : "No fixed stop-loss on this strategy, so bucketed by realized return % instead of R-multiple."}
+            {rDistributionMode === "pct" &&
+              "No fixed stop-loss on this strategy, so bucketed by realized return % instead of R-multiple. "}
+            {distDescription}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {rDistribution.length === 0 ? (
+            <div className="h-60 grid place-items-center text-sm text-muted-foreground">
+              No closed trades in this range yet.
+            </div>
+          ) : (
           <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
@@ -150,6 +192,7 @@ export function ReturnsCharts({
               </BarChart>
             </ResponsiveContainer>
           </div>
+          )}
         </CardContent>
       </Card>
     </section>

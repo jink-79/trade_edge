@@ -1,4 +1,5 @@
 import { JournalClosed as Trade } from '../journal/journal.model'
+import { getRecentCandles } from '../../config/phalanx-ohlcv'
 import type {
   Range,
   AnalyticsResponse,
@@ -32,6 +33,14 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
 
+/** Net P&L when charges were tracked (charges-aware); falls back to the
+ * gross figure for trades closed before charges tracking existed — same
+ * convention as the dashboard and trade history, so the same trades add up
+ * to the same numbers on every page. */
+function netPnlFor(t: any): number {
+  return t.netPnlAmount ?? t.pnlAmount ?? 0
+}
+
 function holdMinutes(entryDate: Date, exitDate: Date): number {
   return Math.round((exitDate.getTime() - entryDate.getTime()) / 60000)
 }
@@ -46,6 +55,15 @@ function formatAvgHold(totalMinutes: number, count: number): string {
 
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
+/** yyyy-m sortable key + a short display label — bucketing by month name
+ * alone (the old behaviour) silently merged e.g. Jan 2025 and Jan 2026 into
+ * one bucket for any range spanning more than a year. */
+function monthKey(d: Date): { key: string; label: string } {
+  const y = d.getFullYear()
+  const m = d.getMonth()
+  return { key: `${y}-${String(m).padStart(2, '0')}`, label: `${MONTH_LABELS[m]} '${String(y).slice(2)}` }
+}
+
 // ── R-bucket label ────────────────────────────────────────────────────────────
 // rMultiple is null until stop-loss tracking is added; we skip distribution
 // when no R data exists and return empty array
@@ -58,7 +76,7 @@ function rBucketLabel(r: number): string {
 }
 
 // ── %-return bucket label (fallback when no trade has an rMultiple, e.g. ─────
-// trend-rs55 which has no fixed stop-loss) — 5-point-wide buckets
+// Overwatch, which has no fixed stop-loss) — 5-point-wide buckets
 
 function pctBucketLabel(pct: number): string {
   const floored = Math.floor(pct / 5) * 5
@@ -83,17 +101,49 @@ function calcStreaks(wins: boolean[]): { best: number; worst: number } {
   return { best, worst }
 }
 
-// ── Max drawdown from cumulative PnL series ───────────────────────────────────
+// ── Drawdown episodes from a chronological P&L series ─────────────────────────
+// Walks the cumulative equity curve looking for peak -> trough -> new-peak
+// cycles, so maxDd/avgDd/recoveryDays are all derived from the same episode
+// list instead of maxDd being computed one way and avgDd/recovery being
+// invented separately.
 
-function calcMaxDrawdown(sortedPnls: number[]): number {
-  let peak = 0, maxDd = 0, running = 0
-  for (const pnl of sortedPnls) {
-    running += pnl
-    if (running > peak) peak = running
-    const dd = peak > 0 ? ((peak - running) / peak) * 100 : 0
-    if (dd > maxDd) maxDd = dd
+function calcDrawdownStats(
+  sorted: { pnl: number; date: Date }[],
+): { maxDd: number; avgDd: number; recoveryDays: number } {
+  let peak = 0
+  let peakDate: Date | null = null
+  let running = 0
+  let inDrawdown = false
+  let episodeDepth = 0
+  const completed: { depth: number; days: number }[] = []
+
+  for (const t of sorted) {
+    running += t.pnl
+    if (running >= peak) {
+      if (inDrawdown && peakDate) {
+        completed.push({
+          depth: episodeDepth,
+          days: Math.round((t.date.getTime() - peakDate.getTime()) / 86400000),
+        })
+      }
+      peak = running
+      peakDate = t.date
+      inDrawdown = false
+      episodeDepth = 0
+    } else {
+      inDrawdown = true
+      const depth = peak > 0 ? ((peak - running) / peak) * 100 : 0
+      episodeDepth = Math.max(episodeDepth, depth)
+    }
   }
-  return round2(maxDd)
+
+  const allDepths = [...completed.map((e) => e.depth), ...(inDrawdown ? [episodeDepth] : [])]
+  const maxDd = allDepths.length > 0 ? Math.max(...allDepths) : 0
+  const avgDd = allDepths.length > 0 ? allDepths.reduce((s, d) => s + d, 0) / allDepths.length : 0
+  const recoveryDays =
+    completed.length > 0 ? Math.round(completed.reduce((s, e) => s + e.days, 0) / completed.length) : 0
+
+  return { maxDd: round2(maxDd), avgDd: round2(avgDd), recoveryDays }
 }
 
 // ── Radar scorer (0–100) ──────────────────────────────────────────────────────
@@ -116,6 +166,46 @@ function scoreRadar(stats: {
   ]
 }
 
+/** Nifty's cumulative return (%) from the first trade's period start to
+ * each month bucket, scaled by total invested capital so it's plotted in
+ * the same ₹ terms as "you" (the account's own cumulative realized P&L) —
+ * "what would this same capital have made sitting in Nifty instead." */
+async function buildBenchmark(
+  monthOrder: { key: string; label: string; date: Date }[],
+  totalInvested: number,
+): Promise<{ byKey: Map<string, number>; finalPct: number }> {
+  const byKey = new Map<string, number>()
+  if (monthOrder.length === 0) return { byKey, finalPct: 0 }
+
+  const rangeStart = monthOrder[0].date
+  const daysNeeded = Math.min(
+    2000,
+    Math.max(30, Math.ceil((Date.now() - rangeStart.getTime()) / 86400000) + 10),
+  )
+  const candles = await getRecentCandles('NIFTY', daysNeeded)
+  if (candles.length === 0) return { byKey, finalPct: 0 }
+
+  const closeOnOrBefore = (target: Date): number | null => {
+    let best: number | null = null
+    for (const c of candles) {
+      const cd = new Date(c.date)
+      if (cd.getTime() <= target.getTime()) best = c.close
+      else break
+    }
+    return best ?? candles[0].close
+  }
+
+  const baseline = closeOnOrBefore(rangeStart) ?? candles[0].close
+  let finalPct = 0
+  for (const m of monthOrder) {
+    const close = closeOnOrBefore(m.date) ?? baseline
+    const pct = baseline > 0 ? ((close - baseline) / baseline) * 100 : 0
+    byKey.set(m.key, round2(totalInvested * (pct / 100)))
+    finalPct = pct
+  }
+  return { byKey, finalPct: round2(finalPct) }
+}
+
 // ── Main analytics computation ────────────────────────────────────────────────
 
 export async function getAnalytics(userId: string, range: Range): Promise<AnalyticsResponse> {
@@ -135,13 +225,13 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
   // ── Base stats ──────────────────────────────────────────────────────────────
 
   const totalTrades = trades.length
-  const wins = trades.filter((t) => t.pnlAmount > 0)
-  const losses = trades.filter((t) => t.pnlAmount <= 0)
+  const wins = trades.filter((t) => netPnlFor(t) > 0)
+  const losses = trades.filter((t) => netPnlFor(t) <= 0)
 
   const winRate = totalTrades > 0 ? round2((wins.length / totalTrades) * 100) : 0
 
-  const grossWin = wins.reduce((s, t) => s + t.pnlAmount, 0)
-  const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnlAmount, 0))
+  const grossWin = wins.reduce((s, t) => s + netPnlFor(t), 0)
+  const grossLoss = Math.abs(losses.reduce((s, t) => s + netPnlFor(t), 0))
 
   const profitFactor = grossLoss > 0 ? round2(grossWin / grossLoss) : grossWin > 0 ? 999 : 0
 
@@ -150,11 +240,11 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
   const payoff = avgLoss > 0 ? round2(avgWin / avgLoss) : avgWin > 0 ? 999 : 0
 
   // Expectancy in ₹ per trade
-  const netPnl = round2(trades.reduce((s, t) => s + t.pnlAmount, 0))
+  const netPnl = round2(trades.reduce((s, t) => s + netPnlFor(t), 0))
   const expectancy = totalTrades > 0 ? round2(netPnl / totalTrades) : 0
 
-  const streaks = calcStreaks(trades.map((t) => t.pnlAmount > 0))
-  const maxDd = calcMaxDrawdown(trades.map((t) => t.pnlAmount))
+  const streaks = calcStreaks(trades.map((t) => netPnlFor(t) > 0))
+  const ddStats = calcDrawdownStats(trades.map((t) => ({ pnl: netPnlFor(t), date: new Date(t.exitDate) })))
 
   // avgHold
   let totalHoldMins = 0
@@ -167,57 +257,49 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
   const totalInvested = trades.reduce((s, t) => s + t.entryPrice * t.qty, 0)
   const netPnlPct = totalInvested > 0 ? round2((netPnl / totalInvested) * 100) : 0
 
-  const stats: AnalyticsStats = {
-    totalTrades,
-    winRate,
-    expectancy,
-    profitFactor,
-    sharpe: null,
-    sortino: null,
-    maxDd,
-    avgWin,
-    avgLoss,
-    payoff,
-    bestStreak: streaks.best,
-    worstStreak: streaks.worst,
-    avgHold,
-    netPnl,
-    netPnlPct,
-    benchPct: 0, // populated when Nifty data is wired
-  }
+  // ── Equity curve (cumulative P&L by exit month, year-aware) ─────────────────
 
-  // ── Equity curve (cumulative PnL by exit month) ─────────────────────────────
-
-  const equityByMonth = new Map<string, number>()
+  const equityByMonth = new Map<string, { label: string; date: Date; you: number }>()
   let running = 0
   for (const t of trades) {
-    const label = MONTH_LABELS[new Date(t.exitDate).getMonth()]
-    running += t.pnlAmount
-    equityByMonth.set(label, round2(running))
+    const exitDate = new Date(t.exitDate)
+    const { key, label } = monthKey(exitDate)
+    running += netPnlFor(t)
+    equityByMonth.set(key, { label, date: exitDate, you: round2(running) })
   }
+  const monthOrder = Array.from(equityByMonth.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, v]) => ({ key, label: v.label, date: v.date, you: v.you }))
+
+  const { byKey: benchByKey, finalPct: benchPct } = await buildBenchmark(monthOrder, totalInvested)
+
   let peak = 0
-  const equityVsBench: EquityPoint[] = Array.from(equityByMonth.entries()).map(([d, you]) => {
+  const equityVsBench: EquityPoint[] = monthOrder.map(({ label, key, you }) => {
     if (you > peak) peak = you
     const dd = peak > 0 ? round2(((peak - you) / peak) * 100) : 0
-    return { d, you, bench: 0, dd }
+    return { d: label, you, bench: benchByKey.get(key) ?? 0, dd }
   })
 
   // ── Monthly returns ─────────────────────────────────────────────────────────
 
-  const monthlyPnl = new Map<string, number>()
+  const monthlyPnl = new Map<string, { label: string; pnl: number }>()
   const monthlyInvested = new Map<string, number>()
   for (const t of trades) {
-    const label = MONTH_LABELS[new Date(t.exitDate).getMonth()]
-    monthlyPnl.set(label, (monthlyPnl.get(label) ?? 0) + t.pnlAmount)
-    monthlyInvested.set(label, (monthlyInvested.get(label) ?? 0) + t.entryPrice * t.qty)
+    const { key, label } = monthKey(new Date(t.exitDate))
+    const cur = monthlyPnl.get(key) ?? { label, pnl: 0 }
+    cur.pnl += netPnlFor(t)
+    monthlyPnl.set(key, cur)
+    monthlyInvested.set(key, (monthlyInvested.get(key) ?? 0) + t.entryPrice * t.qty)
   }
-  const monthlyReturns: MonthlyReturn[] = Array.from(monthlyPnl.entries()).map(([m, pnl]) => {
-    const inv = monthlyInvested.get(m) ?? 0
-    return { m, r: inv > 0 ? round2((pnl / inv) * 100) : 0 }
-  })
+  const monthlyReturns: MonthlyReturn[] = Array.from(monthlyPnl.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, { label, pnl }]) => {
+      const inv = monthlyInvested.get(key) ?? 0
+      return { m: label, r: inv > 0 ? round2((pnl / inv) * 100) : 0 }
+    })
 
   // ── R Distribution (only trades with rMultiple set) — falls back to a ───────
-  // %-return distribution when none do (trend-rs55 has no stop-loss, so
+  // %-return distribution when none do (Overwatch has no fixed stop-loss, so
   // rMultiple is never set for those trades)
 
   const rTrades = trades.filter((t) => t.rMultiple !== null)
@@ -240,8 +322,8 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
     const key = t.exitReason
     const entry = setupMap.get(key) ?? { wins: 0, total: 0, pnl: 0 }
     entry.total++
-    if (t.pnlAmount > 0) entry.wins++
-    entry.pnl += t.pnlAmount
+    if (netPnlFor(t) > 0) entry.wins++
+    entry.pnl += netPnlFor(t)
     setupMap.set(key, entry)
   }
   const setupEdge: SetupEdge[] = Array.from(setupMap.entries()).map(([setup, data]) => ({
@@ -256,7 +338,7 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
   const sectorMap = new Map<string, { pnl: number; trades: number }>()
   for (const t of trades) {
     const entry = sectorMap.get(t.sector) ?? { pnl: 0, trades: 0 }
-    entry.pnl += t.pnlAmount
+    entry.pnl += netPnlFor(t)
     entry.trades++
     sectorMap.set(t.sector, entry)
   }
@@ -264,23 +346,9 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
     .map(([sector, data]) => ({ sector, pnl: round2(data.pnl), trades: data.trades }))
     .sort((a, b) => b.pnl - a.pnl)
 
-  // ── Hourly PnL (by exit hour) ───────────────────────────────────────────────
-  // NSE trades typically exit at EOD; this is more meaningful with intraday data
-  // but we include it so the chart is populated when intraday trades are added
-
-  const hourlyMap = new Map<string, number>()
-  for (const t of trades) {
-    const hour = new Date(t.exitDate).getHours()
-    const label = `${hour}:00`
-    hourlyMap.set(label, (hourlyMap.get(label) ?? 0) + t.pnlAmount)
-  }
-  const hourly = Array.from(hourlyMap.entries())
-    .map(([h, pnl]) => ({ h, pnl: round2(pnl) }))
-    .sort((a, b) => parseInt(a.h) - parseInt(b.h))
-
   // ── Radar ───────────────────────────────────────────────────────────────────
 
-  const radar: RadarPoint[] = scoreRadar({ winRate, profitFactor, payoff, maxDd, totalTrades, expectancy })
+  const radar: RadarPoint[] = scoreRadar({ winRate, profitFactor, payoff, maxDd: ddStats.maxDd, totalTrades, expectancy })
 
   // ── Held vs R scatter — falls back to held vs %-return when no rMultiple ────
 
@@ -299,7 +367,7 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
     if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) {
       const day = d.getDate()
       const entry = calendarMap.get(day) ?? { pnl: 0, invested: 0 }
-      entry.pnl += t.pnlAmount
+      entry.pnl += netPnlFor(t)
       entry.invested += t.entryPrice * t.qty
       calendarMap.set(day, entry)
     }
@@ -311,6 +379,29 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
     }))
     .sort((a, b) => a.d - b.d)
 
+  const stats: AnalyticsStats = {
+    totalTrades,
+    wins: wins.length,
+    losses: losses.length,
+    winRate,
+    expectancy,
+    profitFactor,
+    sharpe: null,
+    sortino: null,
+    maxDd: ddStats.maxDd,
+    avgDd: ddStats.avgDd,
+    recoveryDays: ddStats.recoveryDays,
+    avgWin,
+    avgLoss,
+    payoff,
+    bestStreak: streaks.best,
+    worstStreak: streaks.worst,
+    avgHold,
+    netPnl,
+    netPnlPct,
+    benchPct,
+  }
+
   return {
     range,
     stats,
@@ -320,7 +411,6 @@ export async function getAnalytics(userId: string, range: Range): Promise<Analyt
     rDistributionMode,
     setupEdge,
     sectorPerf,
-    hourly,
     radar,
     heldVsR,
     calendar,

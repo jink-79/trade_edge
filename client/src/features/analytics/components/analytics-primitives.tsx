@@ -3,10 +3,10 @@
    components. Not a page component itself.
 ───────────────────────────────────────────── */
 
-export const fmtUsd = (n: number) =>
-  n.toLocaleString("en-US", {
+export const fmtINR = (n: number) =>
+  n.toLocaleString("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
     maximumFractionDigits: 0,
   });
 

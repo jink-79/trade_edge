@@ -20,7 +20,7 @@ import { RANGES, type Range } from "../types/analytics.types";
 import { useAnalytics } from "../hooks/use-analytics";
 
 // components
-import { KpiTile } from "../components/analytics-primitives";
+import { KpiTile, fmtINR } from "../components/analytics-primitives";
 import { EquityChart } from "../components/equity-chart";
 import { ReturnsCharts } from "../components/returns-charts";
 import { SetupEdgeTable } from "../components/setup-edge-table";
@@ -91,23 +91,23 @@ export function AnalyticsPage() {
         <KpiTile
           icon={<TrendingUp className="size-4" />}
           label="Net P&L"
-          value={`+$${stats.netPnl.toLocaleString()}`}
-          delta={`+${stats.netPnlPct}%`}
-          positive
+          value={`${stats.netPnl >= 0 ? "+" : ""}${fmtINR(stats.netPnl)}`}
+          delta={`${stats.netPnlPct >= 0 ? "+" : ""}${stats.netPnlPct}%`}
+          positive={stats.netPnl >= 0}
         />
         <KpiTile
           icon={<Percent className="size-4" />}
           label="Win rate"
           value={`${stats.winRate.toFixed(1)}%`}
-          delta="+2.1%"
-          positive
+          delta={`${stats.wins}W / ${stats.losses}L`}
+          positive={stats.winRate >= 50}
         />
         <KpiTile
           icon={<Gauge className="size-4" />}
           label="Profit factor"
           value={stats.profitFactor.toFixed(2)}
-          delta="vs 1.84"
-          positive
+          delta={`payoff ${stats.payoff.toFixed(2)}x`}
+          positive={stats.profitFactor >= 1}
         />
         <KpiTile
           icon={<Activity className="size-4" />}
@@ -119,15 +119,15 @@ export function AnalyticsPage() {
         <KpiTile
           icon={<Target className="size-4" />}
           label="Expectancy"
-          value={`${stats.expectancy.toFixed(2)}R`}
+          value={fmtINR(stats.expectancy)}
           delta="per trade"
-          positive
+          positive={stats.expectancy >= 0}
         />
         <KpiTile
           icon={<TrendingDown className="size-4" />}
           label="Max drawdown"
-          value={`${stats.maxDd}%`}
-          delta="recovered"
+          value={`-${stats.maxDd}%`}
+          delta={stats.recoveryDays > 0 ? `~${stats.recoveryDays}d to recover` : "no recovery yet"}
           positive={false}
         />
       </section>
@@ -137,6 +137,10 @@ export function AnalyticsPage() {
         data={data.equityVsBench}
         benchPct={stats.benchPct}
         netPnlPct={stats.netPnlPct}
+        maxDd={stats.maxDd}
+        avgDd={stats.avgDd}
+        recoveryDays={stats.recoveryDays}
+        rangeLabel={range}
       />
 
       <ReturnsCharts
@@ -151,10 +155,14 @@ export function AnalyticsPage() {
         heldVsR={data.heldVsR}
         rDistributionMode={data.rDistributionMode}
         sectorPerf={data.sectorPerf}
-        hourly={data.hourly}
       />
 
-      <CalendarStreaks calendar={data.calendar} stats={stats} />
+      <CalendarStreaks
+        calendar={data.calendar}
+        stats={stats}
+        setupEdge={data.setupEdge}
+        sectorPerf={data.sectorPerf}
+      />
 
       <Separator className="opacity-40" />
       <p className="text-[11px] text-muted-foreground text-center pb-2">

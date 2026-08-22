@@ -14,14 +14,14 @@ export type Range = (typeof RANGES)[number];
 /* ── chart series ── */
 
 export interface EquityPoint {
-  d: string; // "Jan", "Feb" …
-  you: number; // account value
-  bench: number; // benchmark value
+  d: string; // "Jan '26" …
+  you: number; // cumulative realized P&L (₹)
+  bench: number; // what the same invested capital would have made in Nifty (₹)
   dd: number; // drawdown %
 }
 
 export interface MonthlyReturn {
-  m: string; // "Jan" …
+  m: string; // "Jan '26" …
   r: number; // return %
 }
 
@@ -34,18 +34,13 @@ export interface SetupEdge {
   setup: string;
   trades: number;
   win: number; // win rate %
-  exp: number; // expectancy in R
+  exp: number; // expectancy — ₹ net P&L per trade
 }
 
 export interface SectorPerf {
   sector: string;
   pnl: number;
   trades: number;
-}
-
-export interface HourlyPnl {
-  h: string; // "9:30", "10" …
-  pnl: number;
 }
 
 export interface RadarPoint {
@@ -55,7 +50,7 @@ export interface RadarPoint {
 
 export interface ScatterPoint {
   x: number; // hold time (minutes)
-  y: number; // R outcome
+  y: number; // R outcome (or % return, see rDistributionMode)
   z: number; // bubble size (position size proxy)
 }
 
@@ -68,12 +63,19 @@ export interface CalendarDay {
 
 export interface AnalyticsStats {
   totalTrades: number;
+  wins: number;
+  losses: number;
   winRate: number;
   expectancy: number;
   profitFactor: number;
   sharpe: number | null; // null until a risk-free/returns series is wired
   sortino: number | null;
   maxDd: number;
+  /** Average depth (%) across every drawdown episode, not just the worst. */
+  avgDd: number;
+  /** Average days-to-recover across drawdown episodes that have actually
+   * recovered — 0 when none have. */
+  recoveryDays: number;
   avgWin: number;
   avgLoss: number;
   payoff: number;
@@ -91,13 +93,12 @@ export interface AnalyticsResponse {
   equityVsBench: EquityPoint[];
   monthlyReturns: MonthlyReturn[];
   rDistribution: RBucket[];
-  // "pct" when trades have no rMultiple (e.g. trend-rs55, which has no fixed
-  // stop-loss) — rDistribution/heldVsR are then bucketed/plotted by realized
-  // return % instead of R-multiple.
+  // "pct" when trades have no rMultiple (Overwatch has no fixed stop-loss) —
+  // rDistribution/heldVsR are then bucketed/plotted by realized return %
+  // instead of R-multiple.
   rDistributionMode: "r" | "pct";
   setupEdge: SetupEdge[];
   sectorPerf: SectorPerf[];
-  hourly: HourlyPnl[];
   radar: RadarPoint[];
   heldVsR: ScatterPoint[];
   calendar: CalendarDay[];

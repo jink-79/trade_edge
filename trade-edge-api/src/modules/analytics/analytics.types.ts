@@ -42,11 +42,6 @@ export interface SectorPerf {
   trades: number
 }
 
-export interface HourlyPnl {
-  h: string
-  pnl: number
-}
-
 export interface RadarPoint {
   k: string
   v: number
@@ -67,12 +62,21 @@ export interface CalendarDay {
 
 export interface AnalyticsStats {
   totalTrades: number
+  wins: number
+  losses: number
   winRate: number
   expectancy: number
   profitFactor: number
   sharpe: null
   sortino: null
   maxDd: number
+  /** Average depth (%) across every completed + any still-open drawdown
+   * episode in the range — not just the single worst one (maxDd). */
+  avgDd: number
+  /** Average days-to-recover across COMPLETED drawdown episodes only (an
+   * episode still underway at the end of the range has no known recovery
+   * time yet, so it's excluded from this average). */
+  recoveryDays: number
   avgWin: number
   avgLoss: number
   payoff: number
@@ -96,7 +100,6 @@ export interface AnalyticsResponse {
   rDistributionMode: 'r' | 'pct'
   setupEdge: SetupEdge[]
   sectorPerf: SectorPerf[]
-  hourly: HourlyPnl[]
   radar: RadarPoint[]
   heldVsR: ScatterPoint[]
   calendar: CalendarDay[]

@@ -16,7 +16,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { CHART_STYLE } from "./analytics-primitives";
+import { CHART_STYLE, fmtINR } from "./analytics-primitives";
 import type { SetupEdge, RadarPoint } from "../types/analytics.types";
 import { Brain } from "lucide-react";
 
@@ -50,6 +50,11 @@ export function SetupEdgeTable({ setupEdge, radar }: SetupEdgeTableProps) {
           </Badge>
         </CardHeader>
         <CardContent className="pt-0">
+          {setupEdge.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              No closed trades in this range yet.
+            </div>
+          ) : (
           <div className="overflow-hidden rounded-lg border border-border/60">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -90,7 +95,7 @@ export function SetupEdgeTable({ setupEdge, radar }: SetupEdgeTableProps) {
                         className={`px-3 py-2.5 text-right tabular font-medium ${good ? "text-primary" : "text-destructive"}`}
                       >
                         {good ? "+" : ""}
-                        {s.exp.toFixed(2)}R
+                        {fmtINR(s.exp)}
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         <Badge
@@ -110,6 +115,7 @@ export function SetupEdgeTable({ setupEdge, radar }: SetupEdgeTableProps) {
               </tbody>
             </table>
           </div>
+          )}
         </CardContent>
       </Card>
 
@@ -122,7 +128,7 @@ export function SetupEdgeTable({ setupEdge, radar }: SetupEdgeTableProps) {
           >
             <Brain className="size-4 text-primary" /> Trader skill profile
           </CardTitle>
-          <CardDescription>Self-graded across 6 dimensions.</CardDescription>
+          <CardDescription>Computed across 6 dimensions.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[240px]">

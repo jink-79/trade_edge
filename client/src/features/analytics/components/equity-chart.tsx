@@ -19,7 +19,7 @@ import {
 import {
   LegendDot,
   MicroStat,
-  fmtUsd,
+  fmtINR,
   CHART_STYLE,
 } from "./analytics-primitives";
 import type { EquityPoint } from "../types/analytics.types";
@@ -28,9 +28,22 @@ interface EquityChartProps {
   data: EquityPoint[];
   benchPct: number;
   netPnlPct: number;
+  maxDd: number;
+  avgDd: number;
+  recoveryDays: number;
+  rangeLabel: string;
 }
 
-export function EquityChart({ data, benchPct, netPnlPct }: EquityChartProps) {
+export function EquityChart({
+  data,
+  benchPct,
+  netPnlPct,
+  maxDd,
+  avgDd,
+  recoveryDays,
+  rangeLabel,
+}: EquityChartProps) {
+  const pnlPos = netPnlPct >= 0;
   return (
     <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
       {/* Equity vs benchmark */}
@@ -44,8 +57,9 @@ export function EquityChart({ data, benchPct, netPnlPct }: EquityChartProps) {
               Equity curve vs Nifty 50
             </CardTitle>
             <CardDescription>
-              Your account compounded +{netPnlPct.toFixed(1)}% vs Nifty{" "}
-              {benchPct.toFixed(1)}% YTD.
+              Your account compounded {pnlPos ? "+" : ""}
+              {netPnlPct.toFixed(1)}% vs Nifty {benchPct >= 0 ? "+" : ""}
+              {benchPct.toFixed(1)}% {rangeLabel}.
             </CardDescription>
           </div>
           <div className="flex items-center gap-3">
@@ -82,11 +96,11 @@ export function EquityChart({ data, benchPct, netPnlPct }: EquityChartProps) {
                   tick={CHART_STYLE.tick}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
                   contentStyle={CHART_STYLE.tooltip}
-                  formatter={(v) => (typeof v === "number" ? fmtUsd(v) : "")}
+                  formatter={(v) => (typeof v === "number" ? fmtINR(v) : "")}
                 />
                 <Area
                   type="monotone"
@@ -167,9 +181,12 @@ export function EquityChart({ data, benchPct, netPnlPct }: EquityChartProps) {
             </ResponsiveContainer>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <MicroStat label="Max DD" value="-7.4%" />
-            <MicroStat label="Avg DD" value="-2.1%" />
-            <MicroStat label="Recovery" value="11d" />
+            <MicroStat label="Max DD" value={`-${maxDd.toFixed(1)}%`} accent="destructive" />
+            <MicroStat label="Avg DD" value={`-${avgDd.toFixed(1)}%`} accent="destructive" />
+            <MicroStat
+              label="Recovery"
+              value={recoveryDays > 0 ? `${recoveryDays}d` : "—"}
+            />
           </div>
         </CardContent>
       </Card>
