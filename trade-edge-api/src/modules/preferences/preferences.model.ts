@@ -10,7 +10,6 @@ export interface IPreferences extends Document {
   atrPeriod: number;
   slAtrMultiplier: number;
   targetAtrMultiplier: number;
-  activeStrategy: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,7 +25,6 @@ const PreferencesSchema = new Schema<IPreferences>(
     atrPeriod: { type: Number, default: 14 },
     slAtrMultiplier: { type: Number, default: 0.5 },
     targetAtrMultiplier: { type: Number, default: 1 },
-    activeStrategy: { type: String, default: "trend-rs55" },
   },
   { timestamps: true, collection: "tradingpreferences" },
 );

@@ -4,8 +4,6 @@
    PUT  /api/preferences  → TradingPreferences
 ───────────────────────────────────────────────────── */
 
-import type { StrategyId } from "@/features/strategy/strategies";
-
 export type TradingStyle = "swing" | "intraday" | "positional";
 export type Timeframe = "Daily" | "Weekly" | "Monthly";
 
@@ -18,7 +16,6 @@ export interface TradingPreferences {
   atrPeriod: number;
   slAtrMultiplier: number;
   targetAtrMultiplier: number;
-  activeStrategy: StrategyId;
 }
 
 export const DEFAULT_PREFERENCES: TradingPreferences = {
@@ -30,5 +27,4 @@ export const DEFAULT_PREFERENCES: TradingPreferences = {
   atrPeriod: 14,
   slAtrMultiplier: 0.5,
   targetAtrMultiplier: 1,
-  activeStrategy: "trend-rs55",
 };

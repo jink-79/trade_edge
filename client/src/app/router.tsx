@@ -13,15 +13,6 @@ import { HistoryPage } from "@/features/history/pages/history";
 import { OverviewPage } from "@/features/overview/pages/overview";
 import { PreferencesPage } from "@/features/preferences/pages/preferences-page";
 import { TradeDetailPage } from "@/features/journal/pages/trade-detail-page";
-import { MetricsGraphsPage } from "@/features/backtest-report/pages/metrics-graphs-page";
-import { BlotterPage } from "@/features/backtest-report/pages/blotter-page";
-import { StockPerformancePage } from "@/features/backtest-report/pages/stock-performance-page";
-import { StockDetailPage } from "@/features/backtest-report/pages/stock-detail-page";
-import { DocumentationPage } from "@/features/backtest-report/pages/documentation-page";
-import { UploadPage } from "@/features/backtest-report/pages/upload-page";
-import { ScannerPage } from "@/features/scanner/pages/scanner-page";
-import { PerformancePage } from "@/features/performance/pages/performance-page";
-import { PulsePage } from "@/features/pulse/pages/pulse-page";
 import { AlgoSignalsPage } from "@/features/algo-signals/pages/algo-signals-page";
 import { CalendarPage } from "@/features/calendar/pages/calendar-page";
 
@@ -60,18 +51,6 @@ export const router = createBrowserRouter([
         element: <HistoryPage />,
       },
       {
-        path: "scanner",
-        element: <ScannerPage />,
-      },
-      {
-        path: "performance",
-        element: <PerformancePage />,
-      },
-      {
-        path: "pulse",
-        element: <PulsePage />,
-      },
-      {
         path: "algo-signals",
         element: <AlgoSignalsPage />,
       },
@@ -82,30 +61,6 @@ export const router = createBrowserRouter([
       {
         path: "trades/:id",
         element: <TradeDetailPage />,
-      },
-      {
-        path: "report/metrics",
-        element: <MetricsGraphsPage />,
-      },
-      {
-        path: "report/blotter",
-        element: <BlotterPage />,
-      },
-      {
-        path: "report/stocks",
-        element: <StockPerformancePage />,
-      },
-      {
-        path: "report/stocks/:symbol",
-        element: <StockDetailPage />,
-      },
-      {
-        path: "report/docs",
-        element: <DocumentationPage />,
-      },
-      {
-        path: "report/upload",
-        element: <UploadPage />,
       },
       {
         path: "overview",

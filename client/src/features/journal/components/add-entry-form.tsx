@@ -72,7 +72,7 @@ export function AddEntryForm({ onAdd, onClose, isLoading = false }: AddEntryForm
           <div>
             <CardTitle className="text-base font-semibold">Add Entry</CardTitle>
             <CardDescription className="mt-0.5">
-              Record a Trend + RS-55 position you actually took — technical context
+              Record an Overwatch position you actually took — technical context
               (ATR/EMA/RS) is fetched automatically, no target/stop since this strategy
               exits on trend flip only.
             </CardDescription>

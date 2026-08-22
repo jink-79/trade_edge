@@ -184,7 +184,7 @@ function buildHtml(
   <div style="background:${C.bg};padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
       <tr><td>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:${C.accent};">TradeEdge · Trend + RS-55</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:${C.accent};">TradeEdge · Overwatch</div>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:6px;">
           <tr>
             <td style="font-size:21px;font-weight:800;color:${C.text};letter-spacing:-0.01em;">Open positions</td>

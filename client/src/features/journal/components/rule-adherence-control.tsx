@@ -65,7 +65,7 @@ export function RuleAdherenceControl({ trade }: { trade: JournalTrade }) {
   };
 
   const trendRs55Description = signalLoading
-    ? "Checking that day's Trend+RS-55 signal…"
+    ? "Checking that day's Overwatch signal…"
     : !signalDoc
       ? "No signal data for this entry date — can't auto-verify. Tag it yourself."
       : inToBuy

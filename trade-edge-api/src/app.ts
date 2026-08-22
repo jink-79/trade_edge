@@ -12,9 +12,6 @@ import analyticsRoutes from "./modules/analytics/analytics.routes";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import journalRoutes from "./modules/journal/journal.routes";
 import preferencesRoutes from "./modules/preferences/preferences.routes";
-import scannerRoutes from "./modules/scanner/scanner.routes";
-import pulseRoutes from "./modules/pulse/pulse.routes";
-import backtestArchiveRoutes from "./modules/backtest-archive/backtest-archive.routes";
 import algoSignalsRoutes from "./modules/algo-signals/algo-signals.routes";
 import brokerSyncRoutes from "./modules/broker-sync/broker-sync.routes";
 import newsletterRoutes from "./modules/newsletter/newsletter.routes";
@@ -46,15 +43,12 @@ app.use(
   }),
 );
 
-// Journal & scanner payloads carry base64 screenshots / candle arrays; their
-// own routers parse with a larger limit. Everything else stays tight at 10kb.
+// Journal payloads carry base64 screenshots / candle arrays; its own router
+// parses with a larger limit. Everything else stays tight at 10kb.
 const skipLargeBody =
   (parser: express.RequestHandler): express.RequestHandler =>
   (req, res, next) =>
-    req.path.startsWith("/api/journal") ||
-    req.path.startsWith("/api/scanner") ||
-    req.path.startsWith("/api/pulse") ||
-    req.path.startsWith("/api/broker-sync")
+    req.path.startsWith("/api/journal") || req.path.startsWith("/api/broker-sync")
       ? next()
       : parser(req, res, next);
 
@@ -77,9 +71,6 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/journal", journalRoutes);
 app.use("/api/preferences", preferencesRoutes);
-app.use("/api/scanner", scannerRoutes);
-app.use("/api/pulse", pulseRoutes);
-app.use("/api/backtest-archive", backtestArchiveRoutes);
 app.use("/api/algo-signals", algoSignalsRoutes);
 app.use("/api/broker-sync", brokerSyncRoutes);
 app.use("/api/newsletter", newsletterRoutes);

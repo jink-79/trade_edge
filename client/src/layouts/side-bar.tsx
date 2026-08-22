@@ -4,7 +4,6 @@ import {
   CalendarDays,
   ChevronRight,
   Eye,
-  FileBarChart,
   LayoutDashboard,
   LineChart,
   PiggyBank,
@@ -14,8 +13,6 @@ import {
   Zap,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { Separator } from "@/components/ui/separator";
-import { StrategySwitcher } from "@/features/strategy/strategy-switcher";
 
 /* ─────────────────────────────────────────────
    NAV STRUCTURE
@@ -27,7 +24,6 @@ export const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Activity, label: "Open Positions", path: "/positions" },
   { icon: BarChart3, label: "Trade History", path: "/history" },
-  { icon: FileBarChart, label: "Backtest Reports", path: "/report/metrics" },
   { icon: Radar, label: "Algo Signals", path: "/algo-signals" },
   { icon: CalendarDays, label: "Calendar", path: "/calendar" },
   { icon: LineChart, label: "Analytics", path: "/analytics" },
@@ -100,16 +96,6 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
-
-      {/* Divider */}
-      <div className="px-3">
-        <Separator className="bg-border/50" />
-      </div>
-
-      {/* Active strategy quick-switch (source of truth = Preferences) */}
-      <div className="p-4 shrink-0">
-        <StrategySwitcher />
-      </div>
     </aside>
   );
 }

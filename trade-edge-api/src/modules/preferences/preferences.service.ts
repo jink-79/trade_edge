@@ -17,7 +17,6 @@ function format(doc: any): PreferencesResponse {
     slAtrMultiplier: doc.slAtrMultiplier ?? DEFAULT_PREFERENCES.slAtrMultiplier,
     targetAtrMultiplier:
       doc.targetAtrMultiplier ?? DEFAULT_PREFERENCES.targetAtrMultiplier,
-    activeStrategy: doc.activeStrategy ?? DEFAULT_PREFERENCES.activeStrategy,
   };
 }
 

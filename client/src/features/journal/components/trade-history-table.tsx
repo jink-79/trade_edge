@@ -140,7 +140,7 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[260px] text-left">
                         R-multiple = profit ÷ risk per share. Normally "risk" is
-                        the entry-to-stop-loss distance, but Trend+RS-55 has no
+                        the entry-to-stop-loss distance, but Overwatch has no
                         stop-loss. Trades without one use ATR(14) at entry
                         instead (marked "vs ATR") — profit measured against the
                         stock's typical daily swing, not a real stop distance.

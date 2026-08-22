@@ -1,7 +1,11 @@
 import { z } from "zod";
-import { STRATEGIES } from "../preferences/preferences.types";
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
+
+// "trend-rs55" is the only live strategy; "rsi2" stays valid only so
+// historical trades from before this strategy existed keep tagging/
+// rendering correctly (see isTrendRs55() in the client's journal-utils.ts).
+export const JOURNAL_STRATEGIES = ["trend-rs55", "rsi2"] as const;
 
 export const DIRECTIONS = ["LONG", "SHORT"] as const;
 export const OUTCOMES = ["TARGET", "STOP", "TREND-FLIP", "MANUAL-EXIT", "STILL-OPEN"] as const;
@@ -139,7 +143,7 @@ export const AutoCaptureSchema = z.object({
   direction: z.enum(DIRECTIONS).default("LONG"),
   // Which strategy produced this trade — gates whether target/stop get
   // derived from ATR multiples (only meaningful for "rsi2").
-  strategyId: z.enum(STRATEGIES),
+  strategyId: z.enum(JOURNAL_STRATEGIES),
   rs55Pct: z.number().optional(),
   // Optional plan — else derived from ATR × the user's Preferences multipliers
   // (rsi2 only; other strategies leave these unset).

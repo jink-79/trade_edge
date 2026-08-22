@@ -24,7 +24,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { usePreferences, useSavePreferences } from "../hooks/use-preferences";
-import { STRATEGIES, type StrategyId } from "@/features/strategy/strategies";
 import type {
   Timeframe,
   TradingPreferences,
@@ -114,7 +113,6 @@ export function PreferencesPage() {
   const saveMut = useSavePreferences();
   const saving = saveMut.isPending;
 
-  const [activeStrategy, setActiveStrategy] = useState<StrategyId>("trend-rs55");
   const [selectedStyles, setSelectedStyles] = useState<string[]>(["swing"]);
   const [timeframe, setTimeframe] = useState("Daily");
   const [capital, setCapital] = useState("100000");
@@ -127,7 +125,6 @@ export function PreferencesPage() {
   // Hydrate the form from saved preferences once they load
   useEffect(() => {
     if (!prefs) return;
-    setActiveStrategy(prefs.activeStrategy ?? "trend-rs55");
     setSelectedStyles(prefs.tradingStyles);
     setTimeframe(prefs.timeframe);
     setCapital(String(prefs.defaultCapital));
@@ -154,7 +151,6 @@ export function PreferencesPage() {
   );
 
   const onReset = () => {
-    setActiveStrategy("trend-rs55");
     setSelectedStyles(["swing"]);
     setTimeframe("Daily");
     setCapital("100000");
@@ -178,7 +174,6 @@ export function PreferencesPage() {
     }
 
     const payload: TradingPreferences = {
-      activeStrategy,
       tradingStyles: selectedStyles as TradingStyle[],
       timeframe: timeframe as Timeframe,
       defaultCapital: base,
@@ -243,41 +238,6 @@ export function PreferencesPage() {
         </header>
 
         <form onSubmit={onSave} className="px-6 py-6 space-y-6">
-          <SectionCard
-            title="Active Strategy"
-            desc="Which strategy the Signals & Signal Results pages show. More arrive as research matures."
-            icon={Waves}
-          >
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {STRATEGIES.map((s) => {
-                const active = activeStrategy === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setActiveStrategy(s.id)}
-                    className={`text-left rounded-xl border px-4 py-3.5 transition-colors ${
-                      active
-                        ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30"
-                        : "border-border/70 bg-background/40 hover:bg-accent/40"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{s.label}</span>
-                      {active ? <Check className="size-4 text-primary" /> : null}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {s.sub}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-3 text-[11px] text-muted-foreground">
-              Tip: you can also switch quickly from the sidebar — both save here.
-            </p>
-          </SectionCard>
-
           <SectionCard
             title="Trading Style"
             desc="How you trade — pick all that apply and your primary timeframe."
