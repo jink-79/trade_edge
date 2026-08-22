@@ -3,7 +3,6 @@ import { PlusCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useCreateManualEntry, useJournalTrades } from "@/features/journal/hooks/use-journal";
-import { usePreferences } from "@/features/preferences/hooks/use-preferences";
 import { OpenPositionsHero } from "@/features/journal/components/open-positions-hero";
 import { OpenPositionsKpis } from "@/features/journal/components/open-positions-kpis";
 import { OpenPositionsTable } from "@/features/journal/components/open-positions-table";
@@ -14,8 +13,6 @@ import type { ManualEntryPayload } from "@/features/journal/api/journal-api";
 export function PositionsPage() {
   const [showForm, setShowForm] = useState(false);
   const { data: trades = [], isLoading } = useJournalTrades();
-  const { data: prefs } = usePreferences();
-  const capital = prefs?.defaultCapital ?? 100000;
   const addEntryMutation = useCreateManualEntry();
 
   const open = useMemo(
@@ -79,7 +76,7 @@ export function PositionsPage() {
           )}
 
           <OpenPositionsKpis trades={open} />
-          <OpenPositionsTable trades={open} capital={capital} />
+          <OpenPositionsTable trades={open} />
         </div>
       </main>
     </div>
