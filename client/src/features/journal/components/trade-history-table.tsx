@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, Filter, Search } from "lucide-react";
+import { Filter, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,13 @@ import { cn } from "@/lib/utils";
 import { fmtPrice, fmtSignedINR } from "../utils/journal-utils";
 import { metricsFor } from "./trade-history-kpis";
 import type { JournalTrade } from "../types/journal.types";
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "2-digit",
+  });
 
 const OUTCOME_STYLE: Record<string, string> = {
   TARGET: "bg-primary/10 text-primary border-primary/30",
@@ -78,44 +85,71 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
               : "No trades match your search."}
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent border-border/60">
-                <TableHead className="w-[240px] pl-6">Symbol</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Entry → Exit</TableHead>
-                <TableHead className="text-right">Days</TableHead>
-                <TableHead className="text-right pr-6">Net P&amp;L</TableHead>
-                <TableHead>Outcome</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((t) => (
-                <HistoryRow key={t.id} t={t} onOpen={() => navigate(`/trades/${t.id}`)} />
-              ))}
-            </TableBody>
-          </Table>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-border/60">
+                  <TableHead className="w-10 pl-6">#</TableHead>
+                  <TableHead className="w-[200px]">Symbol</TableHead>
+                  <TableHead>Entry date</TableHead>
+                  <TableHead>Exit date</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Entry</TableHead>
+                  <TableHead className="text-right">Exit</TableHead>
+                  <TableHead className="text-right">Gross P&amp;L</TableHead>
+                  <TableHead className="text-right">Charges</TableHead>
+                  <TableHead className="text-right">Realised P&amp;L</TableHead>
+                  <TableHead className="text-right">Days</TableHead>
+                  <TableHead className="text-right">R</TableHead>
+                  <TableHead>Outcome</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((t, i) => (
+                  <HistoryRow
+                    key={t.id}
+                    t={t}
+                    index={i + 1}
+                    onOpen={() => navigate(`/trades/${t.id}`)}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function HistoryRow({ t, onOpen }: { t: JournalTrade; onOpen: () => void }) {
+function HistoryRow({
+  t,
+  index,
+  onOpen,
+}: {
+  t: JournalTrade;
+  index: number;
+  onOpen: () => void;
+}) {
   const e = t.entry;
+  const x = t.exit;
   const m = metricsFor(t);
-  const net = m ? netPnlFor(t, m.realizedPnl) : 0;
-  const netPct = m && e.entryPrice * e.quantity > 0 ? (net / (e.entryPrice * e.quantity)) * 100 : 0;
-  const positive = net >= 0;
+  const gross = m?.realizedPnl ?? 0;
+  const grossPct = m?.realizedPnlPct ?? 0;
+  const net = m ? netPnlFor(t, gross) : 0;
+  const netPct =
+    m && e.entryPrice * e.quantity > 0 ? (net / (e.entryPrice * e.quantity)) * 100 : 0;
+  const charges = x?.charges?.totalCharges ?? null;
 
   return (
     <TableRow
       onClick={onOpen}
       className="cursor-pointer border-border/60 transition-colors hover:bg-accent/20"
     >
-      <TableCell className="pl-6 py-4">
+      <TableCell className="pl-6 tabular text-muted-foreground">{index}</TableCell>
+      <TableCell className="py-4">
         <div className="flex items-center gap-3">
-          <div className="size-9 rounded-lg grid place-items-center text-[11px] font-semibold tabular tracking-wide bg-secondary/60 text-foreground ring-1 ring-border/70">
+          <div className="size-9 rounded-lg grid place-items-center text-[11px] font-semibold tabular tracking-wide bg-secondary/60 text-foreground ring-1 ring-border/70 shrink-0">
             {e.ticker.slice(0, 2)}
           </div>
           <div className="leading-tight">
@@ -126,34 +160,62 @@ function HistoryRow({ t, onOpen }: { t: JournalTrade; onOpen: () => void }) {
           </div>
         </div>
       </TableCell>
+      <TableCell className="text-muted-foreground tabular whitespace-nowrap">
+        {fmtDate(e.entryDate)}
+      </TableCell>
+      <TableCell className="text-muted-foreground tabular whitespace-nowrap">
+        {x ? fmtDate(x.exitDate) : "—"}
+      </TableCell>
       <TableCell className="text-right tabular">{e.quantity}</TableCell>
       <TableCell className="text-right tabular text-muted-foreground">
-        {fmtPrice(e.entryPrice)} → {t.exit ? fmtPrice(t.exit.exitPrice) : "—"}
+        {fmtPrice(e.entryPrice)}
+      </TableCell>
+      <TableCell className="text-right tabular text-muted-foreground">
+        {x ? fmtPrice(x.exitPrice) : "—"}
+      </TableCell>
+      <TableCell className="text-right tabular">
+        {m ? (
+          <div className="leading-tight">
+            <div className={cn("font-medium", gross >= 0 ? "text-primary" : "text-destructive")}>
+              {fmtSignedINR(gross)}
+            </div>
+            <div className={cn("text-xs", gross >= 0 ? "text-primary" : "text-destructive")}>
+              {grossPct >= 0 ? "+" : ""}
+              {grossPct.toFixed(2)}%
+            </div>
+          </div>
+        ) : (
+          "—"
+        )}
+      </TableCell>
+      <TableCell className="text-right tabular text-muted-foreground">
+        {charges != null ? `−${fmtPrice(charges)}` : "—"}
+      </TableCell>
+      <TableCell className="text-right tabular">
+        {m ? (
+          <div className="leading-tight">
+            <div className={cn("font-medium", net >= 0 ? "text-primary" : "text-destructive")}>
+              {fmtSignedINR(net)}
+            </div>
+            <div className={cn("text-xs", net >= 0 ? "text-primary" : "text-destructive")}>
+              {netPct >= 0 ? "+" : ""}
+              {netPct.toFixed(2)}%
+            </div>
+          </div>
+        ) : (
+          "—"
+        )}
       </TableCell>
       <TableCell className="text-right tabular text-muted-foreground">
         {m ? `${m.daysHeld}d` : "—"}
       </TableCell>
-      <TableCell className="text-right tabular pr-6">
-        <div className="leading-tight">
-          <div className={cn("font-medium", positive ? "text-primary" : "text-destructive")}>
-            {m ? fmtSignedINR(net) : "—"}
-          </div>
-          {m && (
-            <div
-              className={cn(
-                "text-xs inline-flex items-center gap-0.5",
-                positive ? "text-primary" : "text-destructive",
-              )}
-            >
-              {positive ? (
-                <ArrowUpRight className="size-3" />
-              ) : (
-                <ArrowDownRight className="size-3" />
-              )}
-              {Math.abs(netPct).toFixed(2)}%
-            </div>
-          )}
-        </div>
+      <TableCell
+        className={cn(
+          "text-right tabular",
+          m?.rMultiple != null && (m.rMultiple >= 0 ? "text-primary" : "text-destructive"),
+        )}
+      >
+        {m?.rMultiple != null ? `${m.rMultiple >= 0 ? "+" : ""}${m.rMultiple.toFixed(2)}R` : "—"}
       </TableCell>
       <TableCell>
         <Badge
