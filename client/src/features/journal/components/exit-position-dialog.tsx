@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Loader2, LogOut, Sparkles } from "lucide-react";
+import { CalendarIcon, Loader2, LogOut, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { estimateCharges, fmtPrice, isTrendRs55 } from "../utils/journal-utils";
 import { useExitJournalTrade, useExitSummary } from "../hooks/use-journal";
@@ -33,6 +35,25 @@ const TREND_REASONS: { label: string; outcome: Exclude<Outcome, "STILL-OPEN"> }[
 ];
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
+
+/** yyyy-mm-dd (local, not UTC) <-> Date, so the calendar picks the day the
+ * user actually clicks rather than shifting a day at UTC boundaries. */
+const isoToLocalDate = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+};
+const dateToISO = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+const fmtExitDate = (iso: string) =>
+  isoToLocalDate(iso).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 
 const QTY_PRESETS = [
   { label: "25%", fraction: 0.25 },
@@ -204,28 +225,8 @@ export function ExitPositionDialog({
               </div>
             </DialogHeader>
 
-            {/* snapshot */}
-            <div className="px-6 py-4 grid grid-cols-4 gap-3 border-b border-border/60 bg-background/40">
-              <Snap label="Held qty" value={String(e.quantity)} />
-              <Snap label="Entry" value={fmtPrice(e.entryPrice)} />
-              {trendRs55 ? (
-                <>
-                  <Snap label="Mark" value={fmtPrice(trade?.markPrice)} />
-                  <Snap
-                    label="RS-55"
-                    value={e.rs55Pct != null ? `${e.rs55Pct.toFixed(2)}%` : "—"}
-                  />
-                </>
-              ) : (
-                <>
-                  <Snap label="Target" value={fmtPrice(e.targetPrice)} />
-                  <Snap label="Stop" value={fmtPrice(e.stopPrice)} />
-                </>
-              )}
-            </div>
-
             {/* form */}
-            <div className="px-6 py-5 grid grid-cols-2 gap-4">
+            <div className="px-6 py-6 grid grid-cols-2 gap-x-4 gap-y-5">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">
                   Exit price <span className="text-primary">*</span>
@@ -250,12 +251,27 @@ export function ExitPositionDialog({
                 <Label className="text-xs text-muted-foreground">
                   Exit date <span className="text-primary">*</span>
                 </Label>
-                <Input
-                  type="date"
-                  value={exitDate}
-                  onChange={(ev) => setExitDate(ev.target.value)}
-                  className="tabular"
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-start font-normal tabular text-foreground"
+                    >
+                      <CalendarIcon className="size-3.5 text-muted-foreground" />
+                      {fmtExitDate(exitDate)}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={isoToLocalDate(exitDate)}
+                      onSelect={(d) => d && setExitDate(dateToISO(d))}
+                      disabled={{ after: new Date() }}
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-1.5 col-span-2">
@@ -463,17 +479,6 @@ function fmtDate(iso: string) {
     month: "short",
     year: "2-digit",
   });
-}
-
-function Snap({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/60 bg-card/40 p-3">
-      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-medium tabular">{value}</div>
-    </div>
-  );
 }
 
 function PnlBox({
