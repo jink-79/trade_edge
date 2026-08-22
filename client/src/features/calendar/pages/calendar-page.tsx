@@ -50,17 +50,16 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /* ---------- visual config ---------- */
 
-const kindMeta: Record<
-  EventKind,
-  { label: string; icon: typeof CalendarDays; tone: string; ring: string; bg: string; dot: string }
-> = {
+type Visual = { label: string; icon: typeof CalendarDays; tone: string; ring: string; bg: string; dot: string };
+
+const kindMeta: Record<EventKind, Visual> = {
   entry: {
     label: "Entry",
     icon: ArrowUpRight,
-    tone: "text-primary",
-    ring: "ring-primary/30",
-    bg: "bg-primary/10",
-    dot: "bg-primary",
+    tone: "text-amber-400",
+    ring: "ring-amber-500/30",
+    bg: "bg-amber-500/10",
+    dot: "bg-amber-400",
   },
   exit: {
     label: "Exit",
@@ -71,6 +70,23 @@ const kindMeta: Record<
     dot: "bg-emerald-400",
   },
 };
+
+const EXIT_LOSS: Visual = {
+  label: "Exit",
+  icon: ArrowDownRight,
+  tone: "text-destructive",
+  ring: "ring-destructive/30",
+  bg: "bg-destructive/10",
+  dot: "bg-destructive",
+};
+
+/** Entries are always yellow; exits go green in profit, red in loss —
+ * unlike other kinds, an exit's color depends on its own P&L, not just
+ * its kind, so this can't be a static kindMeta lookup. */
+function eventVisual(e: TradeEvent): Visual {
+  if (e.kind === "entry") return kindMeta.entry;
+  return (e.pnl ?? 0) >= 0 ? kindMeta.exit : EXIT_LOSS;
+}
 
 const ALL_KINDS: EventKind[] = ["entry", "exit"];
 
@@ -349,7 +365,7 @@ export function CalendarPage() {
                               </div>
                               <div className="mt-1.5 space-y-1">
                                 {dayEvents.slice(0, 3).map((e) => {
-                                  const m = kindMeta[e.kind];
+                                  const m = eventVisual(e);
                                   const Icon = m.icon;
                                   return (
                                     <div
@@ -418,7 +434,7 @@ export function CalendarPage() {
                   ) : (
                     <ul className="divide-y divide-border/60">
                       {selectedEvents.map((e) => {
-                        const m = kindMeta[e.kind];
+                        const m = eventVisual(e);
                         const Icon = m.icon;
                         return (
                           <li key={e.id} className="px-5 py-4 flex gap-3">
@@ -517,7 +533,7 @@ export function CalendarPage() {
                         </div>
                         <div className="relative border-l border-border/60 pl-6 space-y-3">
                           {list.map((e) => {
-                            const m = kindMeta[e.kind];
+                            const m = eventVisual(e);
                             const Icon = m.icon;
                             return (
                               <div
