@@ -292,6 +292,21 @@ export async function createManualTrendTrade(
     indexCandles,
   });
 
+  // Mark it immediately from the same candles we just fetched, rather than
+  // leaving Since-entry/Mark/Today blank until the next scheduled
+  // refreshAllMarksFromOhlcv run (could be hours away) — the data already
+  // exists in Atlas, no reason to wait.
+  const latest = candles[candles.length - 1];
+  const prevBar = candles[candles.length - 2];
+  await updateOpenTradeMark(
+    userId,
+    trade.id,
+    latest.close,
+    undefined,
+    new Date(latest.date),
+    prevBar?.close,
+  );
+
   const doc = await JournalOpen.findOneAndUpdate(
     { _id: trade.id, userId },
     { needsReview: false },
