@@ -118,6 +118,25 @@ export interface DashboardInsights {
   sectorConcentration: DashboardSectorConcentration[];
 }
 
+export interface DashboardStandoutTrade {
+  id: string;
+  symbol: string;
+  pnl: number;
+  date: string;
+}
+
+export interface DashboardTradeSnapshot {
+  highestProfitTrade: DashboardStandoutTrade | null;
+  highestLossTrade: DashboardStandoutTrade | null;
+  avgTradeTime: string;
+  avgTimeInProfitTrade: string;
+  avgTimeInLossTrade: string;
+  avgWinTrade: number;
+  avgWinDayPnl: number;
+  avgLossTrade: number;
+  avgLossDayPnl: number;
+}
+
 export interface DashboardResponse {
   portfolio: DashboardPortfolio;
   funds: DashboardFunds;
@@ -128,4 +147,5 @@ export interface DashboardResponse {
   setups: DashboardSetup[];
   mutualFunds: DashboardMutualFunds;
   insights: DashboardInsights;
+  tradeSnapshot: DashboardTradeSnapshot;
 }

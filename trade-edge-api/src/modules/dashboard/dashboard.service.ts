@@ -16,6 +16,7 @@ import type {
   DashboardPortfolio,
   DashboardInsights,
   DashboardSegmentStats,
+  DashboardTradeSnapshot,
 } from "./dashboard.types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -399,6 +400,96 @@ function buildInsights(tradeDocs: any[], positionDocs: any[]): DashboardInsights
   };
 }
 
+function buildTradeSnapshot(tradeDocs: any[]): DashboardTradeSnapshot {
+  if (tradeDocs.length === 0) {
+    return {
+      highestProfitTrade: null,
+      highestLossTrade: null,
+      avgTradeTime: "0d",
+      avgTimeInProfitTrade: "0d",
+      avgTimeInLossTrade: "0d",
+      avgWinTrade: 0,
+      avgWinDayPnl: 0,
+      avgLossTrade: 0,
+      avgLossDayPnl: 0,
+    };
+  }
+
+  let best = tradeDocs[0];
+  let worst = tradeDocs[0];
+  for (const t of tradeDocs) {
+    if (netPnlFor(t) > netPnlFor(best)) best = t;
+    if (netPnlFor(t) < netPnlFor(worst)) worst = t;
+  }
+
+  let allMins = 0;
+  let winMins = 0;
+  let lossMins = 0;
+  let winCount = 0;
+  let lossCount = 0;
+  let winPnlSum = 0;
+  let lossPnlSum = 0;
+
+  for (const t of tradeDocs) {
+    const mins = holdMinutes(new Date(t.entryDate), new Date(t.exitDate));
+    allMins += mins;
+    const pnl = netPnlFor(t);
+    if (pnl >= 0) {
+      winMins += mins;
+      winCount++;
+      winPnlSum += pnl;
+    } else {
+      lossMins += mins;
+      lossCount++;
+      lossPnlSum += pnl;
+    }
+  }
+
+  // Day P&L: group every trade by its exit calendar day first, THEN split
+  // those day-totals into win-days/loss-days — distinct from the per-trade
+  // averages above, since more than one trade can exit on the same day.
+  const byDay = new Map<string, number>();
+  for (const t of tradeDocs) {
+    const dayKey = new Date(t.exitDate).toISOString().slice(0, 10);
+    byDay.set(dayKey, (byDay.get(dayKey) ?? 0) + netPnlFor(t));
+  }
+  let winDaySum = 0;
+  let winDayCount = 0;
+  let lossDaySum = 0;
+  let lossDayCount = 0;
+  for (const total of byDay.values()) {
+    if (total > 0) {
+      winDaySum += total;
+      winDayCount++;
+    } else if (total < 0) {
+      lossDaySum += total;
+      lossDayCount++;
+    }
+  }
+
+  return {
+    highestProfitTrade: {
+      id: String(best._id),
+      symbol: best.symbol,
+      pnl: round2(netPnlFor(best)),
+      date: new Date(best.exitDate).toISOString(),
+    },
+    highestLossTrade: {
+      id: String(worst._id),
+      symbol: worst.symbol,
+      pnl: round2(netPnlFor(worst)),
+      date: new Date(worst.exitDate).toISOString(),
+    },
+    avgTradeTime: formatAvgHold(allMins, tradeDocs.length),
+    avgTimeInProfitTrade: formatAvgHold(winMins, winCount),
+    avgTimeInLossTrade: formatAvgHold(lossMins, lossCount),
+    avgWinTrade: winCount > 0 ? round2(winPnlSum / winCount) : 0,
+    avgWinDayPnl: winDayCount > 0 ? round2(winDaySum / winDayCount) : 0,
+    avgLossTrade: lossCount > 0 ? round2(lossPnlSum / lossCount) : 0,
+    avgLossDayPnl: lossDayCount > 0 ? round2(lossDaySum / lossDayCount) : 0,
+  };
+}
+
 function buildMutualFunds(mfDocs: any[]): DashboardMutualFunds {
   const byCategory = Object.fromEntries(
     FUND_CATEGORIES.map((c) => [c, 0]),
@@ -445,6 +536,7 @@ export async function getDashboard(userId: string): Promise<DashboardResponse> {
   const setups = buildSetups(tradeDocs);
   const mutualFunds = buildMutualFunds(mfDocs);
   const insights = buildInsights(tradeDocs, positionDocs);
+  const tradeSnapshot = buildTradeSnapshot(tradeDocs);
 
   const portfolio: DashboardPortfolio = {
     totalFundsDeposited: funds.totalDeposited,
@@ -464,5 +556,6 @@ export async function getDashboard(userId: string): Promise<DashboardResponse> {
     setups,
     mutualFunds,
     insights,
+    tradeSnapshot,
   };
 }

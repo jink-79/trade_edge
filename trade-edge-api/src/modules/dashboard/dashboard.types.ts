@@ -137,6 +137,30 @@ export interface DashboardInsights {
   sectorConcentration: DashboardSectorConcentration[];
 }
 
+export interface DashboardStandoutTrade {
+  id: string;
+  symbol: string;
+  pnl: number;
+  date: string; // exit date, ISO
+}
+
+/** Trade Snapshot — best/worst single trade, hold-time and win/loss
+ * averages, both per-trade and per-day. "Day P&L" groups all trades by
+ * exit date first (days with more than one exit aren't just one trade's
+ * number), then averages across win days vs loss days separately from the
+ * per-trade averages. */
+export interface DashboardTradeSnapshot {
+  highestProfitTrade: DashboardStandoutTrade | null;
+  highestLossTrade: DashboardStandoutTrade | null;
+  avgTradeTime: string;
+  avgTimeInProfitTrade: string;
+  avgTimeInLossTrade: string;
+  avgWinTrade: number;
+  avgWinDayPnl: number;
+  avgLossTrade: number; // negative (or 0)
+  avgLossDayPnl: number; // negative (or 0)
+}
+
 /* ── Full dashboard response ── */
 export interface DashboardResponse {
   portfolio: DashboardPortfolio;
@@ -148,4 +172,5 @@ export interface DashboardResponse {
   setups: DashboardSetup[];
   mutualFunds: DashboardMutualFunds;
   insights: DashboardInsights;
+  tradeSnapshot: DashboardTradeSnapshot;
 }

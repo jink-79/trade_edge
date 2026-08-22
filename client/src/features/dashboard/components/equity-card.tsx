@@ -47,14 +47,14 @@ export function EquityCard({ pnlChart, portfolio, netPnl }: EquityCardProps) {
           </CardDescription>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-semibold tabular">
-            {fmtINR(portfolio.totalValue)}
-          </div>
           <div
-            className={`text-xs tabular ${pnlPos ? "text-primary" : "text-destructive"}`}
+            className={`text-2xl font-semibold tabular ${pnlPos ? "text-primary" : "text-destructive"}`}
           >
             {pnlPos ? "+" : ""}
-            {fmtINR(netPnl)} realised
+            {fmtINR(netPnl)}
+          </div>
+          <div className="text-xs tabular text-muted-foreground">
+            {fmtINR(portfolio.totalValue)} portfolio value
           </div>
         </div>
       </CardHeader>

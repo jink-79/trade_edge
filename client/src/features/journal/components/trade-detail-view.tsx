@@ -444,8 +444,8 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
                 )}
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Trade #{trade.tradeNumber} · {e.sector || "—"} ·{" "}
-                {fmtDate(e.entryDate)}
+                {trendRs55 ? "Overwatch" : "RSI_2"} · Trade #{trade.tradeNumber} ·{" "}
+                {e.sector || "—"} · {fmtDate(e.entryDate)}
                 {isClosed && x ? ` → ${fmtDate(x.exitDate)}` : ""}
               </p>
             </div>
