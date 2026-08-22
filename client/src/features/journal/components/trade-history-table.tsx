@@ -62,13 +62,20 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return trades;
-    return trades.filter(
-      (t) =>
-        t.entry.ticker.toLowerCase().includes(q) ||
-        (t.entry.sector ?? "").toLowerCase().includes(q) ||
-        t.outcome.toLowerCase().includes(q),
-    );
+    const filtered = q
+      ? trades.filter(
+          (t) =>
+            t.entry.ticker.toLowerCase().includes(q) ||
+            (t.entry.sector ?? "").toLowerCase().includes(q) ||
+            t.outcome.toLowerCase().includes(q),
+        )
+      : trades;
+    // Latest exit first, regardless of whatever order the API returned.
+    return [...filtered].sort((a, b) => {
+      const aTime = a.exit ? new Date(a.exit.exitDate).getTime() : 0;
+      const bTime = b.exit ? new Date(b.exit.exitDate).getTime() : 0;
+      return bTime - aTime;
+    });
   }, [trades, query]);
 
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -265,7 +272,7 @@ function HistoryRow({
       <TableCell className="pl-6 pr-3 py-3 tabular text-muted-foreground">{index}</TableCell>
       <TableCell className="pl-3 pr-3 py-3">
         <div className="flex items-center gap-3">
-          <div className="size-9 rounded-lg grid place-items-center text-[11px] font-semibold tabular tracking-wide bg-secondary/60 text-foreground ring-1 ring-border/70 shrink-0">
+          <div className="size-9 rounded-lg grid place-items-center text-[11px] font-semibold tabular tracking-wide bg-primary/15 text-primary ring-1 ring-primary/30 shrink-0">
             {e.ticker.slice(0, 2)}
           </div>
           <div className="leading-tight">

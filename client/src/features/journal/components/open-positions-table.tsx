@@ -37,12 +37,14 @@ export function OpenPositionsTable({ trades }: { trades: JournalTrade[] }) {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return trades;
-    return trades.filter(
-      (t) =>
-        t.entry.ticker.toLowerCase().includes(q) ||
-        (t.entry.sector ?? "").toLowerCase().includes(q),
-    );
+    const filtered = q
+      ? trades.filter(
+          (t) =>
+            t.entry.ticker.toLowerCase().includes(q) ||
+            (t.entry.sector ?? "").toLowerCase().includes(q),
+        )
+      : trades;
+    return [...filtered].sort((a, b) => a.entry.ticker.localeCompare(b.entry.ticker));
   }, [trades, query]);
 
   return (
