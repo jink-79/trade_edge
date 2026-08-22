@@ -117,7 +117,7 @@ export function ReturnsCharts({
                     <LabelList
                       dataKey="r"
                       position="top"
-                      formatter={(v: number) => fmtPct(v)}
+                      formatter={(v) => (typeof v === "number" ? fmtPct(v) : "")}
                       style={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                     />
                     {monthlyReturns.map((m, i) => (
