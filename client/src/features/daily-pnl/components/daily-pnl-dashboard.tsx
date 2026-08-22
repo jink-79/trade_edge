@@ -14,13 +14,13 @@ export function DailyPnlDashboard() {
       <div>
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
           <span className="size-1.5 rounded-full bg-primary animate-pulse" />
-          Broker sync · Zerodha
+          Daily mark refresh
         </div>
         <h1 className="mt-2 text-3xl md:text-4xl font-semibold">Daily P&amp;L</h1>
         <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
-          Mark-to-market on open positions plus realized P&amp;L for trades closed today, from the
-          last Zerodha sync.
-          {latest ? ` Last synced ${fmtDateTime(latest.generatedAt)}.` : ""}
+          Today's move on open positions, plus realized P&amp;L for trades closed today — from
+          phalanx-live's daily OHLCV refresh.
+          {latest ? ` Last refreshed ${fmtDateTime(latest.generatedAt)}.` : ""}
         </p>
       </div>
 
@@ -40,7 +40,8 @@ export function DailyPnlDashboard() {
           <p className="text-sm text-destructive">Couldn't load daily P&amp;L.</p>
         ) : !latest ? (
           <p className="text-sm text-muted-foreground">
-            No sync yet. Ask Claude to "sync my Zerodha trades" to populate this.
+            No snapshot yet — this fills in once the daily mark-refresh cron runs, or after your
+            next open position mark or exit.
           </p>
         ) : (
           <DailyPnlSnapshotView snapshot={latest} />

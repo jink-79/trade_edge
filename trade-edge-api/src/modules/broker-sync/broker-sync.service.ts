@@ -45,17 +45,25 @@ export async function refreshDailySnapshot(userId: string): Promise<DailyPnlSnap
     const quantity = t.quantity ?? t.qty ?? 0;
     const markPrice = t.markPrice ?? null;
     const unrealizedPnl = markPrice != null ? round2((markPrice - entryPrice) * quantity) : 0;
+    const todayPnl =
+      markPrice != null && t.markPrevClose != null
+        ? round2((markPrice - t.markPrevClose) * quantity)
+        : null;
     return {
+      id: t._id ? String(t._id) : null,
       symbol: t.symbol,
       quantity,
       entryPrice,
       markPrice,
       unrealizedPnl,
+      todayPnl,
     };
   });
   const unrealizedPnlTotal = round2(openPositions.reduce((s, p) => s + p.unrealizedPnl, 0));
+  const todayPnlTotal = round2(openPositions.reduce((s, p) => s + (p.todayPnl ?? 0), 0));
 
   const closedTodayRows = closedToday.map((t: any) => ({
+    id: t._id ? String(t._id) : null,
     symbol: t.symbol,
     exitPrice: t.exitPrice,
     pnlAmount: t.pnlAmount ?? 0,
@@ -69,9 +77,13 @@ export async function refreshDailySnapshot(userId: string): Promise<DailyPnlSnap
       date: dayStart,
       openPositions,
       unrealizedPnlTotal,
+      todayPnlTotal,
       closedToday: closedTodayRows,
       realizedPnlTotal,
-      totalPnl: round2(unrealizedPnlTotal + realizedPnlTotal),
+      // The actual "today" figure: today's move on open positions plus
+      // today's realized exits — NOT unrealizedPnlTotal, which is
+      // since-entry and would conflate weeks of gains with "today."
+      totalPnl: round2(todayPnlTotal + realizedPnlTotal),
       availableCash: fundsSummary.summary.availableCash,
       generatedAt: now,
     },
@@ -84,9 +96,23 @@ export async function refreshDailySnapshot(userId: string): Promise<DailyPnlSnap
 function formatSnapshot(doc: any): DailyPnlSnapshotResponse {
   return {
     date: doc.date.toISOString(),
-    openPositions: doc.openPositions,
+    openPositions: (doc.openPositions ?? []).map((p: any) => ({
+      id: p.id ?? null,
+      symbol: p.symbol,
+      quantity: p.quantity,
+      entryPrice: p.entryPrice,
+      markPrice: p.markPrice ?? null,
+      unrealizedPnl: p.unrealizedPnl,
+      todayPnl: p.todayPnl ?? null,
+    })),
     unrealizedPnlTotal: doc.unrealizedPnlTotal,
-    closedToday: doc.closedToday,
+    todayPnlTotal: doc.todayPnlTotal ?? 0,
+    closedToday: (doc.closedToday ?? []).map((t: any) => ({
+      id: t.id ?? null,
+      symbol: t.symbol,
+      exitPrice: t.exitPrice,
+      pnlAmount: t.pnlAmount,
+    })),
     realizedPnlTotal: doc.realizedPnlTotal,
     totalPnl: doc.totalPnl,
     availableCash: doc.availableCash,

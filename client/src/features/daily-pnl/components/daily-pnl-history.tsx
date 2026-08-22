@@ -1,11 +1,69 @@
 import { useMemo, useState } from "react";
+import { CalendarIcon, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDailyPnlHistory } from "../hooks/use-daily-pnl";
 import { DailyPnlSnapshotView } from "./daily-pnl-snapshot-view";
 import { fmtDate, fmtSigned } from "./daily-pnl-format";
+
+const isoToLocalDate = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+};
+const dateToISO = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+function DateFilterField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (iso: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="flex items-center gap-1">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-40 justify-start font-normal tabular text-foreground">
+              <CalendarIcon className="size-3.5 text-muted-foreground" />
+              {value ? fmtDate(value) : "Any"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={value ? isoToLocalDate(value) : undefined}
+              onSelect={(d) => d && onChange(dateToISO(d))}
+              disabled={{ after: new Date() }}
+              className="p-3 pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+        {value && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
+            onClick={() => onChange("")}
+          >
+            <X className="size-3.5" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function DailyPnlHistory() {
   const [from, setFrom] = useState("");
@@ -32,30 +90,8 @@ export function DailyPnlHistory() {
           </CardTitle>
           <CardDescription>Browse past days' P&amp;L snapshots.</CardDescription>
           <div className="flex flex-wrap items-end gap-4 pt-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="pnl-history-from" className="text-xs text-muted-foreground">
-                From
-              </Label>
-              <Input
-                id="pnl-history-from"
-                type="date"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                className="w-40"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pnl-history-to" className="text-xs text-muted-foreground">
-                To
-              </Label>
-              <Input
-                id="pnl-history-to"
-                type="date"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                className="w-40"
-              />
-            </div>
+            <DateFilterField label="From" value={from} onChange={setFrom} />
+            <DateFilterField label="To" value={to} onChange={setTo} />
           </div>
         </CardHeader>
         <CardContent>
