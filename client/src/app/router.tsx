@@ -15,6 +15,7 @@ import { PreferencesPage } from "@/features/preferences/pages/preferences-page";
 import { TradeDetailPage } from "@/features/journal/pages/trade-detail-page";
 import { AlgoSignalsPage } from "@/features/algo-signals/pages/algo-signals-page";
 import { CalendarPage } from "@/features/calendar/pages/calendar-page";
+import { MissedSignalsPage } from "@/features/missed-signals/pages/missed-signals-page";
 
 export const router = createBrowserRouter([
   {
@@ -57,6 +58,10 @@ export const router = createBrowserRouter([
       {
         path: "calendar",
         element: <CalendarPage />,
+      },
+      {
+        path: "missed-signals",
+        element: <MissedSignalsPage />,
       },
       {
         path: "trades/:id",

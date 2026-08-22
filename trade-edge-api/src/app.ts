@@ -16,6 +16,7 @@ import algoSignalsRoutes from "./modules/algo-signals/algo-signals.routes";
 import newsletterRoutes from "./modules/newsletter/newsletter.routes";
 import calendarRoutes from "./modules/calendar/calendar.routes";
 import weeklyRecapRoutes from "./modules/weekly-recap/weekly-recap.routes";
+import missedSignalsRoutes from "./modules/missed-signals/missed-signals.routes";
 
 const app = express();
 
@@ -72,6 +73,7 @@ app.use("/api/algo-signals", algoSignalsRoutes);
 app.use("/api/newsletter", newsletterRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/weekly-recap", weeklyRecapRoutes);
+app.use("/api/missed-signals", missedSignalsRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ success: false, message: "Route not found" });
