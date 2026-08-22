@@ -1,10 +1,11 @@
 /* ─────────────────────────────────────────────────────
-   TRADE CALENDAR — UI-first types
-   Mock data lives in ../api/calendar-mock.ts until the backend
-   endpoint (GET /api/calendar?year=&month=) exists to replace it.
+   TRADE CALENDAR
+   Only entry/exit are backed by real journal data — earnings,
+   dividends and notes would need a data source this app doesn't have
+   yet, so the backend (GET /api/calendar) only emits these two kinds.
 ───────────────────────────────────────────────────── */
 
-export type EventKind = "entry" | "exit" | "earnings" | "note" | "dividend" | "ai";
+export type EventKind = "entry" | "exit";
 
 export interface TradeEvent {
   id: string;
@@ -12,7 +13,12 @@ export interface TradeEvent {
   kind: EventKind;
   symbol?: string;
   title: string;
-  meta?: string;
   pnl?: number;
   time?: string;
+}
+
+export interface CalendarResponse {
+  year: number;
+  month: number; // 0-indexed
+  events: TradeEvent[];
 }

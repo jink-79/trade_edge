@@ -18,6 +18,7 @@ import backtestArchiveRoutes from "./modules/backtest-archive/backtest-archive.r
 import algoSignalsRoutes from "./modules/algo-signals/algo-signals.routes";
 import brokerSyncRoutes from "./modules/broker-sync/broker-sync.routes";
 import newsletterRoutes from "./modules/newsletter/newsletter.routes";
+import calendarRoutes from "./modules/calendar/calendar.routes";
 
 const app = express();
 
@@ -81,6 +82,7 @@ app.use("/api/backtest-archive", backtestArchiveRoutes);
 app.use("/api/algo-signals", algoSignalsRoutes);
 app.use("/api/broker-sync", brokerSyncRoutes);
 app.use("/api/newsletter", newsletterRoutes);
+app.use("/api/calendar", calendarRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ success: false, message: "Route not found" });

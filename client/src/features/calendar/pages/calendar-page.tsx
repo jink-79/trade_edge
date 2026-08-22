@@ -10,10 +10,6 @@ import {
   Clock,
   Download,
   Filter,
-  Newspaper,
-  NotebookPen,
-  Sparkles,
-  Target,
   TrendingUp,
   X,
 } from "lucide-react";
@@ -23,8 +19,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { CalendarSkeleton } from "@/components/page-skeletons";
 import { cn } from "@/lib/utils";
-import { MOCK_CALENDAR_EVENTS } from "../api/calendar-mock";
+import { useCalendar } from "../hooks/use-calendar";
 import type { EventKind, TradeEvent } from "../types/calendar.types";
 
 /* ---------- helpers ---------- */
@@ -73,41 +70,9 @@ const kindMeta: Record<
     bg: "bg-emerald-500/10",
     dot: "bg-emerald-400",
   },
-  earnings: {
-    label: "Earnings",
-    icon: Newspaper,
-    tone: "text-amber-400",
-    ring: "ring-amber-500/30",
-    bg: "bg-amber-500/10",
-    dot: "bg-amber-400",
-  },
-  note: {
-    label: "Note",
-    icon: NotebookPen,
-    tone: "text-muted-foreground",
-    ring: "ring-border/80",
-    bg: "bg-muted/30",
-    dot: "bg-muted-foreground",
-  },
-  dividend: {
-    label: "Dividend",
-    icon: Target,
-    tone: "text-sky-400",
-    ring: "ring-sky-500/30",
-    bg: "bg-sky-500/10",
-    dot: "bg-sky-400",
-  },
-  ai: {
-    label: "Edge AI",
-    icon: Sparkles,
-    tone: "text-fuchsia-400",
-    ring: "ring-fuchsia-500/30",
-    bg: "bg-fuchsia-500/10",
-    dot: "bg-fuchsia-400",
-  },
 };
 
-const ALL_KINDS: EventKind[] = ["entry", "exit", "earnings", "note", "dividend", "ai"];
+const ALL_KINDS: EventKind[] = ["entry", "exit"];
 
 /* =========================================================================
    PAGE
@@ -120,10 +85,12 @@ export function CalendarPage() {
   const [activeKinds, setActiveKinds] = useState<EventKind[]>(ALL_KINDS);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
-  // TODO(backend): swap this filter for a real GET /api/calendar?year=&month= fetch.
+  const { data, isLoading } = useCalendar(cursor.year, cursor.month);
+  const events = data?.events ?? [];
+
   const visibleEvents = useMemo(
-    () => MOCK_CALENDAR_EVENTS.filter((e) => activeKinds.includes(e.kind)),
-    [activeKinds],
+    () => events.filter((e) => activeKinds.includes(e.kind)),
+    [events, activeKinds],
   );
 
   // Build month grid (Mon-first)
@@ -154,10 +121,21 @@ export function CalendarPage() {
     const realized = exits.reduce((s, e) => s + (e.pnl ?? 0), 0);
     const wins = exits.filter((e) => (e.pnl ?? 0) > 0).length;
     const wr = exits.length ? (wins / exits.length) * 100 : 0;
-    const upcoming = visibleEvents.filter(
-      (e) => e.kind === "earnings" || e.kind === "dividend",
-    ).length;
-    return { entries, exits: exits.length, realized, wr, upcoming };
+
+    const pnlByDay = new Map<number, number>();
+    for (const e of exits) {
+      pnlByDay.set(e.day, (pnlByDay.get(e.day) ?? 0) + (e.pnl ?? 0));
+    }
+    let bestDay: number | null = null;
+    let bestPnl = 0;
+    for (const [day, pnl] of pnlByDay) {
+      if (bestDay === null || pnl > bestPnl) {
+        bestDay = day;
+        bestPnl = pnl;
+      }
+    }
+
+    return { entries, exits: exits.length, realized, wr, bestDay, bestPnl };
   }, [visibleEvents]);
 
   const selectedEvents = selectedDay ? byDay.get(selectedDay) ?? [] : [];
@@ -176,6 +154,10 @@ export function CalendarPage() {
 
   const isCurrentMonth =
     today.getFullYear() === cursor.year && today.getMonth() === cursor.month;
+
+  if (isLoading) {
+    return <CalendarSkeleton />;
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -247,9 +229,9 @@ export function CalendarPage() {
               tone={totals.realized >= 0 ? "text-emerald-400" : "text-destructive"}
             />
             <Kpi
-              label="Upcoming events"
-              value={totals.upcoming}
-              sub="earnings · dividends"
+              label="Best day"
+              value={totals.bestDay != null ? String(totals.bestDay) : "—"}
+              sub={totals.bestDay != null ? fmtInr(totals.bestPnl) : "no exits yet"}
               icon={CalendarClock}
               tone="text-amber-400"
             />
@@ -477,9 +459,6 @@ export function CalendarPage() {
                                     {fmtInr(e.pnl)}
                                   </span>
                                 )}
-                                {e.meta && (
-                                  <span className="text-[11px] text-muted-foreground">{e.meta}</span>
-                                )}
                               </div>
                             </div>
                           </li>
@@ -569,22 +548,17 @@ export function CalendarPage() {
                                   )}
                                 </div>
                                 <p className="mt-1.5 text-sm text-muted-foreground">{e.title}</p>
-                                {(typeof e.pnl === "number" || e.meta) && (
+                                {typeof e.pnl === "number" && (
                                   <div className="mt-1.5 flex items-center gap-3">
-                                    {typeof e.pnl === "number" && (
-                                      <span
-                                        className={cn(
-                                          "text-xs tabular font-medium",
-                                          e.pnl >= 0 ? "text-emerald-400" : "text-destructive",
-                                        )}
-                                      >
-                                        {e.pnl >= 0 ? "+" : ""}
-                                        {fmtInr(e.pnl)}
-                                      </span>
-                                    )}
-                                    {e.meta && (
-                                      <span className="text-[11px] text-muted-foreground">{e.meta}</span>
-                                    )}
+                                    <span
+                                      className={cn(
+                                        "text-xs tabular font-medium",
+                                        e.pnl >= 0 ? "text-emerald-400" : "text-destructive",
+                                      )}
+                                    >
+                                      {e.pnl >= 0 ? "+" : ""}
+                                      {fmtInr(e.pnl)}
+                                    </span>
                                   </div>
                                 )}
                               </div>

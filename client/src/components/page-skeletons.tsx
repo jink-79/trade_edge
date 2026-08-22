@@ -200,3 +200,14 @@ export function DailyPnlSkeleton() {
     </PageWrap>
   );
 }
+
+export function CalendarSkeleton() {
+  return (
+    <PageWrap>
+      <HeaderSkel />
+      <TilesSkel n={4} />
+      <Skeleton className="h-10 w-full max-w-xl" />
+      <Skeleton className="h-[560px] w-full rounded-2xl" />
+    </PageWrap>
+  );
+}
