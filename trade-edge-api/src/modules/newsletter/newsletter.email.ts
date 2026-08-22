@@ -217,12 +217,16 @@ export async function sendPositionsNewsletter(
   to: string,
   positions: PositionUpdate[],
   summary: NewsletterSummary,
+  priceAsOfDate: Date | null,
 ): Promise<void> {
   if (!env.RESEND_API_KEY) {
     throw new Error("RESEND_API_KEY is not configured");
   }
   const resend = new Resend(env.RESEND_API_KEY);
-  const dateLabel = new Date().toLocaleDateString("en-IN", {
+  // The actual OHLCV trading-day date behind these prices (phalanx-live's
+  // tvdatafeed cron), not "today" — the send can run hours after that data
+  // was written, and would otherwise mislabel yesterday's close as today's.
+  const dateLabel = (priceAsOfDate ?? new Date()).toLocaleDateString("en-IN", {
     weekday: "short",
     day: "2-digit",
     month: "short",

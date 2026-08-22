@@ -222,6 +222,7 @@ export interface JournalTradeResponse {
   markPrice?: number | null;
   markUpdatedAt?: Date | null;
   markDate?: Date | null;
+  markPrevClose?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

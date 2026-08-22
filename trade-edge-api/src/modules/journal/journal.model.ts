@@ -139,6 +139,9 @@ export interface IJournalTrade {
   // LTP mark, which has no dated close) — this is "as of" data freshness,
   // distinct from markUpdatedAt which is just when the refresh job ran.
   markDate?: Date | null;
+  // Previous trading day's close for the same symbol — lets the UI show a
+  // per-position daily % move, not just the since-entry move.
+  markPrevClose?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -183,6 +186,7 @@ const JournalTradeSchema = new Schema<IJournalTrade>(
     markPrice: { type: Number, default: null },
     markUpdatedAt: { type: Date, default: null },
     markDate: { type: Date, default: null },
+    markPrevClose: { type: Number, default: null },
   },
   { timestamps: true },
 );

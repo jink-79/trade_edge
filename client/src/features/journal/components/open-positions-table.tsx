@@ -118,6 +118,7 @@ export function OpenPositionsTable({
                   <TableHead className="text-right">RS-55</TableHead>
                   <TableHead className="text-right">Since entry</TableHead>
                   <TableHead className="text-right">Mark / P&amp;L</TableHead>
+                  <TableHead className="text-right">Today</TableHead>
                   <TableHead className="text-right pr-6">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -229,6 +230,9 @@ function PositionRow({
         <TableCell className="text-right tabular">
           <MarkCell t={t} />
         </TableCell>
+        <TableCell className="text-right tabular">
+          <TodayChangeCell t={t} />
+        </TableCell>
         <TableCell className="text-right pr-6">
           <div className="flex items-center justify-end gap-1.5">
             <Button
@@ -265,7 +269,7 @@ function PositionRow({
 
       {open && (
         <TableRow className="hover:bg-transparent border-border/60">
-          <TableCell colSpan={7} className="p-0">
+          <TableCell colSpan={8} className="p-0">
             <ExpandedDetails t={t} capital={capital} />
           </TableCell>
         </TableRow>
@@ -284,6 +288,22 @@ function SinceEntryCell({ t }: { t: JournalTrade }) {
   const pct = long
     ? ((t.markPrice - t.entry.entryPrice) / t.entry.entryPrice) * 100
     : ((t.entry.entryPrice - t.markPrice) / t.entry.entryPrice) * 100;
+  return (
+    <span className={pct >= 0 ? "text-primary" : "text-destructive"}>
+      {pct >= 0 ? "+" : ""}
+      {pct.toFixed(2)}%
+    </span>
+  );
+}
+
+/** Today's % move (mark vs the previous trading day's close) — distinct from
+ * the since-entry move. Dash when there's no mark yet or no prior close
+ * (first day phalanx-live has data for this symbol). */
+function TodayChangeCell({ t }: { t: JournalTrade }) {
+  if (t.markPrice == null || t.markPrevClose == null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const pct = ((t.markPrice - t.markPrevClose) / t.markPrevClose) * 100;
   return (
     <span className={pct >= 0 ? "text-primary" : "text-destructive"}>
       {pct >= 0 ? "+" : ""}

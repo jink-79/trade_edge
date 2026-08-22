@@ -44,7 +44,7 @@ async function buildPositionUpdate(
   trade: any,
   exitSymbols: Set<string>,
   staleSymbols: Set<string>,
-): Promise<PositionUpdate> {
+): Promise<PositionUpdate & { priceDate: Date | null }> {
   const symbol = trade.symbol as string;
   const entryPrice = trade.entryPrice as number;
   const quantity = trade.quantity as number;
@@ -80,6 +80,7 @@ async function buildPositionUpdate(
     aiTake,
     sellSignal: exitSymbols.has(symbol),
     dataStale: staleSymbols.has(symbol),
+    priceDate: today?.date ? new Date(today.date) : null,
   };
 }
 
@@ -146,12 +147,18 @@ export async function runDailyNewsletter(): Promise<NewsletterRunSummary> {
       const user = await User.findById(userId).lean();
       if (!user?.email) throw new Error(`No email on file for user ${userId}`);
 
-      const positions = await Promise.all(
+      const positionsWithDate = await Promise.all(
         trades.map((t) => buildPositionUpdate(t, exitSymbols, staleSymbols)),
       );
-      sellAlerts += positions.filter((p) => p.sellSignal).length;
-      const summary = buildSummary(positions, maxPositions);
-      await sendPositionsNewsletter(user.email, positions, summary);
+      sellAlerts += positionsWithDate.filter((p) => p.sellSignal).length;
+      const summary = buildSummary(positionsWithDate, maxPositions);
+      // The most recent OHLCV date among this user's positions — the actual
+      // "as of" date for the prices shown, not when this job happens to run.
+      const priceAsOfDate = positionsWithDate.reduce<Date | null>(
+        (latest, p) => (p.priceDate && (!latest || p.priceDate > latest) ? p.priceDate : latest),
+        null,
+      );
+      await sendPositionsNewsletter(user.email, positionsWithDate, summary, priceAsOfDate);
 
       sent++;
       await NewsletterRun.create({

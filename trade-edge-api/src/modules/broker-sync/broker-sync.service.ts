@@ -212,7 +212,7 @@ export async function refreshAllMarksFromOhlcv(): Promise<MarkRefreshSummary> {
   const userIds = new Set<string>();
 
   for (const [symbol, trades] of bySymbol) {
-    const { today } = await getTodayAndPrevClose(symbol);
+    const { today, prev } = await getTodayAndPrevClose(symbol);
     if (today?.close == null) {
       logger.warn(`refreshAllMarksFromOhlcv: no OHLCV close for ${symbol}, skipping`);
       skipped += trades.length;
@@ -225,6 +225,7 @@ export async function refreshAllMarksFromOhlcv(): Promise<MarkRefreshSummary> {
         today.close,
         undefined,
         new Date(today.date),
+        prev?.close,
       );
       userIds.add(t.userId);
       updated++;

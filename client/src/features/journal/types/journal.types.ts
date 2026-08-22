@@ -169,6 +169,9 @@ export interface JournalTrade {
   /** The OHLCV bar's own trading-day date behind markPrice — this is the
    * real "data as of" date; markUpdatedAt is just when the refresh job ran. */
   markDate?: string | null;
+  /** Previous trading day's close for the same symbol — lets the UI show a
+   * daily % move alongside the since-entry move. */
+  markPrevClose?: number | null;
   createdAt: string;
   updatedAt: string;
 }
