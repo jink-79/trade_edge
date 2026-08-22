@@ -178,12 +178,13 @@ export interface IJournalTrade {
   rMultiple?: number | null;
   netPnlAmount?: number | null;
   totalCharges?: number | null;
-  // last Kite LTP seen for this open position, set by broker-sync
+  // Last price mark seen for this open position — set once at entry via
+  // updateOpenTradeMark(); nothing currently refreshes it afterward (the
+  // daily mark-refresh cron was removed along with broker-sync).
   markPrice?: number | null;
   markUpdatedAt?: Date | null;
-  // the OHLCV bar's own trading-day date behind markPrice (null for a Kite
-  // LTP mark, which has no dated close) — this is "as of" data freshness,
-  // distinct from markUpdatedAt which is just when the refresh job ran.
+  // the OHLCV bar's own trading-day date behind markPrice — this is "as of"
+  // data freshness, distinct from markUpdatedAt (just when the mark was set).
   markDate?: Date | null;
   // Previous trading day's close for the same symbol — lets the UI show a
   // per-position daily % move, not just the since-entry move.

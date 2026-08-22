@@ -11,7 +11,7 @@ export function TradeHistoryHero({
     <div>
       <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
         <BarChart3 className="size-3.5 text-primary" />
-        Trade history · from Kite
+        Trade history · Overwatch
       </div>
       <h1 className="mt-2 text-3xl md:text-4xl font-semibold">Closed trades</h1>
       <p className="mt-1 text-sm text-muted-foreground max-w-2xl">

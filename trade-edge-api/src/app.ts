@@ -13,7 +13,6 @@ import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import journalRoutes from "./modules/journal/journal.routes";
 import preferencesRoutes from "./modules/preferences/preferences.routes";
 import algoSignalsRoutes from "./modules/algo-signals/algo-signals.routes";
-import brokerSyncRoutes from "./modules/broker-sync/broker-sync.routes";
 import newsletterRoutes from "./modules/newsletter/newsletter.routes";
 import calendarRoutes from "./modules/calendar/calendar.routes";
 import weeklyRecapRoutes from "./modules/weekly-recap/weekly-recap.routes";
@@ -48,9 +47,7 @@ app.use(
 const skipLargeBody =
   (parser: express.RequestHandler): express.RequestHandler =>
   (req, res, next) =>
-    req.path.startsWith("/api/journal") || req.path.startsWith("/api/broker-sync")
-      ? next()
-      : parser(req, res, next);
+    req.path.startsWith("/api/journal") ? next() : parser(req, res, next);
 
 app.use(skipLargeBody(express.json({ limit: "10kb" })));
 app.use(skipLargeBody(express.urlencoded({ extended: true, limit: "10kb" })));
@@ -72,7 +69,6 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/journal", journalRoutes);
 app.use("/api/preferences", preferencesRoutes);
 app.use("/api/algo-signals", algoSignalsRoutes);
-app.use("/api/broker-sync", brokerSyncRoutes);
 app.use("/api/newsletter", newsletterRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/weekly-recap", weeklyRecapRoutes);

@@ -188,11 +188,11 @@ export interface JournalTrade {
   reviewNoteSource?: "user" | "ai" | null;
   reviewNoteUpdatedAt?: string | null;
   /** Last price mark seen for this open position (from phalanx-live's daily
-   * OHLCV, refreshed by the tvdatafeed cron — not a broker LTP). */
+   * OHLCV) — set once at entry, nothing currently refreshes it afterward. */
   markPrice?: number | null;
   markUpdatedAt?: string | null;
   /** The OHLCV bar's own trading-day date behind markPrice — this is the
-   * real "data as of" date; markUpdatedAt is just when the refresh job ran. */
+   * real "data as of" date; markUpdatedAt is just when the mark was set. */
   markDate?: string | null;
   /** Previous trading day's close for the same symbol — lets the UI show a
    * daily % move alongside the since-entry move. */

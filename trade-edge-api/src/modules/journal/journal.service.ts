@@ -809,24 +809,20 @@ export async function analyzeJournalTrade(
   return formatTrade(doc.toObject());
 }
 
-/** All open trades for a user, raw (used by broker-sync to diff against Kite). */
+/** All open trades for a user, raw. */
 export async function getOpenJournalTrades(userId: string) {
   return JournalOpen.find({ userId }).select(LIST_PROJECTION).lean();
 }
 
-/** A single open trade by symbol, or null — broker-sync's create-vs-update check. */
-export async function findOpenJournalTradeBySymbol(userId: string, symbol: string) {
-  return JournalOpen.findOne({ userId, symbol: symbol.toUpperCase() });
-}
-
-/** Closed trades whose exitDate falls within [start, end) — for the daily P&L snapshot. */
+/** Closed trades whose exitDate falls within [start, end) — used by the
+ * weekly recap. */
 export async function getJournalTradesClosedBetween(userId: string, start: Date, end: Date) {
   return JournalClosed.find({ userId, exitDate: { $gte: start, $lt: end } })
     .select(LIST_PROJECTION)
     .lean();
 }
 
-/** Broker-sync: refresh an open trade's live mark (and quantity, if it changed in Kite). */
+/** Refresh an open trade's mark price (and quantity, if it changed). */
 export async function updateOpenTradeMark(
   userId: string,
   id: string,
