@@ -96,18 +96,18 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-border/60">
-                  <TableHead className="w-10 pl-6">#</TableHead>
-                  <TableHead className="w-[200px]">Symbol</TableHead>
-                  <TableHead>Entry date</TableHead>
-                  <TableHead>Exit date</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Entry</TableHead>
-                  <TableHead className="text-right">Exit</TableHead>
-                  <TableHead className="text-right">Gross P&amp;L</TableHead>
-                  <TableHead className="text-right">Charges</TableHead>
-                  <TableHead className="text-right">Realised P&amp;L</TableHead>
-                  <TableHead className="text-right">Days</TableHead>
-                  <TableHead className="text-right">
+                  <TableHead className="w-10 pl-6 pr-3">#</TableHead>
+                  <TableHead className="w-[200px] pl-3 pr-3">Symbol</TableHead>
+                  <TableHead className="pl-3 pr-3">Entry date</TableHead>
+                  <TableHead className="pl-3 pr-3">Exit date</TableHead>
+                  <TableHead className="pl-3 pr-3 text-right">Qty</TableHead>
+                  <TableHead className="pl-3 pr-3 text-right">Entry</TableHead>
+                  <TableHead className="pl-3 pr-3 text-right">Exit</TableHead>
+                  <TableHead className="pl-3 pr-3 text-right">Gross P&amp;L</TableHead>
+                  <TableHead className="pl-3 pr-3 text-right">Charges</TableHead>
+                  <TableHead className="pl-3 pr-3 text-right">Realised P&amp;L</TableHead>
+                  <TableHead className="pl-3 pr-3 text-right">Days</TableHead>
+                  <TableHead className="pl-3 pr-3 text-right">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="inline-flex items-center gap-1 cursor-help">
@@ -123,7 +123,7 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
                       </TooltipContent>
                     </Tooltip>
                   </TableHead>
-                  <TableHead>Outcome</TableHead>
+                  <TableHead className="pl-3 pr-6">Outcome</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -169,8 +169,8 @@ function HistoryRow({
       onClick={onOpen}
       className="cursor-pointer border-border/60 transition-colors hover:bg-accent/20"
     >
-      <TableCell className="pl-6 tabular text-muted-foreground">{index}</TableCell>
-      <TableCell className="py-4">
+      <TableCell className="pl-6 pr-3 py-3 tabular text-muted-foreground">{index}</TableCell>
+      <TableCell className="pl-3 pr-3 py-3">
         <div className="flex items-center gap-3">
           <div className="size-9 rounded-lg grid place-items-center text-[11px] font-semibold tabular tracking-wide bg-secondary/60 text-foreground ring-1 ring-border/70 shrink-0">
             {e.ticker.slice(0, 2)}
@@ -183,20 +183,20 @@ function HistoryRow({
           </div>
         </div>
       </TableCell>
-      <TableCell className="text-muted-foreground tabular whitespace-nowrap">
+      <TableCell className="pl-3 pr-3 py-3 text-muted-foreground tabular whitespace-nowrap">
         {fmtDate(e.entryDate)}
       </TableCell>
-      <TableCell className="text-muted-foreground tabular whitespace-nowrap">
+      <TableCell className="pl-3 pr-3 py-3 text-muted-foreground tabular whitespace-nowrap">
         {x ? fmtDate(x.exitDate) : "—"}
       </TableCell>
-      <TableCell className="text-right tabular">{e.quantity}</TableCell>
-      <TableCell className="text-right tabular text-muted-foreground">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular">{e.quantity}</TableCell>
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular text-muted-foreground">
         {fmtPrice(e.entryPrice)}
       </TableCell>
-      <TableCell className="text-right tabular text-muted-foreground">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular text-muted-foreground">
         {x ? fmtPrice(x.exitPrice) : "—"}
       </TableCell>
-      <TableCell className="text-right tabular">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular">
         {m ? (
           <div className="leading-tight">
             <div className={cn("font-medium", gross >= 0 ? "text-primary" : "text-destructive")}>
@@ -211,10 +211,10 @@ function HistoryRow({
           "—"
         )}
       </TableCell>
-      <TableCell className="text-right tabular text-muted-foreground">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular text-muted-foreground">
         {charges != null ? `−${fmtPrice(charges)}` : "—"}
       </TableCell>
-      <TableCell className="text-right tabular">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular">
         {m ? (
           <div className="leading-tight">
             <div className={cn("font-medium", net >= 0 ? "text-primary" : "text-destructive")}>
@@ -229,12 +229,12 @@ function HistoryRow({
           "—"
         )}
       </TableCell>
-      <TableCell className="text-right tabular text-muted-foreground">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular text-muted-foreground">
         {m ? `${m.daysHeld}d` : "—"}
       </TableCell>
       <TableCell
         className={cn(
-          "text-right tabular",
+          "pl-3 pr-3 py-3 text-right tabular",
           m?.rMultiple != null && (m.rMultiple >= 0 ? "text-primary" : "text-destructive"),
         )}
       >
@@ -263,7 +263,7 @@ function HistoryRow({
           "—"
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="pl-3 pr-6 py-3">
         <Badge
           className={cn(
             "border hover:bg-transparent",

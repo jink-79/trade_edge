@@ -84,17 +84,17 @@ export function OpenPositionsTable({ trades }: { trades: JournalTrade[] }) {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-border/60">
-                    <TableHead className="w-10 pl-6">#</TableHead>
-                    <TableHead className="w-[200px]">Symbol</TableHead>
-                    <TableHead>Entry date</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Entry</TableHead>
-                    <TableHead className="text-right">RS-55 (Mansfield)</TableHead>
-                    <TableHead className="text-right">LTP</TableHead>
-                    <TableHead className="text-right">P&amp;L</TableHead>
-                    <TableHead className="text-right">Daily P&amp;L</TableHead>
-                    <TableHead className="text-right">Held</TableHead>
-                    <TableHead className="text-right pr-6">Action</TableHead>
+                    <TableHead className="w-10 pl-6 pr-3">#</TableHead>
+                    <TableHead className="w-[200px] pl-3 pr-3">Symbol</TableHead>
+                    <TableHead className="pl-3 pr-3">Entry date</TableHead>
+                    <TableHead className="pl-3 pr-3 text-right">Qty</TableHead>
+                    <TableHead className="pl-3 pr-3 text-right">Entry</TableHead>
+                    <TableHead className="pl-3 pr-3 text-right">RS-55 (Mansfield)</TableHead>
+                    <TableHead className="pl-3 pr-3 text-right">LTP</TableHead>
+                    <TableHead className="pl-3 pr-3 text-right">P&amp;L</TableHead>
+                    <TableHead className="pl-3 pr-3 text-right">Daily P&amp;L</TableHead>
+                    <TableHead className="pl-3 pr-3 text-right">Held</TableHead>
+                    <TableHead className="pl-3 pr-6 text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -145,8 +145,8 @@ function PositionRow({
       onClick={onOpen}
       className="cursor-pointer border-border/60 transition-colors hover:bg-accent/20"
     >
-      <TableCell className="pl-6 tabular text-muted-foreground">{index}</TableCell>
-      <TableCell className="py-4">
+      <TableCell className="pl-6 pr-3 py-3 tabular text-muted-foreground">{index}</TableCell>
+      <TableCell className="pl-3 pr-3 py-3">
         <div className="flex items-center gap-3">
           <div className="size-9 rounded-lg grid place-items-center text-[11px] font-semibold tabular tracking-wide bg-primary/15 text-primary ring-1 ring-primary/30 shrink-0">
             {e.ticker.slice(0, 2)}
@@ -176,27 +176,27 @@ function PositionRow({
           </div>
         </div>
       </TableCell>
-      <TableCell className="text-muted-foreground tabular whitespace-nowrap">
+      <TableCell className="pl-3 pr-3 py-3 text-muted-foreground tabular whitespace-nowrap">
         {fmtDate(e.entryDate)}
       </TableCell>
-      <TableCell className="text-right tabular">{e.quantity}</TableCell>
-      <TableCell className="text-right tabular text-muted-foreground">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular">{e.quantity}</TableCell>
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular text-muted-foreground">
         {fmtPrice(e.entryPrice)}
       </TableCell>
-      <TableCell className="text-right tabular">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular">
         <MansfieldRsCell t={t} trendRs55={trendRs55} />
       </TableCell>
-      <TableCell className="text-right tabular">{fmtPrice(t.markPrice)}</TableCell>
-      <TableCell className="text-right tabular">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular">{fmtPrice(t.markPrice)}</TableCell>
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular">
         <PnlCell t={t} />
       </TableCell>
-      <TableCell className="text-right tabular">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular">
         <DailyPnlCell t={t} />
       </TableCell>
-      <TableCell className="text-right tabular text-muted-foreground">
+      <TableCell className="pl-3 pr-3 py-3 text-right tabular text-muted-foreground">
         {holdingDays(e.entryDate)}d
       </TableCell>
-      <TableCell className="text-right pr-6">
+      <TableCell className="pl-3 pr-6 py-3 text-right">
         <div className="flex items-center justify-end gap-1.5">
           <Button
             size="sm"
