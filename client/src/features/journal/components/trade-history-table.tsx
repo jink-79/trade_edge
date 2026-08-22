@@ -19,6 +19,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { fmtPrice, fmtSignedINR } from "../utils/journal-utils";
 import { metricsFor } from "./trade-history-kpis";
@@ -44,8 +53,11 @@ function netPnlFor(t: JournalTrade, gross: number): number {
   return t.exit?.netPnlAmount ?? gross;
 }
 
+const PAGE_SIZE = 25;
+
 export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const navigate = useNavigate();
 
   const rows = useMemo(() => {
@@ -58,6 +70,18 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
         t.outcome.toLowerCase().includes(q),
     );
   }, [trades, query]);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pagedRows = useMemo(
+    () => rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [rows, currentPage],
+  );
+
+  const handleSearch = (value: string) => {
+    setQuery(value);
+    setPage(1);
+  };
 
   return (
     <TooltipProvider>
@@ -75,7 +99,7 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
             <Input
               placeholder="Search symbol, outcome…"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               className="pl-8 h-9 w-[240px] bg-secondary/40"
             />
           </div>
@@ -127,11 +151,11 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((t, i) => (
+                {pagedRows.map((t, i) => (
                   <HistoryRow
                     key={t.id}
                     t={t}
-                    index={i + 1}
+                    index={(currentPage - 1) * PAGE_SIZE + i + 1}
                     onOpen={() => navigate(`/trades/${t.id}`)}
                   />
                 ))}
@@ -140,9 +164,78 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
           </div>
         )}
       </CardContent>
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between gap-4 border-t border-border/60 px-6 py-4">
+          <p className="text-xs text-muted-foreground">
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+            {Math.min(currentPage * PAGE_SIZE, rows.length)} of {rows.length}
+          </p>
+          <Pagination className="mx-0 w-auto justify-end">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  aria-disabled={currentPage === 1}
+                  className={currentPage === 1 ? "pointer-events-none opacity-40" : ""}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPage((p) => Math.max(1, p - 1));
+                  }}
+                />
+              </PaginationItem>
+              {paginationRange(currentPage, pageCount).map((item, i) =>
+                item === "ellipsis" ? (
+                  <PaginationItem key={`e-${i}`}>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                ) : (
+                  <PaginationItem key={item}>
+                    <PaginationLink
+                      href="#"
+                      isActive={item === currentPage}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setPage(item);
+                      }}
+                    >
+                      {item}
+                    </PaginationLink>
+                  </PaginationItem>
+                ),
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  aria-disabled={currentPage === pageCount}
+                  className={currentPage === pageCount ? "pointer-events-none opacity-40" : ""}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPage((p) => Math.min(pageCount, p + 1));
+                  }}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </Card>
     </TooltipProvider>
   );
+}
+
+/** Compact page list: first, last, current ± 1, with ellipsis for gaps. */
+function paginationRange(current: number, total: number): (number | "ellipsis")[] {
+  const pages = new Set<number>([1, total, current, current - 1, current + 1]);
+  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+
+  const result: (number | "ellipsis")[] = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) result.push("ellipsis");
+    result.push(p);
+    prev = p;
+  }
+  return result;
 }
 
 function HistoryRow({
