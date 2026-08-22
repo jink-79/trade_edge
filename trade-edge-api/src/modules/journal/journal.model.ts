@@ -143,13 +143,14 @@ export interface IJournalTrade {
     rsSeries: (number | null)[];
     capturedAt: Date;
   } | null;
-  // AI review of a CLOSED trade against the strategy's own rules — see
-  // journal.trade-insight.ts / journal.rule-check.ts. Generated on demand,
-  // persisted so it isn't regenerated on every page view.
+  // AI review of a trade (open or closed) against the strategy's own rules —
+  // see journal.trade-insight.ts / journal.rule-check.ts. Generated on
+  // demand, persisted so it isn't regenerated on every page view. exitCheck
+  // is null for a still-open trade (no exit to verify yet).
   tradeInsight?: {
     text: string;
     entryCheck: Record<string, any>;
-    exitCheck: Record<string, any>;
+    exitCheck: Record<string, any> | null;
     generatedAt: Date;
   } | null;
   // Free-form review note — unlike entry.notes (locked once the trade

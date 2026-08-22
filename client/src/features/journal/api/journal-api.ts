@@ -110,6 +110,36 @@ export async function fetchStockStrength(id: string): Promise<StockStrength> {
   return data.data;
 }
 
+export interface LiveIndicators {
+  symbol: string;
+  asOfDate: string;
+  close: number;
+  ema20: number | null;
+  ema50: number | null;
+  ema200: number | null;
+  rsi14: number | null;
+  macd: { line: number; signal: number; histogram: number } | null;
+  adx14: number | null;
+  mansfieldRs: number | null;
+  niftyRegime: "up" | "down";
+  priceAction: {
+    closePosition: "at-low" | "lower-third" | "mid" | "upper-third" | "at-high";
+    pctFrom20High: number;
+    pctFrom20Low: number;
+    streakDirection: "up" | "down" | "flat";
+    streakDays: number;
+  };
+}
+
+/** Raw EMA/RSI/RS/MACD/ADX/price-action readings for this trade's symbol,
+ * evaluated on the latest available OHLCV. */
+export async function fetchLiveIndicators(id: string): Promise<LiveIndicators> {
+  const { data } = await axiosInstance.get<ApiEnvelope<LiveIndicators>>(
+    `/journal/${id}/indicators`,
+  );
+  return data.data;
+}
+
 export async function exitJournalTrade(
   id: string,
   payload: ExitTradePayload,

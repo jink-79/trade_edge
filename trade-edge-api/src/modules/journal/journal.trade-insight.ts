@@ -14,14 +14,21 @@ export interface TradeInsightContext {
   distanceTo50Ema: number;
   niftyRegimeAtEntry: "up" | "down";
   entryCheck: EntryAdherenceCheck;
-  exitDate: string;
-  exitPrice: number;
-  outcome: string;
+  /** Everything below is null for a still-open trade — there's no exit yet
+   * to review, so the prompt swaps to a "how's it going so far" framing
+   * instead of "was the exit aligned." */
+  exitDate: string | null;
+  exitPrice: number | null;
+  outcome: string | null;
   daysHeld: number;
-  exitCheck: ExitAdherenceCheck;
-  grossPnlPct: number;
-  netPnlAmount: number;
-  totalCharges: number;
+  exitCheck: ExitAdherenceCheck | null;
+  grossPnlPct: number | null;
+  netPnlAmount: number | null;
+  totalCharges: number | null;
+  /** Current mark and its since-entry % move — only meaningful (and only
+   * passed) when the trade is still open. */
+  markPrice: number | null;
+  unrealizedPct: number | null;
   manualNote: string | null;
 }
 
@@ -39,9 +46,9 @@ function describeExit(c: ExitAdherenceCheck): string {
 }
 
 /**
- * Comprehensive post-trade review against the Trend+RS-55 system's own
- * rules (entry: trend flip up + RS-55 > 0; exit: trend flip down only, no
- * fixed stop/target) — same non-grounded Gemini construction as
+ * Post-trade (or in-progress-trade) review against the Trend+RS-55 system's
+ * own rules (entry: trend flip up + RS-55 > 0; exit: trend flip down only,
+ * no fixed stop/target) — same non-grounded Gemini construction as
  * journal.exit-ai.ts / journal.ai-review.ts, but every fact fed into the
  * prompt is either a number already computed server-side or a verified
  * true/false from phalanx-live's own daily_signals record, never invented.
@@ -53,11 +60,31 @@ export async function fetchTradeInsight(ctx: TradeInsightContext): Promise<strin
   const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({ model: env.GEMINI_MODEL });
 
-  const positive = ctx.netPnlAmount >= 0;
+  const isClosed = ctx.exitDate != null && ctx.exitCheck != null;
+
+  const statusBlock = isClosed
+    ? `Exit: ${ctx.exitDate!.slice(0, 10)} @ ₹${ctx.exitPrice}, outcome "${ctx.outcome}", held ${ctx.daysHeld} day(s)\n` +
+      `Exit verification (from the system's own daily scan): ${describeExit(ctx.exitCheck!)}\n\n` +
+      `Result: ${(ctx.netPnlAmount ?? 0) >= 0 ? "+" : ""}${ctx.grossPnlPct?.toFixed(2)}% gross, net ₹${ctx.netPnlAmount} after ~₹${ctx.totalCharges} charges\n`
+    : `Status: still open, held ${ctx.daysHeld} day(s) so far\n` +
+      `Current mark: ${ctx.markPrice != null ? `₹${ctx.markPrice}` : "unavailable"}${
+        ctx.unrealizedPct != null ? ` (${ctx.unrealizedPct >= 0 ? "+" : ""}${ctx.unrealizedPct.toFixed(2)}% since entry)` : ""
+      }\n`;
+
+  const closingInstructions = isClosed
+    ? `1. Was the entry actually system-aligned, per the verification above?\n` +
+      `2. Was the exit actually system-aligned, per the verification above, or discretionary/early/late?\n` +
+      `3. What, if anything, could have been done better here?\n` +
+      `4. One concrete, specific takeaway for next time.`
+    : `1. Was the entry actually system-aligned, per the verification above?\n` +
+      `2. How is it playing out so far, per the current mark above?\n` +
+      `3. Since this system only exits on a trend-flip-down signal (no fixed stop/target), what should the trader actually watch for while holding — not a prediction, just what to monitor.\n` +
+      `4. One concrete takeaway for how this entry was handled.`;
 
   const prompt =
-    `You're reviewing one closed trade against a mechanical trend-following system's own rules. ` +
-    `Use ONLY the facts below — don't invent price context, news, or anything not listed.\n\n` +
+    `You're reviewing one ${isClosed ? "closed" : "still-open"} trade against a mechanical ` +
+    `trend-following system's own rules. Use ONLY the facts below — don't invent price context, ` +
+    `news, or anything not listed.\n\n` +
     `SYSTEM RULES:\n` +
     `- Entry: only when the daily trend flips up AND RS-55 (55-session return vs Nifty) is positive. No discretion intended.\n` +
     `- Exit: only when the daily trend flips back down. No fixed stop-loss or profit target — the system is designed to hold through the full trend cycle either way.\n\n` +
@@ -68,15 +95,10 @@ export async function fetchTradeInsight(ctx: TradeInsightContext): Promise<strin
     `Distance from 200 EMA at entry: ${ctx.distanceFrom200Ema.toFixed(2)}%, from 50 EMA: ${ctx.distanceTo50Ema.toFixed(2)}%\n` +
     `Nifty regime at entry: ${ctx.niftyRegimeAtEntry === "up" ? "up-trend" : "down-trend"}\n` +
     `Entry verification (from the system's own daily scan): ${describeEntry(ctx.entryCheck)}\n\n` +
-    `Exit: ${ctx.exitDate.slice(0, 10)} @ ₹${ctx.exitPrice}, outcome "${ctx.outcome}", held ${ctx.daysHeld} day(s)\n` +
-    `Exit verification (from the system's own daily scan): ${describeExit(ctx.exitCheck)}\n\n` +
-    `Result: ${positive ? "+" : ""}${ctx.grossPnlPct.toFixed(2)}% gross, net ₹${ctx.netPnlAmount} after ~₹${ctx.totalCharges} charges\n` +
+    statusBlock +
     (ctx.manualNote ? `Trader's own note: ${ctx.manualNote}\n` : "") +
     `\nWrite a comprehensive but concise review (150-200 words, plain text, no markdown) covering, in order:\n` +
-    `1. Was the entry actually system-aligned, per the verification above?\n` +
-    `2. Was the exit actually system-aligned, per the verification above, or discretionary/early/late?\n` +
-    `3. What, if anything, could have been done better here?\n` +
-    `4. One concrete, specific takeaway for next time.`;
+    closingInstructions;
 
   const result = await model.generateContent(prompt);
   return result.response.text().trim();

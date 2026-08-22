@@ -496,3 +496,151 @@ export function computeStockStrength(
     components: { trendAlignment, emaDistance, relativeStrength, volatility, momentum, volume },
   };
 }
+
+// ── live indicator panel — raw values, not a scorecard ─────────────────────
+//
+// The strength scorecard above answers "how strong is this stock" as a
+// single weighted number. This answers the more literal ask: show the actual
+// EMA/RSI/RS/MACD/ADX/price-action readings a trader would check by hand,
+// all off the LATEST bar (open trade or long closed — same as strength).
+
+function macd(
+  closes: number[],
+): { line: number; signal: number; histogram: number } | null {
+  const ema12 = emaSeriesOf(closes, 12);
+  const ema26 = emaSeriesOf(closes, 26);
+  const macdLine: number[] = [];
+  for (let i = 0; i < closes.length; i++) {
+    const a = ema12[i];
+    const b = ema26[i];
+    if (a != null && b != null) macdLine.push(a - b);
+  }
+  if (macdLine.length < 9) return null;
+  const signalSeries = emaSeriesOf(macdLine, 9);
+  const line = macdLine[macdLine.length - 1];
+  const signal = signalSeries[signalSeries.length - 1];
+  if (signal == null) return null;
+  return { line: round2(line), signal: round2(signal), histogram: round2(line - signal) };
+}
+
+/** Wilder's ADX(period), final value — trend STRENGTH (not direction). */
+function adx(candles: Candle[], period = 14): number | null {
+  if (candles.length < period * 2) return null;
+  const tr: number[] = [];
+  const plusDm: number[] = [];
+  const minusDm: number[] = [];
+  for (let i = 1; i < candles.length; i++) {
+    const upMove = candles[i].high - candles[i - 1].high;
+    const downMove = candles[i - 1].low - candles[i].low;
+    plusDm.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDm.push(downMove > upMove && downMove > 0 ? downMove : 0);
+    const h = candles[i].high;
+    const l = candles[i].low;
+    const pc = candles[i - 1].close;
+    tr.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+  }
+  if (tr.length < period) return null;
+
+  let trN = tr.slice(0, period).reduce((a, b) => a + b, 0);
+  let plusDmN = plusDm.slice(0, period).reduce((a, b) => a + b, 0);
+  let minusDmN = minusDm.slice(0, period).reduce((a, b) => a + b, 0);
+  const dxs: number[] = [];
+  for (let i = period; i < tr.length; i++) {
+    trN = trN - trN / period + tr[i];
+    plusDmN = plusDmN - plusDmN / period + plusDm[i];
+    minusDmN = minusDmN - minusDmN / period + minusDm[i];
+    const plusDi = trN > 0 ? (plusDmN / trN) * 100 : 0;
+    const minusDi = trN > 0 ? (minusDmN / trN) * 100 : 0;
+    const sum = plusDi + minusDi;
+    dxs.push(sum > 0 ? (Math.abs(plusDi - minusDi) / sum) * 100 : 0);
+  }
+  if (dxs.length < period) return null;
+  let adxVal = dxs.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < dxs.length; i++) adxVal = (adxVal * (period - 1) + dxs[i]) / period;
+  return round2(adxVal);
+}
+
+export interface PriceAction {
+  closePosition: ClosePosition;
+  pctFrom20High: number;
+  pctFrom20Low: number;
+  streakDirection: "up" | "down" | "flat";
+  streakDays: number;
+}
+
+function computePriceAction(candles: Candle[]): PriceAction {
+  const last = candles[candles.length - 1];
+  const window = candles.slice(-20);
+  const high20 = Math.max(...window.map((c) => c.high));
+  const low20 = Math.min(...window.map((c) => c.low));
+
+  let streakDirection: "up" | "down" | "flat" = "flat";
+  let streakDays = 0;
+  for (let i = candles.length - 1; i > 0; i--) {
+    const dir = candles[i].close > candles[i - 1].close ? "up" : candles[i].close < candles[i - 1].close ? "down" : "flat";
+    if (i === candles.length - 1) {
+      streakDirection = dir;
+      if (dir === "flat") break;
+      streakDays = 1;
+    } else if (dir === streakDirection) {
+      streakDays++;
+    } else {
+      break;
+    }
+  }
+
+  return {
+    closePosition: closePosition(last),
+    pctFrom20High: high20 > 0 ? round2(((last.close - high20) / high20) * 100) : 0,
+    pctFrom20Low: low20 > 0 ? round2(((last.close - low20) / low20) * 100) : 0,
+    streakDirection,
+    streakDays,
+  };
+}
+
+export interface LiveIndicators {
+  symbol: string;
+  asOfDate: string;
+  close: number;
+  ema20: number | null;
+  ema50: number | null;
+  ema200: number | null;
+  rsi14: number | null;
+  macd: { line: number; signal: number; histogram: number } | null;
+  adx14: number | null;
+  mansfieldRs: number | null;
+  niftyRegime: MarketTrend;
+  priceAction: PriceAction;
+}
+
+/** Needs real warmup for a genuine 200 EMA — same floor as computeStockStrength. */
+export function computeLiveIndicators(
+  stockCandles: Candle[],
+  niftyCandles: Candle[],
+  symbol: string,
+): LiveIndicators | null {
+  if (stockCandles.length < 210 || niftyCandles.length < 60) return null;
+
+  const closes = stockCandles.map((c) => c.close);
+  const last = stockCandles[stockCandles.length - 1];
+
+  const rsSeries = computeMansfieldRsSeries(stockCandles, niftyCandles, 55);
+  const niftyCloses = niftyCandles.map((c) => c.close);
+  const niftyEma200 = ema(niftyCloses, 200);
+  const niftyLast = niftyCandles[niftyCandles.length - 1];
+
+  return {
+    symbol,
+    asOfDate: last.date,
+    close: last.close,
+    ema20: ema(closes, 20) != null ? round2(ema(closes, 20)!) : null,
+    ema50: ema(closes, 50) != null ? round2(ema(closes, 50)!) : null,
+    ema200: ema(closes, 200) != null ? round2(ema(closes, 200)!) : null,
+    rsi14: rsi(closes, 14) != null ? round2(rsi(closes, 14)!) : null,
+    macd: macd(closes),
+    adx14: adx(stockCandles, 14),
+    mansfieldRs: rsSeries[rsSeries.length - 1],
+    niftyRegime: niftyEma200 != null && niftyLast.close > niftyEma200 ? "up" : "down",
+    priceAction: computePriceAction(stockCandles),
+  };
+}

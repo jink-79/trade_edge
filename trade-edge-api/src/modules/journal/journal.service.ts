@@ -7,7 +7,9 @@ import {
   computeRs55,
   computeMansfieldRsSeries,
   computeStockStrength,
+  computeLiveIndicators,
   type StockStrength,
+  type LiveIndicators,
 } from "./journal.compute";
 import { analyzeTradePath } from "./journal.analytics";
 import { getPreferences } from "../preferences/preferences.service";
@@ -178,6 +180,29 @@ export async function getStockStrength(userId: string, id: string): Promise<Stoc
     );
   }
   return strength;
+}
+
+/** Raw technical indicator panel (EMAs, RSI, Mansfield RS, MACD, ADX, price
+ * action) for this trade's symbol, off the LATEST available OHLCV — same
+ * live-vs-frozen behavior as getStockStrength, just the actual numbers
+ * instead of a weighted scorecard. */
+export async function getLiveIndicators(userId: string, id: string): Promise<LiveIndicators> {
+  const doc = await findEitherDoc(userId, id);
+  if (!doc) throw AppError.notFound("Trade not found");
+
+  const entry = doc.entry as Record<string, any>;
+  const [stockCandles, niftyCandles] = await Promise.all([
+    getRecentCandles(entry.ticker),
+    getRecentCandles("NIFTY"),
+  ]);
+
+  const indicators = computeLiveIndicators(stockCandles, niftyCandles, entry.ticker);
+  if (!indicators) {
+    throw AppError.badRequest(
+      `Not enough price history for ${entry.ticker} yet to compute technical indicators.`,
+    );
+  }
+  return indicators;
 }
 
 /** Flat top-level fields the dashboard/analytics Position & Trade models read. */
@@ -726,22 +751,53 @@ export async function generateTradeInsight(
   userId: string,
   id: string,
 ): Promise<JournalTradeResponse> {
-  const doc = await JournalClosed.findOne({ _id: id, userId });
+  const doc = await findEitherDoc(userId, id);
   if (!doc) {
-    throw AppError.badRequest(
-      "Trade analytics is only available for closed trades — this trade isn't closed (or doesn't exist).",
-    );
+    throw AppError.notFound("Trade not found");
   }
 
   const entry = doc.entry as Record<string, any>;
-  const exit = doc.exit as Record<string, any>;
+  const exit = doc.exit as Record<string, any> | null;
 
-  const [entryCheck, exitCheck] = await Promise.all([
-    checkEntryAdherence(entry.ticker, entry.entryDate),
-    checkExitAdherence(entry.ticker, exit.exitDate),
-  ]);
+  const entryCheck = await checkEntryAdherence(entry.ticker, entry.entryDate);
 
-  const metrics = computeExitMetrics(entry, exit);
+  if (exit) {
+    const exitCheck = await checkExitAdherence(entry.ticker, exit.exitDate);
+    const metrics = computeExitMetrics(entry, exit);
+
+    const text = await fetchTradeInsight({
+      symbol: entry.ticker,
+      sector: entry.sector ?? null,
+      marketCapCategory: entry.marketCapCategory ?? null,
+      entryDate: new Date(entry.entryDate).toISOString(),
+      entryPrice: entry.entryPrice,
+      quantity: entry.quantity,
+      rs55AtEntry: entry.rs55Pct ?? null,
+      distanceFrom200Ema: entry.distanceFrom200Ema,
+      distanceTo50Ema: entry.distanceTo50Ema,
+      niftyRegimeAtEntry: entry.niftyVs200Ema,
+      entryCheck,
+      exitDate: new Date(exit.exitDate).toISOString(),
+      exitPrice: exit.exitPrice,
+      outcome: exit.outcome,
+      daysHeld: holdingDaysBetween(entry.entryDate, exit.exitDate),
+      exitCheck,
+      grossPnlPct: metrics.pnlPercent,
+      netPnlAmount: exit.netPnlAmount ?? metrics.netPnlAmount,
+      totalCharges: exit.charges?.totalCharges ?? metrics.charges.totalCharges,
+      markPrice: null,
+      unrealizedPct: null,
+      manualNote: exit.manualExitReason ?? exit.aiAnalysis ?? null,
+    });
+
+    doc.set("tradeInsight", { text, entryCheck, exitCheck, generatedAt: new Date() });
+    await doc.save();
+    return formatTrade(doc.toObject());
+  }
+
+  const markPrice = (doc as any).markPrice ?? null;
+  const unrealizedPct =
+    markPrice != null ? ((markPrice - entry.entryPrice) / entry.entryPrice) * 100 : null;
 
   const text = await fetchTradeInsight({
     symbol: entry.ticker,
@@ -755,18 +811,20 @@ export async function generateTradeInsight(
     distanceTo50Ema: entry.distanceTo50Ema,
     niftyRegimeAtEntry: entry.niftyVs200Ema,
     entryCheck,
-    exitDate: new Date(exit.exitDate).toISOString(),
-    exitPrice: exit.exitPrice,
-    outcome: exit.outcome,
-    daysHeld: holdingDaysBetween(entry.entryDate, exit.exitDate),
-    exitCheck,
-    grossPnlPct: metrics.pnlPercent,
-    netPnlAmount: exit.netPnlAmount ?? metrics.netPnlAmount,
-    totalCharges: exit.charges?.totalCharges ?? metrics.charges.totalCharges,
-    manualNote: exit.manualExitReason ?? exit.aiAnalysis ?? null,
+    exitDate: null,
+    exitPrice: null,
+    outcome: null,
+    daysHeld: holdingDaysBetween(entry.entryDate, new Date()),
+    exitCheck: null,
+    grossPnlPct: null,
+    netPnlAmount: null,
+    totalCharges: null,
+    markPrice,
+    unrealizedPct,
+    manualNote: null,
   });
 
-  doc.set("tradeInsight", { text, entryCheck, exitCheck, generatedAt: new Date() });
+  doc.set("tradeInsight", { text, entryCheck, exitCheck: null, generatedAt: new Date() });
   await doc.save();
   return formatTrade(doc.toObject());
 }

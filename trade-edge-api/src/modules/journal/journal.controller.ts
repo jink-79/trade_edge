@@ -12,6 +12,7 @@ import {
   getAiReviewForTrade,
   getTradeChart,
   getStockStrength,
+  getLiveIndicators,
   generateTradeInsight,
   backfillPositionMeta,
   reviewJournalTrade,
@@ -108,6 +109,13 @@ export const strength = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const data = await getStockStrength(userId, id);
   sendSuccess(res, data, "Strength score computed");
+});
+
+export const indicators = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const id = req.params.id as string;
+  const data = await getLiveIndicators(userId, id);
+  sendSuccess(res, data, "Indicators computed");
 });
 
 export const insight = asyncHandler(async (req: Request, res: Response) => {

@@ -11,6 +11,7 @@ import {
   aiReview,
   chart,
   strength,
+  indicators,
   insight,
   backfillMeta,
   review,
@@ -72,6 +73,10 @@ router.get("/:id/chart", chart);
 // GET /api/journal/:id/strength  — technical strength scorecard (no AI),
 // evaluated on the symbol's latest available OHLCV
 router.get("/:id/strength", strength);
+
+// GET /api/journal/:id/indicators  — raw EMA/RSI/RS/MACD/ADX/price-action
+// readings (not a scorecard), evaluated on the symbol's latest OHLCV
+router.get("/:id/indicators", indicators);
 
 // POST /api/journal/:id/exit  — record a full or partial exit
 router.post("/:id/exit", validate(ExitJournalTradeSchema), exit);

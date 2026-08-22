@@ -8,6 +8,7 @@ import {
   fetchJournalTrade,
   fetchTradeChart,
   fetchStockStrength,
+  fetchLiveIndicators,
   generateTradeInsight,
   exitJournalTrade,
   reviewJournalTrade,
@@ -22,7 +23,7 @@ import type {
   JournalTrade,
   ReviewPayload,
 } from "../types/journal.types";
-import type { TradeChartData, StockStrength } from "../api/journal-api";
+import type { TradeChartData, StockStrength, LiveIndicators } from "../api/journal-api";
 
 export const journalKeys = {
   all: ["journal"] as const,
@@ -61,6 +62,15 @@ export function useStockStrength(id: string | undefined) {
   return useQuery<StockStrength>({
     queryKey: ["journal", "strength", id ?? ""],
     queryFn: () => fetchStockStrength(id as string),
+    enabled: !!id,
+    staleTime: 1000 * 60,
+  });
+}
+
+export function useLiveIndicators(id: string | undefined) {
+  return useQuery<LiveIndicators>({
+    queryKey: ["journal", "indicators", id ?? ""],
+    queryFn: () => fetchLiveIndicators(id as string),
     enabled: !!id,
     staleTime: 1000 * 60,
   });

@@ -162,8 +162,9 @@ export interface JournalTrade {
   ruleAdherence?: RuleAdherence | null;
   ruleAdherenceNote?: string | null;
   analytics?: TradeAnalytics | null;
-  /** AI review of a CLOSED trade against the strategy's own rules —
-   * generated on demand, persisted until regenerated. */
+  /** AI review of a trade (open or closed) against the strategy's own
+   * rules — generated on demand, persisted until regenerated. exitCheck is
+   * null while the trade is still open (no exit to verify yet). */
   tradeInsight?: {
     text: string;
     entryCheck: {
@@ -178,7 +179,7 @@ export interface JournalTrade {
       signalFound: boolean;
       inExits?: boolean;
       wasStale?: boolean;
-    };
+    } | null;
     generatedAt: string;
   } | null;
   /** Free-form review note — unlike entry.notes (locked once the trade

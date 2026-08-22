@@ -73,7 +73,7 @@ export function TradeChart({ id }: { id: string }) {
       },
       1,
     );
-    chart.panes()[1]?.setHeight(110);
+    chart.panes()[1]?.setHeight(window.innerWidth < 640 ? 70 : 110);
 
     chartRef.current = chart;
     seriesRef.current = series;
@@ -156,7 +156,7 @@ export function TradeChart({ id }: { id: string }) {
   const showEmpty = !isLoading && (isError || !data || data.candles.length === 0);
 
   return (
-    <div className="relative h-[480px] w-full">
+    <div className="relative h-[300px] sm:h-[380px] lg:h-[480px] w-full overflow-hidden">
       <div ref={containerRef} className="h-full w-full" />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground bg-card/70">

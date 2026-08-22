@@ -5,7 +5,6 @@ import {
   Activity,
   ArrowLeft,
   BarChart3,
-  CalendarDays,
   CheckCircle2,
   ClipboardCheck,
   Gauge,
@@ -34,7 +33,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
@@ -59,9 +57,7 @@ import {
 } from "../hooks/use-journal";
 import { TradeChart } from "./trade-chart";
 import { StockStrengthCard } from "./stock-strength-card";
-import { TradeExcursionCard } from "./trade-excursion-card";
-import { TradeExitOptimizer } from "./trade-exit-optimizer";
-import { RuleAdherenceControl } from "./rule-adherence-control";
+import { LiveIndicatorsCard } from "./live-indicators-card";
 import type { JournalTrade } from "../types/journal.types";
 
 const AMBER = "oklch(0.82 0.16 85)";
@@ -149,6 +145,7 @@ function Stat({
 
 function SectionCard({
   icon: Icon,
+  iconStyle,
   title,
   desc,
   right,
@@ -156,8 +153,9 @@ function SectionCard({
   className,
 }: {
   icon: React.ElementType;
+  iconStyle?: React.CSSProperties;
   title: string;
-  desc?: string;
+  desc?: React.ReactNode;
   right?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
@@ -170,7 +168,7 @@ function SectionCard({
       <CardHeader className="flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Icon className="size-4 text-primary" /> {title}
+            <Icon className="size-4 text-primary" style={iconStyle} /> {title}
           </CardTitle>
           {desc ? <CardDescription>{desc}</CardDescription> : null}
         </div>
@@ -178,6 +176,73 @@ function SectionCard({
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
+  );
+}
+
+const RAIL_ITEMS = [
+  { id: "chart", label: "Chart", icon: LineChart },
+  { id: "strength", label: "Strength", icon: Gauge },
+  { id: "review", label: "Review", icon: ClipboardCheck },
+  { id: "execution", label: "Execution", icon: Ruler },
+  { id: "indicators", label: "Indicators", icon: Activity },
+  { id: "notes", label: "Notes", icon: Sparkles },
+] as const;
+
+type DetailSection = (typeof RAIL_ITEMS)[number]["id"];
+type RailItem = (typeof RAIL_ITEMS)[number];
+
+/** Small heading rule above each panel — stands in for the old tab label. */
+function SectionHeading({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Icon className="size-4 text-primary" />
+      <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        {title}
+      </h2>
+      <div className="h-px flex-1 bg-border/60" />
+    </div>
+  );
+}
+
+/** Icon-only vertical dock standing in for the tab bar — one panel visible
+ * at a time, switched by clicking an icon instead of a text tab. Scoped to
+ * this card's content column, not the app's own left sidebar. Collapses to a
+ * horizontal strip on phones. `items` is caller-filtered (e.g. "Strength"
+ * only applies to trend-rs55 trades). */
+function DetailRail({
+  items,
+  active,
+  onChange,
+}: {
+  items: readonly RailItem[];
+  active: DetailSection;
+  onChange: (id: DetailSection) => void;
+}) {
+  return (
+    <div
+      className="flex flex-row gap-1 overflow-x-auto rounded-2xl border border-border/70 bg-card/70 p-1.5 lg:sticky lg:top-20 lg:flex-col lg:shrink-0 lg:overflow-visible"
+      style={{ boxShadow: "var(--shadow-card)" }}
+    >
+      {items.map((item) => (
+        <Tooltip key={item.id}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => onChange(item.id)}
+              className={cn(
+                "grid size-10 shrink-0 place-items-center rounded-xl transition-colors",
+                active === item.id
+                  ? "bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+              )}
+            >
+              <item.icon className="size-[18px]" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{item.label}</TooltipContent>
+        </Tooltip>
+      ))}
+    </div>
   );
 }
 
@@ -352,6 +417,8 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
       exitDate: trade.exit.exitDate,
     });
   }, [trade]);
+
+  const [activeSection, setActiveSection] = useState<DetailSection>("chart");
 
   if (isLoading) {
     return (
@@ -598,56 +665,51 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
         </div>
       )}
 
-      {/* PRICE CHART — full width, not confined to the 2-col grid below */}
-      <SectionCard
-        icon={LineChart}
-        title="Price chart"
-        desc="~60 sessions before entry through exit (or today, if still open), with Mansfield RS (vs Nifty, EMA 55) below — phalanx-live's daily OHLCV."
-      >
-        <TradeChart id={trade.id} />
-      </SectionCard>
+      {/* DETAILS — one panel visible at a time, switched by the icon rail
+          instead of a text tab bar. Strength and Review (previously an
+          always-visible row under the chart) are now rail panels too, same
+          as everything else — "Strength" only applies to trend-rs55 trades. */}
+      <div className="flex flex-col lg:flex-row gap-5 items-start">
+      <DetailRail
+        items={trendRs55 ? RAIL_ITEMS : RAIL_ITEMS.filter((i) => i.id !== "strength")}
+        active={activeSection}
+        onChange={setActiveSection}
+      />
+      <div className="min-w-0 flex-1 space-y-6">
+        {/* CHART */}
+        {activeSection === "chart" && (
+          <div className="space-y-4">
+            <SectionHeading icon={LineChart} title="Chart" />
+            <SectionCard
+              icon={LineChart}
+              title="Price chart"
+              desc="~60 sessions before entry through exit (or today, if still open), with Mansfield RS (vs Nifty, EMA 55) below — phalanx-live's daily OHLCV."
+            >
+              <TradeChart id={trade.id} />
+            </SectionCard>
+          </div>
+        )}
 
-      {/* SIGNAL ROW — the "is this good" section: technical strength (rule-
-          based) and the AI review (closed trades only), given top billing
-          right under the chart since that's what actually gets checked
-          first. A single item stretches full width via flex-1 instead of
-          leaving an empty grid track when only one of the two applies. */}
-      {(trendRs55 || isClosed) && (
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-          {trendRs55 && (
-            <div className="w-full flex-1 min-w-0">
-              <StockStrengthCard id={trade.id} />
-            </div>
-          )}
-          {isClosed && (
-            <div className="w-full flex-1 min-w-0">
-              <TradeReviewCard trade={trade} />
-            </div>
-          )}
-        </div>
-      )}
+        {/* STRENGTH */}
+        {activeSection === "strength" && trendRs55 && (
+          <div className="space-y-4">
+            <SectionHeading icon={Gauge} title="Strength" />
+            <StockStrengthCard id={trade.id} />
+          </div>
+        )}
 
-      {/* DETAILS — everything else, tabbed so the page reads as sections
-          instead of one long stack. Short labels + a 2-col grid on phones
-          keep the tab bar itself from needing horizontal scroll. */}
-      <Tabs defaultValue="execution">
-        <TabsList className="grid grid-cols-2 sm:flex sm:w-fit w-full gap-1 h-auto sm:h-8 p-1">
-          <TabsTrigger value="execution" className="gap-1.5">
-            <Ruler className="size-3.5" /> Execution
-          </TabsTrigger>
-          <TabsTrigger value="indicators" className="gap-1.5">
-            <Activity className="size-3.5" /> Indicators
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="gap-1.5">
-            <BarChart3 className="size-3.5" /> Analytics
-          </TabsTrigger>
-          <TabsTrigger value="notes" className="gap-1.5">
-            <Sparkles className="size-3.5" /> Notes
-          </TabsTrigger>
-        </TabsList>
+        {/* REVIEW */}
+        {activeSection === "review" && (
+          <div className="space-y-4">
+            <SectionHeading icon={ClipboardCheck} title="Review" />
+            <TradeReviewCard trade={trade} />
+          </div>
+        )}
 
         {/* EXECUTION */}
-        <TabsContent value="execution" className="mt-6">
+        {activeSection === "execution" && (
+        <div className="space-y-4">
+          <SectionHeading icon={Ruler} title="Execution" />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             <SectionCard icon={Ruler} title="Execution">
               <Row label="Direction" value={e.direction} />
@@ -700,8 +762,6 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
             </SectionCard>
 
             <div className="space-y-6">
-              <RuleAdherenceControl trade={trade} />
-
               {isClosed && x && exitMetrics ? (
                 <SectionCard
                   icon={BarChart3}
@@ -809,84 +869,71 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
                   )}
                 </SectionCard>
               ) : trendRs55 ? (
-                <Card
-                  className="border-[oklch(0.82_0.16_85/0.35)] bg-card/70"
-                  style={{ boxShadow: "var(--shadow-card)" }}
+                <SectionCard
+                  icon={ShieldAlert}
+                  iconStyle={{ color: AMBER }}
+                  title="Position open"
+                  desc={
+                    trade.markDate
+                      ? `Prices as of ${fmtDate(trade.markDate)} close`
+                      : "Not priced yet"
+                  }
+                  className="border-[oklch(0.82_0.16_85/0.35)]"
                 >
-                  <CardHeader>
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <ShieldAlert className="size-4" style={{ color: AMBER }} /> Position
-                      open
-                    </CardTitle>
-                    <CardDescription>
-                      {trade.markDate
-                        ? `Prices as of ${fmtDate(trade.markDate)} close`
-                        : "Not priced yet"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Row label="Mark price" value={fmtPrice(trade.markPrice)} />
-                    {trade.markPrice != null && (
-                      <Row
-                        label="Since entry"
-                        value={signedPct(
-                          ((trade.markPrice - e.entryPrice) / e.entryPrice) * 100,
-                        )}
-                        tone={trade.markPrice >= e.entryPrice ? "good" : "bad"}
-                      />
-                    )}
-                    {trade.markPrice != null && trade.markPrevClose != null && (
-                      <Row
-                        label="Today"
-                        value={signedPct(
-                          ((trade.markPrice - trade.markPrevClose) / trade.markPrevClose) * 100,
-                        )}
-                        tone={trade.markPrice >= trade.markPrevClose ? "good" : "bad"}
-                      />
-                    )}
-                  </CardContent>
-                </Card>
+                  <Row label="Mark price" value={fmtPrice(trade.markPrice)} />
+                  {trade.markPrice != null && (
+                    <Row
+                      label="Since entry"
+                      value={signedPct(
+                        ((trade.markPrice - e.entryPrice) / e.entryPrice) * 100,
+                      )}
+                      tone={trade.markPrice >= e.entryPrice ? "good" : "bad"}
+                    />
+                  )}
+                  {trade.markPrice != null && trade.markPrevClose != null && (
+                    <Row
+                      label="Today"
+                      value={signedPct(
+                        ((trade.markPrice - trade.markPrevClose) / trade.markPrevClose) * 100,
+                      )}
+                      tone={trade.markPrice >= trade.markPrevClose ? "good" : "bad"}
+                    />
+                  )}
+                </SectionCard>
               ) : (
-                <Card
-                  className="border-[oklch(0.82_0.16_85/0.35)] bg-card/70"
-                  style={{ boxShadow: "var(--shadow-card)" }}
+                <SectionCard
+                  icon={ShieldAlert}
+                  iconStyle={{ color: AMBER }}
+                  title="Position open"
+                  desc="This trade is still live. Exit metrics appear here once it closes."
+                  className="border-[oklch(0.82_0.16_85/0.35)]"
                 >
-                  <CardHeader>
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <ShieldAlert
-                        className="size-4"
-                        style={{ color: AMBER }}
-                      />{" "}
-                      Position open
-                    </CardTitle>
-                    <CardDescription>
-                      This trade is still live. Exit metrics appear here once it
-                      closes.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Row
-                      label="GTT placed"
-                      value={trade.gttPlaced ? "Yes" : "No"}
-                      tone={trade.gttPlaced ? "good" : "muted"}
-                    />
-                    <Row
-                      label="Needs review"
-                      value={trade.needsReview ? "Yes" : "No"}
-                      tone={trade.needsReview ? "muted" : "good"}
-                    />
-                  </CardContent>
-                </Card>
+                  <Row
+                    label="GTT placed"
+                    value={trade.gttPlaced ? "Yes" : "No"}
+                    tone={trade.gttPlaced ? "good" : "muted"}
+                  />
+                  <Row
+                    label="Needs review"
+                    value={trade.needsReview ? "Yes" : "No"}
+                    tone={trade.needsReview ? "muted" : "good"}
+                  />
+                </SectionCard>
               )}
             </div>
           </div>
-        </TabsContent>
+        </div>
+        )}
 
         {/* INDICATORS */}
-        <TabsContent value="indicators" className="mt-6 space-y-6">
+        {activeSection === "indicators" && (
+        <div className="space-y-6">
+          <SectionHeading icon={Activity} title="Indicators" />
+          <LiveIndicatorsCard id={trade.id} />
+
           <SectionCard
             icon={Activity}
-            title="Technical indicators"
+            title="Entry-day snapshot"
             desc="Measured at the entry candle."
           >
             {trendRs55 ? (
@@ -1015,65 +1062,13 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
             </SectionCard>
           )}
 
-          <SectionCard
-            icon={CalendarDays}
-            title="Market context"
-            desc="Regime & structure on the entry date."
-          >
-            <Row
-              label="Nifty vs 200 EMA"
-              value={e.niftyVs200Ema === "up" ? "Up-trend" : "Down-trend"}
-              tone={e.niftyVs200Ema === "up" ? "good" : "bad"}
-            />
-            <Row label="Nifty RSI(2)" value={e.niftyRsi2.toFixed(2)} />
-            {!trendRs55 && <Row label="Sector" value={e.sector || "—"} />}
-            {!trendRs55 && (
-              <>
-                <Row
-                  label="Gapped into entry"
-                  value={e.gappedIntoEntry ? "Yes" : "No"}
-                  tone={e.gappedIntoEntry ? "muted" : "good"}
-                />
-                <Row
-                  label="Event within window"
-                  value={e.eventWithinWindow ? "Yes" : "No"}
-                  tone={e.eventWithinWindow ? "bad" : "good"}
-                />
-              </>
-            )}
-            <Row label="Candles available" value={e.candlesAvailable} />
-            <Row
-              label="Data quality"
-              value={trade.dataQuality === "clean" ? "Clean" : "Excludable"}
-              tone={trade.dataQuality === "clean" ? "good" : "muted"}
-            />
-          </SectionCard>
-        </TabsContent>
-
-        {/* ANALYTICS */}
-        <TabsContent value="analytics" className="mt-6 space-y-6">
-          {trade.analytics ? (
-            <>
-              <TradeExcursionCard analytics={trade.analytics} />
-              <TradeExitOptimizer analytics={trade.analytics} />
-            </>
-          ) : (
-            <SectionCard
-              icon={Sparkles}
-              title="Trade analytics"
-              desc="MAE/MFE and the exit optimizer."
-            >
-              <p className="text-sm text-muted-foreground">
-                Not analyzed yet. The nightly enrich job (or a manual run)
-                measures how far this trade ran for/against you and replays
-                alternative exit rules from its candles.
-              </p>
-            </SectionCard>
-          )}
-        </TabsContent>
+        </div>
+        )}
 
         {/* NOTES & MEDIA */}
-        <TabsContent value="notes" className="mt-6 space-y-6">
+        {activeSection === "notes" && (
+        <div className="space-y-6">
+          <SectionHeading icon={Sparkles} title="Notes" />
           <ReviewNoteCard trade={trade} />
 
           {(e.screenshot || x?.screenshot) && (
@@ -1142,8 +1137,10 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
               )}
             </SectionCard>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+        )}
+      </div>
+      </div>
     </div>
     </TooltipProvider>
   );
@@ -1174,6 +1171,7 @@ function entryAdherenceBadge(check: NonNullable<JournalTrade["tradeInsight"]>["e
 }
 
 function exitAdherenceBadge(check: NonNullable<JournalTrade["tradeInsight"]>["exitCheck"]) {
+  if (!check) return <AdherenceBadge label="Exit: still open" tone="muted" />;
   if (!check.signalFound) return <AdherenceBadge label="Exit: unverified" tone="muted" />;
   if (check.inExits) return <AdherenceBadge label="Exit: system-aligned" tone="good" />;
   return <AdherenceBadge label="Exit: discretionary" tone="bad" />;
@@ -1182,6 +1180,7 @@ function exitAdherenceBadge(check: NonNullable<JournalTrade["tradeInsight"]>["ex
 function TradeReviewCard({ trade }: { trade: JournalTrade }) {
   const insightMut = useGenerateTradeInsight();
   const insight = trade.tradeInsight;
+  const isClosed = !!trade.exit;
 
   return (
     <SectionCard
@@ -1225,9 +1224,9 @@ function TradeReviewCard({ trade }: { trade: JournalTrade }) {
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Not reviewed yet — click Generate for a comprehensive read on whether this
-          trade's entry and exit actually matched the system's own rules, and what
-          could have gone better.
+          {isClosed
+            ? "Not reviewed yet — click Generate for a comprehensive read on whether this trade's entry and exit actually matched the system's own rules, and what could have gone better."
+            : "Not reviewed yet — click Generate for a read on whether this entry actually matched the system's own rules, and what to watch for while it's still open."}
         </p>
       )}
     </SectionCard>
