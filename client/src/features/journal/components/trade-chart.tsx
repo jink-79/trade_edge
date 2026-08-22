@@ -24,7 +24,12 @@ export function TradeChart({ id }: { id: string }) {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
 
-  // Create the chart once the container exists.
+  // The container div below is ALWAYS mounted (loading/error/empty states are
+  // absolutely-positioned overlays on top of it, not alternate returns) —
+  // this effect has an empty dep array and only ever runs once on mount, so
+  // if the div were conditionally rendered based on isLoading, the effect
+  // would fire while containerRef.current was still null and the chart would
+  // never get created once the data actually arrived.
   useEffect(() => {
     if (!containerRef.current || chartRef.current) return;
     const chart = createChart(containerRef.current, {
@@ -121,21 +126,21 @@ export function TradeChart({ id }: { id: string }) {
     chartRef.current?.timeScale().fitContent();
   }, [data]);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-[360px] items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Loading chart…
-      </div>
-    );
-  }
+  const showEmpty = !isLoading && (isError || !data || data.candles.length === 0);
 
-  if (isError || !data || data.candles.length === 0) {
-    return (
-      <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">
-        No chart data — phalanx-live may not track {data?.symbol ?? "this symbol"}.
-      </div>
-    );
-  }
-
-  return <div ref={containerRef} className="h-[360px] w-full" />;
+  return (
+    <div className="relative h-[360px] w-full">
+      <div ref={containerRef} className="h-full w-full" />
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground bg-card/70">
+          <Loader2 className="size-4 animate-spin" /> Loading chart…
+        </div>
+      )}
+      {showEmpty && (
+        <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground bg-card/70">
+          No chart data — phalanx-live may not track {data?.symbol ?? "this symbol"}.
+        </div>
+      )}
+    </div>
+  );
 }
