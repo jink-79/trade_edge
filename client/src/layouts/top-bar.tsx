@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import {
   Bell,
@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NAV_ITEMS } from "./side-bar";
+import { GlobalSearch } from "./global-search";
 import { useCurrentUser, useLogout } from "@/features/auth/hooks/use-auth";
 
 function initialsOf(name: string): string {
@@ -37,19 +37,19 @@ function initialsOf(name: string): string {
 ───────────────────────────────────────────── */
 
 export function Topbar() {
-  const searchRef = useRef<HTMLInputElement | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { data: user } = useCurrentUser();
   const logout = useLogout();
   const { theme, setTheme } = useTheme();
   const isDark = theme !== "light";
 
-  /* ⌘K / Ctrl+K focuses search */
+  /* ⌘K / Ctrl+K opens search */
   useEffect(() => {
     const handle = (e: any) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        searchRef.current?.focus();
+        setSearchOpen((v) => !v);
       }
     };
     window.addEventListener("keydown", handle);
@@ -75,17 +75,18 @@ export function Topbar() {
         </button>
 
         {/* Search */}
-        <div className="relative flex-1 max-w-md">
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="relative flex-1 max-w-md h-9 rounded-md bg-secondary/50 border border-border/60 pl-9 pr-16 text-sm text-left text-muted-foreground hover:bg-secondary/70 transition-colors"
+        >
           <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            ref={searchRef}
-            placeholder="Search trades, tickers, setups…"
-            className="h-9 bg-secondary/50 border-border/60 pl-9 pr-16 text-sm"
-          />
+          Search trades, tickers, pages…
           <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 rounded border border-border/60 bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
             <Command className="size-3" />K
           </kbd>
-        </div>
+        </button>
+        <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
 
         {/* Right actions */}
         <div className="ml-auto flex items-center gap-1">
