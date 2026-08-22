@@ -78,6 +78,40 @@ export async function getRecentCandles(symbol: string, days = 300): Promise<Plai
     }));
 }
 
+/** ~`barsBefore` daily bars leading up to and including entryDate, then every
+ * bar through endDate — the window a trade-detail chart wants: enough
+ * pre-entry context to see the setup, plus the trade's whole life. Oldest
+ * first. */
+export async function getCandleWindow(
+  symbol: string,
+  entryDate: Date | string,
+  endDate: Date | string,
+  barsBefore = 60,
+): Promise<PlainCandle[]> {
+  const col = ohlcvCollection();
+  if (!col) return [];
+  const end = new Date(endDate);
+  const bars = await col
+    .find({ symbol, timeframe: "daily", date: { $lte: end } })
+    .sort({ date: 1 })
+    .toArray();
+  if (bars.length === 0) return [];
+
+  const entryTime = new Date(entryDate).getTime();
+  let entryIdx = bars.findIndex((b) => new Date(b.date).getTime() >= entryTime);
+  if (entryIdx === -1) entryIdx = bars.length - 1;
+
+  const start = Math.max(0, entryIdx - barsBefore);
+  return bars.slice(start).map((b) => ({
+    date: new Date(b.date).toISOString(),
+    open: b.open,
+    high: b.high,
+    low: b.low,
+    close: b.close,
+    volume: b.volume,
+  }));
+}
+
 export interface SymbolMeta {
   symbol: string;
   name: string | null;

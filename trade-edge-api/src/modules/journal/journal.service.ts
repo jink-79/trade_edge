@@ -4,7 +4,7 @@ import { AppError } from "../../utils/api-error";
 import { computeEntryIndicators, computeRegime, computeRs55 } from "./journal.compute";
 import { analyzeTradePath } from "./journal.analytics";
 import { getPreferences } from "../preferences/preferences.service";
-import { getRecentCandles, getSymbolMeta } from "../../config/phalanx-ohlcv";
+import { getCandleWindow, getRecentCandles, getSymbolMeta } from "../../config/phalanx-ohlcv";
 import { logger } from "../../utils/logger";
 import { fetchPositionAiReview } from "./journal.ai-review";
 import { fetchExitSummary } from "./journal.exit-ai";
@@ -55,6 +55,37 @@ async function findEitherDoc(userId: string, id: string) {
     (await JournalOpen.findOne({ _id: id, userId })) ||
     (await JournalClosed.findOne({ _id: id, userId }))
   );
+}
+
+export interface TradeChartResponse {
+  symbol: string;
+  candles: import("../../config/phalanx-ohlcv").PlainCandle[];
+  entryDate: string;
+  entryPrice: number;
+  exitDate: string | null;
+  exitPrice: number | null;
+}
+
+/** ~60 daily bars before entry through exit (or "now" while still open) —
+ * the candlestick chart on the trade detail page. */
+export async function getTradeChart(userId: string, id: string): Promise<TradeChartResponse> {
+  const doc = await findEitherDoc(userId, id);
+  if (!doc) throw AppError.notFound("Trade not found");
+
+  const entry = doc.entry as Record<string, any>;
+  const exit = doc.exit as Record<string, any> | null;
+  const endDate = exit?.exitDate ?? new Date();
+
+  const candles = await getCandleWindow(entry.ticker, entry.entryDate, endDate, 60);
+
+  return {
+    symbol: entry.ticker,
+    candles,
+    entryDate: new Date(entry.entryDate).toISOString(),
+    entryPrice: entry.entryPrice,
+    exitDate: exit ? new Date(exit.exitDate).toISOString() : null,
+    exitPrice: exit?.exitPrice ?? null,
+  };
 }
 
 /** Flat top-level fields the dashboard/analytics Position & Trade models read. */

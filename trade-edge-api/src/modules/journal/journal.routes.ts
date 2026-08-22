@@ -9,6 +9,7 @@ import {
   autoCreate,
   manualEntry,
   aiReview,
+  chart,
   backfillMeta,
   review,
   gttPlaced,
@@ -58,6 +59,10 @@ router.get("/", getAll);
 
 // GET /api/journal/:id
 router.get("/:id", getOne);
+
+// GET /api/journal/:id/chart  — OHLCV window (~60 bars pre-entry through
+// exit/now) for the trade-detail candlestick chart
+router.get("/:id/chart", chart);
 
 // POST /api/journal/:id/exit  — record a full or partial exit
 router.post("/:id/exit", validate(ExitJournalTradeSchema), exit);

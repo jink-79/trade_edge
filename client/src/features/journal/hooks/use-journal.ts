@@ -6,6 +6,7 @@ import {
   fetchExitSummary,
   fetchJournalTrades,
   fetchJournalTrade,
+  fetchTradeChart,
   exitJournalTrade,
   reviewJournalTrade,
   setGttPlaced,
@@ -17,6 +18,7 @@ import type {
   JournalTrade,
   ReviewPayload,
 } from "../types/journal.types";
+import type { TradeChartData } from "../api/journal-api";
 
 export const journalKeys = {
   all: ["journal"] as const,
@@ -37,6 +39,15 @@ export function useJournalTrade(id: string | undefined) {
   return useQuery<JournalTrade>({
     queryKey: journalKeys.detail(id ?? ""),
     queryFn: () => fetchJournalTrade(id as string),
+    enabled: !!id,
+    staleTime: 1000 * 60,
+  });
+}
+
+export function useTradeChart(id: string | undefined) {
+  return useQuery<TradeChartData>({
+    queryKey: ["journal", "chart", id ?? ""],
+    queryFn: () => fetchTradeChart(id as string),
     enabled: !!id,
     staleTime: 1000 * 60,
   });

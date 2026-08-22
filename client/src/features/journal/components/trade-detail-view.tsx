@@ -39,6 +39,7 @@ import {
   isTrendRs55,
 } from "../utils/journal-utils";
 import { useJournalTrade } from "../hooks/use-journal";
+import { TradeChart } from "./trade-chart";
 import { TradeExcursionCard } from "./trade-excursion-card";
 import { TradeExitOptimizer } from "./trade-exit-optimizer";
 import { RuleAdherenceControl } from "./rule-adherence-control";
@@ -357,6 +358,9 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
   const isClosed = trade.outcome !== "STILL-OPEN" && !!x;
   const long = e.direction === "LONG";
   const trendRs55 = isTrendRs55(trade);
+  // Net P&L when the backend computed it (charges-aware); falls back to the
+  // gross figure for trades closed before charges tracking existed.
+  const netPnl = x?.netPnlAmount ?? exitMetrics?.realizedPnl ?? 0;
 
   return (
     <div className="px-8 py-8 space-y-8 max-w-[1600px]">
@@ -439,31 +443,42 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
           <>
             <Stat
               icon={TrendingUp}
-              label="Realized P&L"
-              value={`${exitMetrics.realizedPnl >= 0 ? "+" : "−"}${fmtINR(
-                Math.abs(exitMetrics.realizedPnl),
-              )}`}
-              sub={signedPct(exitMetrics.realizedPnlPct)}
-              tone={exitMetrics.realizedPnl >= 0 ? "good" : "bad"}
+              label="Net P&L"
+              value={`${netPnl >= 0 ? "+" : "−"}${fmtINR(Math.abs(netPnl))}`}
+              sub={
+                entryMetrics && entryMetrics.capitalDeployed > 0
+                  ? signedPct((netPnl / entryMetrics.capitalDeployed) * 100)
+                  : signedPct(exitMetrics.realizedPnlPct)
+              }
+              tone={netPnl >= 0 ? "good" : "bad"}
               accent
             />
-            <Stat
-              icon={Gauge}
-              label="R Multiple"
-              value={
-                exitMetrics.rMultiple != null
-                  ? `${exitMetrics.rMultiple >= 0 ? "+" : ""}${exitMetrics.rMultiple.toFixed(2)}R`
-                  : "—"
-              }
-              sub={`${exitMetrics.daysHeld}d held`}
-              tone={
-                exitMetrics.rMultiple != null
-                  ? exitMetrics.rMultiple >= 0
-                    ? "good"
-                    : "bad"
-                  : "default"
-              }
-            />
+            {trendRs55 ? (
+              <Stat
+                icon={Gauge}
+                label="Days held"
+                value={`${exitMetrics.daysHeld}d`}
+                sub={x?.charges ? `${fmtINR(x.charges.totalCharges)} charges` : undefined}
+              />
+            ) : (
+              <Stat
+                icon={Gauge}
+                label="R Multiple"
+                value={
+                  exitMetrics.rMultiple != null
+                    ? `${exitMetrics.rMultiple >= 0 ? "+" : ""}${exitMetrics.rMultiple.toFixed(2)}R`
+                    : "—"
+                }
+                sub={`${exitMetrics.daysHeld}d held`}
+                tone={
+                  exitMetrics.rMultiple != null
+                    ? exitMetrics.rMultiple >= 0
+                      ? "good"
+                      : "bad"
+                    : "default"
+                }
+              />
+            )}
           </>
         ) : trendRs55 ? (
           <>
@@ -514,32 +529,42 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
 
       {/* MAIN GRID */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* LEFT — charts + AI read */}
+        {/* LEFT — chart + AI read */}
         <div className="xl:col-span-2 space-y-6">
           <SectionCard
             icon={LineChart}
-            title="Charts"
-            desc="Setup at entry and the exit snapshot."
+            title="Price chart"
+            desc="~60 sessions before entry through exit (or today, if still open) — phalanx-live's daily OHLCV."
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <ChartShot
-                title="Entry chart"
-                src={e.screenshot}
-                when={fmtDate(e.entryDate)}
-              />
-              <ChartShot
-                title="Exit chart"
-                src={x?.screenshot}
-                when={x ? fmtDate(x.exitDate) : undefined}
-              />
-            </div>
+            <TradeChart id={trade.id} />
           </SectionCard>
+
+          {(e.screenshot || x?.screenshot) && (
+            <SectionCard
+              icon={ImageOff}
+              title="Captured screenshots"
+              desc="Manually attached at entry/exit review."
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <ChartShot
+                  title="Entry chart"
+                  src={e.screenshot}
+                  when={fmtDate(e.entryDate)}
+                />
+                <ChartShot
+                  title="Exit chart"
+                  src={x?.screenshot}
+                  when={x ? fmtDate(x.exitDate) : undefined}
+                />
+              </div>
+            </SectionCard>
+          )}
 
           {(e.aiAnalysis || x?.aiAnalysis) && (
             <SectionCard
               icon={Sparkles}
-              title="AI read"
-              desc="Claude's notes captured with the chart."
+              title="AI notes"
+              desc="Entry-time chart read and/or the auto-generated exit summary."
             >
               <div className="space-y-4">
                 {e.aiAnalysis && (
@@ -555,7 +580,7 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
                 {x?.aiAnalysis && (
                   <div className="rounded-xl border border-border/60 bg-background/40 p-4">
                     <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground mb-1.5">
-                      At exit
+                      Exit summary
                     </div>
                     <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
                       {x.aiAnalysis}
@@ -592,59 +617,97 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
             title="Technical indicators"
             desc="Measured at the entry candle."
           >
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <IndicatorTile
-                label="RSI(2)"
-                value={e.rsi2.toFixed(2)}
-                caption={e.rsi2 <= 10 ? "oversold" : "elevated"}
-                tone={e.rsi2 <= 10 ? "good" : "warn"}
-              />
-              <IndicatorTile
-                label="ATR(14)"
-                value={fmtINR(e.atr14)}
-                caption={
-                  entryMetrics
-                    ? `${entryMetrics.atrPctOfEntry.toFixed(2)}% of price`
-                    : undefined
-                }
-              />
-              <IndicatorTile
-                label="Dist. 200 EMA"
-                value={signedPct(e.distanceFrom200Ema)}
-                caption="close vs 200 EMA"
-                tone={e.distanceFrom200Ema >= 0 ? "good" : "bad"}
-              />
-              <IndicatorTile
-                label="Dist. 50 EMA"
-                value={signedPct(e.distanceTo50Ema)}
-                caption="entry vs 50 EMA"
-              />
-              <IndicatorTile
-                label="Pullback depth"
-                value={`${e.pullbackDepth.toFixed(2)}%`}
-                caption="from recent high"
-              />
-              <IndicatorTile
-                label="Candles from high"
-                value={`${e.candlesFromHigh} / 20`}
-                caption="bars since high"
-              />
-              <IndicatorTile
-                label="Entry candle close"
-                value={labelClose(e.entryCandleClose)}
-                caption="within its range"
-              />
-              <IndicatorTile
-                label="Down-move volume"
-                value={labelVolume(e.downMoveVolume)}
-                caption="into the entry"
-              />
-              <IndicatorTile
-                label="Price floor"
-                value={e.priceAbove200 ? "Above ₹200" : "Below ₹200"}
-                tone={e.priceAbove200 ? "good" : "bad"}
-              />
-            </div>
+            {trendRs55 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <IndicatorTile
+                  label="RS-55 at entry"
+                  value={e.rs55Pct != null ? `${e.rs55Pct.toFixed(2)}%` : "—"}
+                  caption="vs Nifty, 55 sessions"
+                  tone="good"
+                />
+                <IndicatorTile
+                  label="ATR(14)"
+                  value={fmtINR(e.atr14)}
+                  caption={
+                    entryMetrics
+                      ? `${entryMetrics.atrPctOfEntry.toFixed(2)}% of price`
+                      : undefined
+                  }
+                />
+                <IndicatorTile
+                  label="Dist. 200 EMA"
+                  value={signedPct(e.distanceFrom200Ema)}
+                  caption="close vs 200 EMA"
+                  tone={e.distanceFrom200Ema >= 0 ? "good" : "bad"}
+                />
+                <IndicatorTile
+                  label="Dist. 50 EMA"
+                  value={signedPct(e.distanceTo50Ema)}
+                  caption="entry vs 50 EMA"
+                  tone={e.distanceTo50Ema >= 0 ? "good" : "bad"}
+                />
+                <IndicatorTile
+                  label="Market regime"
+                  value={e.niftyVs200Ema === "up" ? "Nifty up-trend" : "Nifty down-trend"}
+                  caption="on the entry date"
+                  tone={e.niftyVs200Ema === "up" ? "good" : "bad"}
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <IndicatorTile
+                  label="RSI(2)"
+                  value={e.rsi2.toFixed(2)}
+                  caption={e.rsi2 <= 10 ? "oversold" : "elevated"}
+                  tone={e.rsi2 <= 10 ? "good" : "warn"}
+                />
+                <IndicatorTile
+                  label="ATR(14)"
+                  value={fmtINR(e.atr14)}
+                  caption={
+                    entryMetrics
+                      ? `${entryMetrics.atrPctOfEntry.toFixed(2)}% of price`
+                      : undefined
+                  }
+                />
+                <IndicatorTile
+                  label="Dist. 200 EMA"
+                  value={signedPct(e.distanceFrom200Ema)}
+                  caption="close vs 200 EMA"
+                  tone={e.distanceFrom200Ema >= 0 ? "good" : "bad"}
+                />
+                <IndicatorTile
+                  label="Dist. 50 EMA"
+                  value={signedPct(e.distanceTo50Ema)}
+                  caption="entry vs 50 EMA"
+                />
+                <IndicatorTile
+                  label="Pullback depth"
+                  value={`${e.pullbackDepth.toFixed(2)}%`}
+                  caption="from recent high"
+                />
+                <IndicatorTile
+                  label="Candles from high"
+                  value={`${e.candlesFromHigh} / 20`}
+                  caption="bars since high"
+                />
+                <IndicatorTile
+                  label="Entry candle close"
+                  value={labelClose(e.entryCandleClose)}
+                  caption="within its range"
+                />
+                <IndicatorTile
+                  label="Down-move volume"
+                  value={labelVolume(e.downMoveVolume)}
+                  caption="into the entry"
+                />
+                <IndicatorTile
+                  label="Price floor"
+                  value={e.priceAbove200 ? "Above ₹200" : "Below ₹200"}
+                  tone={e.priceAbove200 ? "good" : "bad"}
+                />
+              </div>
+            )}
           </SectionCard>
 
           {/* RULE CHECKS — the RSI-2 strategy's discretionary entry checklist,
@@ -699,6 +762,8 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
                   label="Capital deployed"
                   value={fmtINR(entryMetrics?.capitalDeployed ?? 0)}
                 />
+                <Row label="Sector" value={e.sector || "—"} />
+                <Row label="Market cap" value={e.marketCapCategory || "—"} />
               </>
             ) : (
               <>
@@ -749,33 +814,38 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
               }
             >
               <Row label="Exit price" value={fmtINR(x.exitPrice)} />
+              {x.quantity != null && x.quantity !== e.quantity && (
+                <Row label="Exited qty" value={`${x.quantity} of ${e.quantity}`} />
+              )}
               <Row
-                label="Realized P&L"
+                label="Gross P&L"
                 value={`${exitMetrics.realizedPnl >= 0 ? "+" : "−"}${fmtINR(
                   Math.abs(exitMetrics.realizedPnl),
                 )}`}
                 tone={exitMetrics.realizedPnl >= 0 ? "good" : "bad"}
               />
               <Row
+                label="Charges"
+                value={x.charges ? `−${fmtINR(x.charges.totalCharges)}` : "—"}
+                tone="muted"
+              />
+              <Row
+                label="Net P&L"
+                value={`${netPnl >= 0 ? "+" : "−"}${fmtINR(Math.abs(netPnl))}`}
+                tone={netPnl >= 0 ? "good" : "bad"}
+              />
+              <Row
                 label="Return"
                 value={signedPct(exitMetrics.realizedPnlPct)}
                 tone={exitMetrics.realizedPnlPct >= 0 ? "good" : "bad"}
               />
-              <Row
-                label="R multiple"
-                value={
-                  exitMetrics.rMultiple != null
-                    ? `${exitMetrics.rMultiple >= 0 ? "+" : ""}${exitMetrics.rMultiple.toFixed(2)}R`
-                    : "—"
-                }
-                tone={
-                  exitMetrics.rMultiple != null
-                    ? exitMetrics.rMultiple >= 0
-                      ? "good"
-                      : "bad"
-                    : "default"
-                }
-              />
+              {exitMetrics.rMultiple != null && (
+                <Row
+                  label="R multiple"
+                  value={`${exitMetrics.rMultiple >= 0 ? "+" : ""}${exitMetrics.rMultiple.toFixed(2)}R`}
+                  tone={exitMetrics.rMultiple >= 0 ? "good" : "bad"}
+                />
+              )}
               <Row label="Days held" value={`${exitMetrics.daysHeld}d`} />
               {x.maxAdverseExcursion != null && (
                 <Row
@@ -798,20 +868,62 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
                   tone="muted"
                 />
               )}
-              {x.manualExitReason && (
-                <div className="pt-3">
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground mb-1">
-                    Manual exit reason
-                  </div>
-                  <p className="text-sm text-foreground/90">
-                    {x.manualExitReason}
-                  </p>
-                </div>
-              )}
               <div className="pt-2">
                 <Row label="Exit date" value={fmtDateTime(x.exitDate)} />
               </div>
+
+              {x.charges && (
+                <div className="mt-4 pt-4 border-t border-border/50">
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground mb-2">
+                    Charges breakdown
+                  </div>
+                  <Row label="STT" value={fmtPrice(x.charges.stt)} />
+                  <Row label="Exchange" value={fmtPrice(x.charges.exchangeCharges)} />
+                  <Row label="SEBI" value={fmtPrice(x.charges.sebiCharges)} />
+                  <Row label="Stamp duty" value={fmtPrice(x.charges.stampDuty)} />
+                  <Row label="DP" value={fmtPrice(x.charges.dpCharges)} />
+                  <Row label="GST" value={fmtPrice(x.charges.gst)} />
+                </div>
+              )}
             </SectionCard>
+          ) : trendRs55 ? (
+            <Card
+              className="border-[oklch(0.82_0.16_85/0.35)] bg-card/70"
+              style={{ boxShadow: "var(--shadow-card)" }}
+            >
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <ShieldAlert className="size-4" style={{ color: AMBER }} /> Position
+                  open
+                </CardTitle>
+                <CardDescription>
+                  {trade.markDate
+                    ? `Prices as of ${fmtDate(trade.markDate)} close`
+                    : "Not priced yet"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Row label="Mark price" value={fmtPrice(trade.markPrice)} />
+                {trade.markPrice != null && (
+                  <Row
+                    label="Since entry"
+                    value={signedPct(
+                      ((trade.markPrice - e.entryPrice) / e.entryPrice) * 100,
+                    )}
+                    tone={trade.markPrice >= e.entryPrice ? "good" : "bad"}
+                  />
+                )}
+                {trade.markPrice != null && trade.markPrevClose != null && (
+                  <Row
+                    label="Today"
+                    value={signedPct(
+                      ((trade.markPrice - trade.markPrevClose) / trade.markPrevClose) * 100,
+                    )}
+                    tone={trade.markPrice >= trade.markPrevClose ? "good" : "bad"}
+                  />
+                )}
+              </CardContent>
+            </Card>
           ) : (
             <Card
               className="border-[oklch(0.82_0.16_85/0.35)] bg-card/70"
@@ -857,17 +969,21 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
               tone={e.niftyVs200Ema === "up" ? "good" : "bad"}
             />
             <Row label="Nifty RSI(2)" value={e.niftyRsi2.toFixed(2)} />
-            <Row label="Sector" value={e.sector || "—"} />
-            <Row
-              label="Gapped into entry"
-              value={e.gappedIntoEntry ? "Yes" : "No"}
-              tone={e.gappedIntoEntry ? "muted" : "good"}
-            />
-            <Row
-              label="Event within window"
-              value={e.eventWithinWindow ? "Yes" : "No"}
-              tone={e.eventWithinWindow ? "bad" : "good"}
-            />
+            {!trendRs55 && <Row label="Sector" value={e.sector || "—"} />}
+            {!trendRs55 && (
+              <>
+                <Row
+                  label="Gapped into entry"
+                  value={e.gappedIntoEntry ? "Yes" : "No"}
+                  tone={e.gappedIntoEntry ? "muted" : "good"}
+                />
+                <Row
+                  label="Event within window"
+                  value={e.eventWithinWindow ? "Yes" : "No"}
+                  tone={e.eventWithinWindow ? "bad" : "good"}
+                />
+              </>
+            )}
             <Row label="Candles available" value={e.candlesAvailable} />
             <Row
               label="Data quality"

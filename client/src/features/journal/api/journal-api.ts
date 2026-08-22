@@ -51,6 +51,33 @@ export async function fetchJournalTrade(id: string): Promise<JournalTrade> {
   return data.data;
 }
 
+export interface TradeChartCandle {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface TradeChartData {
+  symbol: string;
+  candles: TradeChartCandle[];
+  entryDate: string;
+  entryPrice: number;
+  exitDate: string | null;
+  exitPrice: number | null;
+}
+
+/** ~60 daily bars before entry through exit/now, for the trade-detail
+ * candlestick chart. */
+export async function fetchTradeChart(id: string): Promise<TradeChartData> {
+  const { data } = await axiosInstance.get<ApiEnvelope<TradeChartData>>(
+    `/journal/${id}/chart`,
+  );
+  return data.data;
+}
+
 export async function exitJournalTrade(
   id: string,
   payload: ExitTradePayload,
