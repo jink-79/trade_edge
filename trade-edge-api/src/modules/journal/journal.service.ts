@@ -54,6 +54,7 @@ function formatTrade(doc: any): JournalTradeResponse {
     markUpdatedAt: doc.markUpdatedAt ?? null,
     markDate: doc.markDate ?? null,
     markPrevClose: doc.markPrevClose ?? null,
+    markRs: doc.markRs ?? null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -415,6 +416,8 @@ export async function createManualTrendTrade(
   // exists in Atlas, no reason to wait.
   const latest = candles[candles.length - 1];
   const prevBar = candles[candles.length - 2];
+  const rsSeries = computeMansfieldRsSeries(candles, indexCandles, 55);
+  const markRs = rsSeries[rsSeries.length - 1] ?? null;
   await updateOpenTradeMark(
     userId,
     trade.id,
@@ -422,6 +425,7 @@ export async function createManualTrendTrade(
     undefined,
     new Date(latest.date),
     prevBar?.close,
+    markRs,
   );
 
   const doc = await JournalOpen.findOneAndUpdate(
@@ -825,12 +829,14 @@ export async function updateOpenTradeMark(
   quantity?: number,
   markDate?: Date,
   prevClose?: number,
+  markRs?: number | null,
 ): Promise<JournalTradeResponse> {
   const update: Record<string, unknown> = {
     markPrice,
     markUpdatedAt: new Date(),
     markDate: markDate ?? null,
     markPrevClose: prevClose ?? null,
+    markRs: markRs ?? null,
   };
   if (quantity != null) {
     update.quantity = quantity;

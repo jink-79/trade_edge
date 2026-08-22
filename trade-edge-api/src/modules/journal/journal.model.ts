@@ -182,6 +182,10 @@ export interface IJournalTrade {
   // Previous trading day's close for the same symbol — lets the UI show a
   // per-position daily % move, not just the since-entry move.
   markPrevClose?: number | null;
+  // Current Mansfield RS vs Nifty (EMA 55) — a live reading, refreshed
+  // alongside markPrice. Distinct from entry.rs55Pct, which is the frozen
+  // rank-based value from the entry signal.
+  markRs?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -229,6 +233,7 @@ const JournalTradeSchema = new Schema<IJournalTrade>(
     markUpdatedAt: { type: Date, default: null },
     markDate: { type: Date, default: null },
     markPrevClose: { type: Number, default: null },
+    markRs: { type: Number, default: null },
   },
   { timestamps: true },
 );

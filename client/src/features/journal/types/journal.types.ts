@@ -191,6 +191,10 @@ export interface JournalTrade {
   /** Previous trading day's close for the same symbol — lets the UI show a
    * daily % move alongside the since-entry move. */
   markPrevClose?: number | null;
+  /** Current Mansfield RS vs Nifty (EMA 55) — a live reading, refreshed
+   * alongside markPrice. Distinct from entry.rs55Pct, the frozen rank-based
+   * value from the entry signal. */
+  markRs?: number | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -8,7 +8,8 @@ import {
 } from "../journal/journal.service";
 import { JournalOpen } from "../journal/journal.model";
 import { getFunds } from "../funds/funds.service";
-import { getTodayAndPrevClose } from "../../config/phalanx-ohlcv";
+import { getTodayAndPrevClose, getRecentCandles } from "../../config/phalanx-ohlcv";
+import { computeMansfieldRsSeries } from "../journal/journal.compute";
 import { logger } from "../../utils/logger";
 import { DailyPnlSnapshot } from "./broker-sync.model";
 import type { DailyPnlSnapshotResponse, KiteSyncInput, KiteSyncResult } from "./broker-sync.types";
@@ -211,6 +212,9 @@ export async function refreshAllMarksFromOhlcv(): Promise<MarkRefreshSummary> {
   let skipped = 0;
   const userIds = new Set<string>();
 
+  // Shared across every symbol below — one fetch, not one per position.
+  const niftyCandles = await getRecentCandles("NIFTY");
+
   for (const [symbol, trades] of bySymbol) {
     const { today, prev } = await getTodayAndPrevClose(symbol);
     if (today?.close == null) {
@@ -218,6 +222,15 @@ export async function refreshAllMarksFromOhlcv(): Promise<MarkRefreshSummary> {
       skipped += trades.length;
       continue;
     }
+
+    // Current Mansfield RS (vs Nifty, EMA 55) — a live reading, distinct
+    // from entry.rs55Pct which is the frozen value from the entry signal.
+    // Needs the full candle history (55+ bar EMA warmup), not just the
+    // 2-bar today/prev fetch above.
+    const symbolCandles = await getRecentCandles(symbol);
+    const rsSeries = computeMansfieldRsSeries(symbolCandles, niftyCandles, 55);
+    const markRs = rsSeries[rsSeries.length - 1] ?? null;
+
     for (const t of trades) {
       await updateOpenTradeMark(
         t.userId,
@@ -226,6 +239,7 @@ export async function refreshAllMarksFromOhlcv(): Promise<MarkRefreshSummary> {
         undefined,
         new Date(today.date),
         prev?.close,
+        markRs,
       );
       userIds.add(t.userId);
       updated++;

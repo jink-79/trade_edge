@@ -19,6 +19,13 @@ import { ExitPositionDialog } from "./exit-position-dialog";
 import { AiReviewDialog } from "./ai-review-dialog";
 import type { JournalTrade } from "../types/journal.types";
 
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "2-digit",
+  });
+
 const holdingDays = (iso: string) =>
   Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
 
@@ -77,22 +84,25 @@ export function OpenPositionsTable({ trades }: { trades: JournalTrade[] }) {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-border/60">
-                    <TableHead className="w-[240px] pl-6">Symbol</TableHead>
+                    <TableHead className="w-10 pl-6">#</TableHead>
+                    <TableHead className="w-[200px]">Symbol</TableHead>
+                    <TableHead>Entry date</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
                     <TableHead className="text-right">Entry</TableHead>
-                    <TableHead className="text-right">RS-55</TableHead>
-                    <TableHead className="text-right">Since entry</TableHead>
-                    <TableHead className="text-right">Mark / P&amp;L</TableHead>
-                    <TableHead className="text-right">Today</TableHead>
+                    <TableHead className="text-right">RS-55 (Mansfield)</TableHead>
+                    <TableHead className="text-right">LTP</TableHead>
+                    <TableHead className="text-right">P&amp;L</TableHead>
+                    <TableHead className="text-right">Daily P&amp;L</TableHead>
                     <TableHead className="text-right">Held</TableHead>
                     <TableHead className="text-right pr-6">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((t) => (
+                  {rows.map((t, i) => (
                     <PositionRow
                       key={t.id}
                       t={t}
+                      index={i + 1}
                       onOpen={() => navigate(`/trades/${t.id}`)}
                       onExit={() => setExiting(t)}
                       onAiReview={() => setReviewingAi(t)}
@@ -116,25 +126,29 @@ export function OpenPositionsTable({ trades }: { trades: JournalTrade[] }) {
 
 function PositionRow({
   t,
+  index,
   onOpen,
   onExit,
   onAiReview,
 }: {
   t: JournalTrade;
+  index: number;
   onOpen: () => void;
   onExit: () => void;
   onAiReview: () => void;
 }) {
   const e = t.entry;
   const trendRs55 = isTrendRs55(t);
+
   return (
     <TableRow
       onClick={onOpen}
       className="cursor-pointer border-border/60 transition-colors hover:bg-accent/20"
     >
-      <TableCell className="pl-6 py-4">
+      <TableCell className="pl-6 tabular text-muted-foreground">{index}</TableCell>
+      <TableCell className="py-4">
         <div className="flex items-center gap-3">
-          <div className="size-9 rounded-lg grid place-items-center text-[11px] font-semibold tabular tracking-wide bg-primary/15 text-primary ring-1 ring-primary/30">
+          <div className="size-9 rounded-lg grid place-items-center text-[11px] font-semibold tabular tracking-wide bg-primary/15 text-primary ring-1 ring-primary/30 shrink-0">
             {e.ticker.slice(0, 2)}
           </div>
           <div className="leading-tight">
@@ -162,25 +176,22 @@ function PositionRow({
           </div>
         </div>
       </TableCell>
+      <TableCell className="text-muted-foreground tabular whitespace-nowrap">
+        {fmtDate(e.entryDate)}
+      </TableCell>
       <TableCell className="text-right tabular">{e.quantity}</TableCell>
       <TableCell className="text-right tabular text-muted-foreground">
         {fmtPrice(e.entryPrice)}
       </TableCell>
       <TableCell className="text-right tabular">
-        {trendRs55
-          ? e.rs55Pct != null
-            ? `${e.rs55Pct >= 0 ? "+" : ""}${e.rs55Pct.toFixed(1)}%`
-            : "—"
-          : e.rsi2.toFixed(2)}
+        <MansfieldRsCell t={t} trendRs55={trendRs55} />
+      </TableCell>
+      <TableCell className="text-right tabular">{fmtPrice(t.markPrice)}</TableCell>
+      <TableCell className="text-right tabular">
+        <PnlCell t={t} />
       </TableCell>
       <TableCell className="text-right tabular">
-        <SinceEntryCell t={t} />
-      </TableCell>
-      <TableCell className="text-right tabular">
-        <MarkCell t={t} />
-      </TableCell>
-      <TableCell className="text-right tabular">
-        <TodayChangeCell t={t} />
+        <DailyPnlCell t={t} />
       </TableCell>
       <TableCell className="text-right tabular text-muted-foreground">
         {holdingDays(e.entryDate)}d
@@ -215,43 +226,27 @@ function PositionRow({
   );
 }
 
-/** % move since entry, from the last broker-sync mark. Dash when a trade has
- * never been synced (manual entries, or before the first sync). */
-function SinceEntryCell({ t }: { t: JournalTrade }) {
-  if (t.markPrice == null) {
+/** Current Mansfield RS (vs Nifty, EMA 55) — a live reading refreshed daily,
+ * not the frozen rank-based value from the entry signal. For legacy (non
+ * trend-rs55) trades, falls back to RSI(2) since Mansfield RS isn't
+ * meaningful for that strategy. */
+function MansfieldRsCell({ t, trendRs55 }: { t: JournalTrade; trendRs55: boolean }) {
+  if (!trendRs55) {
+    return <span className="text-muted-foreground">{t.entry.rsi2.toFixed(2)}</span>;
+  }
+  if (t.markRs == null) {
     return <span className="text-muted-foreground">—</span>;
   }
-  const long = t.entry.direction !== "SHORT";
-  const pct = long
-    ? ((t.markPrice - t.entry.entryPrice) / t.entry.entryPrice) * 100
-    : ((t.entry.entryPrice - t.markPrice) / t.entry.entryPrice) * 100;
   return (
-    <span className={pct >= 0 ? "text-primary" : "text-destructive"}>
-      {pct >= 0 ? "+" : ""}
-      {pct.toFixed(2)}%
+    <span className={t.markRs >= 0 ? "text-primary" : "text-destructive"}>
+      {t.markRs >= 0 ? "+" : ""}
+      {t.markRs.toFixed(2)}%
     </span>
   );
 }
 
-/** Today's % move (mark vs the previous trading day's close) — distinct from
- * the since-entry move. Dash when there's no mark yet or no prior close
- * (first day phalanx-live has data for this symbol). */
-function TodayChangeCell({ t }: { t: JournalTrade }) {
-  if (t.markPrice == null || t.markPrevClose == null) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-  const pct = ((t.markPrice - t.markPrevClose) / t.markPrevClose) * 100;
-  return (
-    <span className={pct >= 0 ? "text-primary" : "text-destructive"}>
-      {pct >= 0 ? "+" : ""}
-      {pct.toFixed(2)}%
-    </span>
-  );
-}
-
-/** Live mark + unrealized P&L, from the last broker-sync mark. Dash when a
- * trade has never been synced (manual entries, or before the first sync). */
-function MarkCell({ t }: { t: JournalTrade }) {
+/** P&L since entry — ₹ on top, % below. Dash when there's no mark yet. */
+function PnlCell({ t }: { t: JournalTrade }) {
   if (t.markPrice == null) {
     return <span className="text-muted-foreground">—</span>;
   }
@@ -260,13 +255,35 @@ function MarkCell({ t }: { t: JournalTrade }) {
     ? t.markPrice - t.entry.entryPrice
     : t.entry.entryPrice - t.markPrice;
   const pnl = pnlPerShare * t.entry.quantity;
+  const pct = (pnlPerShare / t.entry.entryPrice) * 100;
+  const tone = pnl >= 0 ? "text-primary" : "text-destructive";
   return (
     <div className="leading-tight">
-      <div>{fmtPrice(t.markPrice)}</div>
-      <div
-        className={`text-xs ${pnl >= 0 ? "text-primary" : "text-destructive"}`}
-      >
-        {fmtSignedINR(pnl)}
+      <div className={cn("font-medium", tone)}>{fmtSignedINR(pnl)}</div>
+      <div className={cn("text-xs", tone)}>
+        {pct >= 0 ? "+" : ""}
+        {pct.toFixed(2)}%
+      </div>
+    </div>
+  );
+}
+
+/** Today's P&L (mark vs previous close) — ₹ on top, % below. Dash when
+ * there's no mark yet or no prior close (first day of tracking). */
+function DailyPnlCell({ t }: { t: JournalTrade }) {
+  if (t.markPrice == null || t.markPrevClose == null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const pctPerShare = t.markPrice - t.markPrevClose;
+  const pnl = pctPerShare * t.entry.quantity;
+  const pct = (pctPerShare / t.markPrevClose) * 100;
+  const tone = pnl >= 0 ? "text-primary" : "text-destructive";
+  return (
+    <div className="leading-tight">
+      <div className={cn("font-medium", tone)}>{fmtSignedINR(pnl)}</div>
+      <div className={cn("text-xs", tone)}>
+        {pct >= 0 ? "+" : ""}
+        {pct.toFixed(2)}%
       </div>
     </div>
   );
