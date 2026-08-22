@@ -1,11 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTheme } from "next-themes";
 import {
   Bell,
-  Command,
   LogOut,
   Moon,
-  Search,
   Settings,
   Sun,
   User,
@@ -37,24 +35,11 @@ function initialsOf(name: string): string {
 ───────────────────────────────────────────── */
 
 export function Topbar() {
-  const [searchOpen, setSearchOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { data: user } = useCurrentUser();
   const logout = useLogout();
   const { theme, setTheme } = useTheme();
   const isDark = theme !== "light";
-
-  /* ⌘K / Ctrl+K opens search */
-  useEffect(() => {
-    const handle = (e: any) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setSearchOpen((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", handle);
-    return () => window.removeEventListener("keydown", handle);
-  }, []);
 
   const toggleTheme = () => setTheme(isDark ? "light" : "dark");
 
@@ -74,19 +59,7 @@ export function Topbar() {
           )}
         </button>
 
-        {/* Search */}
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          className="relative flex-1 max-w-md h-9 rounded-md bg-secondary/50 border border-border/60 pl-9 pr-16 text-sm text-left text-muted-foreground hover:bg-secondary/70 transition-colors"
-        >
-          <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          Search trades, tickers, pages…
-          <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 rounded border border-border/60 bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-            <Command className="size-3" />K
-          </kbd>
-        </button>
-        <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+        <GlobalSearch />
 
         {/* Right actions */}
         <div className="ml-auto flex items-center gap-1">
