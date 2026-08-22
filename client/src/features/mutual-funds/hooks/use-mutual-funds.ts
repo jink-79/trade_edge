@@ -8,13 +8,7 @@ import {
 import { fetchMutualFunds } from "../api/mutual-funds-api";
 import { PAGE_SIZE } from "../utils/mutual-funds-utils";
 
-interface UseMutualFundsOptions {
-  useMock?: boolean;
-}
-
-export function useMutualFunds({
-  useMock = false,
-}: UseMutualFundsOptions = {}) {
+export function useMutualFunds() {
   const [entries, setEntries] = useState<MutualFundEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
@@ -27,12 +21,11 @@ export function useMutualFunds({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Pass the useMock parameter down into the API fetch function
     fetchMutualFunds()
       .then((data) => setEntries(data))
       .catch((err) => console.error("Failed to fetch mutual funds:", err))
       .finally(() => setIsLoading(false));
-  }, [useMock]);
+  }, []);
 
   const summary = useMemo<MutualFundsSummary>(() => {
     const byCategory: Record<FundCategory, number> = {

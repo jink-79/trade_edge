@@ -1,7 +1,6 @@
 import { X, PlusCircle, Wallet, Hash, BarChart2, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutualFunds } from "../hooks/use-mutual-funds";
-import { USE_MOCK } from "../api/mutual-funds-mock";
 import { CATEGORIES, fmtINR, fmtINR2 } from "../utils/mutual-funds-utils";
 import { StatCard } from "../components/stat-card";
 import { AllocationBars } from "../components/allocation-bars";
@@ -29,7 +28,7 @@ export function MutualFundsPage() {
     handleSort,
     handleAddEntry,
     isLoading,
-  } = useMutualFunds({ useMock: USE_MOCK });
+  } = useMutualFunds();
 
   if (isLoading) {
     return <MutualFundsSkeleton />;
