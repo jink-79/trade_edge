@@ -152,26 +152,21 @@ function PositionRow({
             {e.ticker.slice(0, 2)}
           </div>
           <div className="leading-tight">
-            <div className="font-medium tracking-wide tabular flex items-center gap-2">
-              {e.ticker}
-              <Badge
-                className={cn(
-                  "border h-4 px-1.5 text-[10px] font-medium",
-                  e.direction === "LONG"
-                    ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/10"
-                    : "bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/10",
-                )}
-              >
-                {e.direction}
-              </Badge>
-              {t.source === "auto" && (
-                <Badge className="border h-4 px-1 text-[9px] bg-secondary/50 text-muted-foreground border-border/60 hover:bg-secondary/50">
-                  AUTO
+            <div className="font-medium tracking-wide tabular">{e.ticker}</div>
+            <div className="flex items-center gap-1 mt-1">
+              {e.sector && (
+                <Badge className="border h-4 px-1.5 text-[9px] font-normal bg-secondary/50 text-muted-foreground border-border/60 hover:bg-secondary/50">
+                  {e.sector}
                 </Badge>
               )}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {[e.sector, e.marketCapCategory].filter(Boolean).join(" · ") || "—"}
+              {e.marketCapCategory && (
+                <Badge className="border h-4 px-1.5 text-[9px] font-normal bg-secondary/50 text-muted-foreground border-border/60 hover:bg-secondary/50">
+                  {e.marketCapCategory}
+                </Badge>
+              )}
+              {!e.sector && !e.marketCapCategory && (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
             </div>
           </div>
         </div>
