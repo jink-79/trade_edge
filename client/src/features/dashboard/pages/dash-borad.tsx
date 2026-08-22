@@ -4,6 +4,14 @@ import { AllocationCard } from "../components/allocation-card";
 import { EquityCard } from "../components/equity-card";
 import { Hero } from "../components/hero";
 import { KpiGrid } from "../components/kpi-grid";
+import {
+  ExpectancyCard,
+  MfeCaptureCard,
+  RMultipleHistogramCard,
+  SectorConcentrationCard,
+  SegmentedPerformanceCard,
+  StreakCard,
+} from "../components/insights-cards";
 import { PnlByDayCard } from "../components/pnl-by-day-card";
 import { RecentTrades } from "../components/recent-trades";
 import { SetupsCard } from "../components/setups-card";
@@ -43,6 +51,30 @@ export function Dashboard() {
             <PnlByDayCard pnlChart={data.pnlChart} />
             <SetupsCard setups={data.setups} />
           </div>
+
+          <div>
+            <h2 className="text-base font-semibold">Improve your trading</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Behavioral and risk signals the KPIs above don't show on their own.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <MfeCaptureCard mfeCapture={data.insights.mfeCapture} />
+            <ExpectancyCard expectancy={data.insights.expectancy} />
+            <StreakCard streak={data.insights.streak} />
+          </div>
+          <div className="grid grid-cols-12 gap-6">
+            <div className="col-span-12 xl:col-span-4">
+              <RMultipleHistogramCard buckets={data.insights.rMultipleBuckets} />
+            </div>
+            <div className="col-span-12 xl:col-span-4">
+              <SegmentedPerformanceCard segmented={data.insights.segmented} />
+            </div>
+            <div className="col-span-12 xl:col-span-4">
+              <SectorConcentrationCard sectors={data.insights.sectorConcentration} />
+            </div>
+          </div>
+
           <RecentTrades trades={data.recentTrades} />
         </div>
       </main>

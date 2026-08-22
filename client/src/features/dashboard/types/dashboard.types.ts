@@ -58,6 +58,66 @@ export interface DashboardMutualFunds {
   byCategory: Record<string, number>;
 }
 
+/* ── Behavioral / trade-quality insights ── */
+
+export interface DashboardMfeCapture {
+  avgCapturePct: number | null;
+  sampleSize: number;
+}
+
+export interface DashboardExpectancy {
+  winRate: number;
+  avgWin: number;
+  avgLoss: number;
+  expectancyPerTrade: number;
+  avgWinR: number | null;
+  avgLossR: number | null;
+  expectancyR: number | null;
+}
+
+export interface DashboardStreak {
+  current: number;
+  bestWinStreak: number;
+  worstLossStreak: number;
+}
+
+export interface DashboardRMultipleBucket {
+  label: string;
+  count: number;
+}
+
+export interface DashboardSegmentStats {
+  trades: number;
+  winRate: number;
+  avgPnl: number;
+}
+
+export interface DashboardSegmentedPerformance {
+  ruleAdherence: {
+    system: DashboardSegmentStats | null;
+    discretionary: DashboardSegmentStats | null;
+  };
+  regime: {
+    up: DashboardSegmentStats | null;
+    down: DashboardSegmentStats | null;
+  };
+}
+
+export interface DashboardSectorConcentration {
+  sector: string;
+  invested: number;
+  pct: number;
+}
+
+export interface DashboardInsights {
+  mfeCapture: DashboardMfeCapture;
+  expectancy: DashboardExpectancy;
+  streak: DashboardStreak;
+  rMultipleBuckets: DashboardRMultipleBucket[];
+  segmented: DashboardSegmentedPerformance;
+  sectorConcentration: DashboardSectorConcentration[];
+}
+
 export interface DashboardResponse {
   portfolio: DashboardPortfolio;
   funds: DashboardFunds;
@@ -67,4 +127,5 @@ export interface DashboardResponse {
   pnlChart: DashboardPnlPoint[];
   setups: DashboardSetup[];
   mutualFunds: DashboardMutualFunds;
+  insights: DashboardInsights;
 }

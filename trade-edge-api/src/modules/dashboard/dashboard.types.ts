@@ -70,6 +70,73 @@ export interface DashboardPortfolio {
   totalValue: number; // totalFundsDeposited + totalNetPnl
 }
 
+/* ── Behavioral / trade-quality insights ── */
+
+/** How much of each trade's max favorable move (MFE) was actually
+ * captured by the time it exited — the "did I exit too early" number. */
+export interface DashboardMfeCapture {
+  avgCapturePct: number | null; // null when no closed trade has analytics yet
+  sampleSize: number;
+}
+
+/** Expectancy — what the system is worth per trade, in both ₹ and R terms,
+ * plus the win/loss components that produce it. */
+export interface DashboardExpectancy {
+  winRate: number;
+  avgWin: number;
+  avgLoss: number; // positive number (magnitude)
+  expectancyPerTrade: number; // ₹, signed
+  avgWinR: number | null;
+  avgLossR: number | null; // positive number (magnitude)
+  expectancyR: number | null;
+}
+
+/** Current + historical best/worst win/loss streaks. */
+export interface DashboardStreak {
+  current: number; // signed: +3 = 3-trade win streak, -2 = 2-trade loss streak
+  bestWinStreak: number;
+  worstLossStreak: number;
+}
+
+export interface DashboardRMultipleBucket {
+  label: string;
+  count: number;
+}
+
+export interface DashboardSegmentStats {
+  trades: number;
+  winRate: number;
+  avgPnl: number;
+}
+
+/** Closed-trade performance split two ways: did-you-follow-the-signal, and
+ * what the index was doing at entry. */
+export interface DashboardSegmentedPerformance {
+  ruleAdherence: {
+    system: DashboardSegmentStats | null;
+    discretionary: DashboardSegmentStats | null;
+  };
+  regime: {
+    up: DashboardSegmentStats | null;
+    down: DashboardSegmentStats | null;
+  };
+}
+
+export interface DashboardSectorConcentration {
+  sector: string;
+  invested: number;
+  pct: number; // % of total open capital deployed
+}
+
+export interface DashboardInsights {
+  mfeCapture: DashboardMfeCapture;
+  expectancy: DashboardExpectancy;
+  streak: DashboardStreak;
+  rMultipleBuckets: DashboardRMultipleBucket[];
+  segmented: DashboardSegmentedPerformance;
+  sectorConcentration: DashboardSectorConcentration[];
+}
+
 /* ── Full dashboard response ── */
 export interface DashboardResponse {
   portfolio: DashboardPortfolio;
@@ -80,4 +147,5 @@ export interface DashboardResponse {
   pnlChart: DashboardPnlPoint[];
   setups: DashboardSetup[];
   mutualFunds: DashboardMutualFunds;
+  insights: DashboardInsights;
 }

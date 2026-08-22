@@ -14,6 +14,8 @@ import type {
   DashboardSetup,
   DashboardMutualFunds,
   DashboardPortfolio,
+  DashboardInsights,
+  DashboardSegmentStats,
 } from "./dashboard.types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -185,6 +187,209 @@ function buildSetups(tradeDocs: any[]): DashboardSetup[] {
     .sort((a, b) => b.avgPnl - a.avgPnl);
 }
 
+/** Net P&L when charges were tracked (charges-aware); falls back to the
+ * gross figure for trades closed before charges tracking existed. */
+function netPnlFor(t: any): number {
+  return t.netPnlAmount ?? t.pnlAmount ?? 0;
+}
+
+/** R-multiple with the same fallback the closed-trades table uses: a real
+ * stop-based risk unit when one exists, else ATR(14) at entry (Trend+RS-55
+ * has no fixed stop). Reads the nested entry/exit — the flat `rMultiple`
+ * mirror is stop-only and is null for every no-stop trade. */
+function rMultipleFor(t: any): number | null {
+  const entry = t.entry;
+  const exit = t.exit;
+  if (!entry || !exit || exit.exitPrice == null) return null;
+  const long = String(entry.direction ?? "LONG") === "LONG";
+  const pnlPerShare = long
+    ? exit.exitPrice - entry.entryPrice
+    : entry.entryPrice - exit.exitPrice;
+  const stopRisk =
+    entry.stopPrice == null
+      ? null
+      : long
+        ? entry.entryPrice - entry.stopPrice
+        : entry.stopPrice - entry.entryPrice;
+  if (stopRisk != null && stopRisk > 0) return pnlPerShare / stopRisk;
+  if (entry.atr14 > 0) return pnlPerShare / entry.atr14;
+  return null;
+}
+
+function buildMfeCapture(tradeDocs: any[]): DashboardInsights["mfeCapture"] {
+  const ratios = tradeDocs
+    .map((t) => t.analytics?.mfeCaptureRatio)
+    .filter((r): r is number => typeof r === "number" && Number.isFinite(r));
+  if (ratios.length === 0) return { avgCapturePct: null, sampleSize: 0 };
+  const avg = ratios.reduce((s, r) => s + r, 0) / ratios.length;
+  return { avgCapturePct: round2(avg * 100), sampleSize: ratios.length };
+}
+
+function buildExpectancy(tradeDocs: any[]): DashboardInsights["expectancy"] {
+  const total = tradeDocs.length;
+  if (total === 0) {
+    return {
+      winRate: 0,
+      avgWin: 0,
+      avgLoss: 0,
+      expectancyPerTrade: 0,
+      avgWinR: null,
+      avgLossR: null,
+      expectancyR: null,
+    };
+  }
+
+  const wins = tradeDocs.filter((t) => netPnlFor(t) > 0);
+  const losses = tradeDocs.filter((t) => netPnlFor(t) <= 0);
+  const avgWin = wins.length > 0 ? wins.reduce((s, t) => s + netPnlFor(t), 0) / wins.length : 0;
+  const avgLoss =
+    losses.length > 0
+      ? Math.abs(losses.reduce((s, t) => s + netPnlFor(t), 0) / losses.length)
+      : 0;
+
+  const rValues = tradeDocs
+    .map((t) => rMultipleFor(t))
+    .filter((r): r is number => r != null);
+  const winRs = rValues.filter((r) => r > 0);
+  const lossRs = rValues.filter((r) => r <= 0);
+  const avgWinR = winRs.length > 0 ? winRs.reduce((s, r) => s + r, 0) / winRs.length : null;
+  const avgLossR =
+    lossRs.length > 0 ? Math.abs(lossRs.reduce((s, r) => s + r, 0) / lossRs.length) : null;
+
+  return {
+    winRate: round2((wins.length / total) * 100),
+    avgWin: round2(avgWin),
+    avgLoss: round2(avgLoss),
+    expectancyPerTrade: round2(
+      tradeDocs.reduce((s, t) => s + netPnlFor(t), 0) / total,
+    ),
+    avgWinR: avgWinR != null ? round2(avgWinR) : null,
+    avgLossR: avgLossR != null ? round2(avgLossR) : null,
+    expectancyR:
+      rValues.length > 0
+        ? round2(rValues.reduce((s, r) => s + r, 0) / rValues.length)
+        : null,
+  };
+}
+
+/** tradeDocs must already be sorted newest-first (exitDate desc). */
+function buildStreak(tradeDocs: any[]): DashboardInsights["streak"] {
+  if (tradeDocs.length === 0) {
+    return { current: 0, bestWinStreak: 0, worstLossStreak: 0 };
+  }
+
+  const isWin = (t: any) => netPnlFor(t) > 0;
+
+  let current = 0;
+  const firstWin = isWin(tradeDocs[0]);
+  for (const t of tradeDocs) {
+    if (isWin(t) !== firstWin) break;
+    current++;
+  }
+  current = firstWin ? current : -current;
+
+  let bestWinStreak = 0;
+  let worstLossStreak = 0;
+  let run = 0;
+  let runIsWin: boolean | null = null;
+  for (const t of tradeDocs) {
+    const win = isWin(t);
+    if (win === runIsWin) {
+      run++;
+    } else {
+      runIsWin = win;
+      run = 1;
+    }
+    if (win) bestWinStreak = Math.max(bestWinStreak, run);
+    else worstLossStreak = Math.max(worstLossStreak, run);
+  }
+
+  return { current, bestWinStreak, worstLossStreak };
+}
+
+const R_BUCKETS: { label: string; min: number; max: number }[] = [
+  { label: "< -2R", min: -Infinity, max: -2 },
+  { label: "-2R to -1R", min: -2, max: -1 },
+  { label: "-1R to 0", min: -1, max: 0 },
+  { label: "0 to 1R", min: 0, max: 1 },
+  { label: "1R to 2R", min: 1, max: 2 },
+  { label: "2R to 3R", min: 2, max: 3 },
+  { label: "> 3R", min: 3, max: Infinity },
+];
+
+function buildRMultipleBuckets(tradeDocs: any[]): DashboardInsights["rMultipleBuckets"] {
+  const counts = new Map(R_BUCKETS.map((b) => [b.label, 0]));
+  for (const t of tradeDocs) {
+    const r = rMultipleFor(t);
+    if (r == null) continue;
+    const bucket = R_BUCKETS.find((b) => r >= b.min && r < b.max) ?? R_BUCKETS[R_BUCKETS.length - 1];
+    counts.set(bucket.label, (counts.get(bucket.label) ?? 0) + 1);
+  }
+  return R_BUCKETS.map((b) => ({ label: b.label, count: counts.get(b.label) ?? 0 }));
+}
+
+function segmentStats(group: any[]): DashboardSegmentStats | null {
+  if (group.length === 0) return null;
+  const wins = group.filter((t) => netPnlFor(t) > 0).length;
+  return {
+    trades: group.length,
+    winRate: round2((wins / group.length) * 100),
+    avgPnl: round2(group.reduce((s, t) => s + netPnlFor(t), 0) / group.length),
+  };
+}
+
+function buildSegmentedPerformance(
+  tradeDocs: any[],
+): DashboardInsights["segmented"] {
+  const system = tradeDocs.filter((t) => t.ruleAdherence === "system");
+  const discretionary = tradeDocs.filter((t) => t.ruleAdherence === "discretionary");
+  const up = tradeDocs.filter((t) => t.entry?.niftyVs200Ema === "up");
+  const down = tradeDocs.filter((t) => t.entry?.niftyVs200Ema === "down");
+
+  return {
+    ruleAdherence: {
+      system: segmentStats(system),
+      discretionary: segmentStats(discretionary),
+    },
+    regime: {
+      up: segmentStats(up),
+      down: segmentStats(down),
+    },
+  };
+}
+
+function buildSectorConcentration(
+  positionDocs: any[],
+): DashboardInsights["sectorConcentration"] {
+  const bySector = new Map<string, number>();
+  let total = 0;
+  for (const p of positionDocs) {
+    const qty = p.quantity ?? p.qty ?? 0;
+    const invested = (p.entryPrice ?? p.entry?.entryPrice ?? 0) * qty;
+    const sector = p.entry?.sector || p.sector || "Unknown";
+    bySector.set(sector, (bySector.get(sector) ?? 0) + invested);
+    total += invested;
+  }
+  return Array.from(bySector.entries())
+    .map(([sector, invested]) => ({
+      sector,
+      invested: round2(invested),
+      pct: total > 0 ? round2((invested / total) * 100) : 0,
+    }))
+    .sort((a, b) => b.invested - a.invested);
+}
+
+function buildInsights(tradeDocs: any[], positionDocs: any[]): DashboardInsights {
+  return {
+    mfeCapture: buildMfeCapture(tradeDocs),
+    expectancy: buildExpectancy(tradeDocs),
+    streak: buildStreak(tradeDocs),
+    rMultipleBuckets: buildRMultipleBuckets(tradeDocs),
+    segmented: buildSegmentedPerformance(tradeDocs),
+    sectorConcentration: buildSectorConcentration(positionDocs),
+  };
+}
+
 function buildMutualFunds(mfDocs: any[]): DashboardMutualFunds {
   const byCategory = Object.fromEntries(
     FUND_CATEGORIES.map((c) => [c, 0]),
@@ -230,6 +435,7 @@ export async function getDashboard(userId: string): Promise<DashboardResponse> {
   const pnlChart = buildPnlChart(tradeDocs);
   const setups = buildSetups(tradeDocs);
   const mutualFunds = buildMutualFunds(mfDocs);
+  const insights = buildInsights(tradeDocs, positionDocs);
 
   const portfolio: DashboardPortfolio = {
     totalFundsDeposited: funds.totalDeposited,
@@ -248,5 +454,6 @@ export async function getDashboard(userId: string): Promise<DashboardResponse> {
     pnlChart,
     setups,
     mutualFunds,
+    insights,
   };
 }
