@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { Activity, Percent, Scale, Trophy, Wallet } from "lucide-react";
+import { Activity, Percent, Receipt, Scale, Wallet } from "lucide-react";
 import { KpiCard } from "@/features/dashboard/components/kpi-card";
-import { deriveExitMetrics, fmtSignedINR } from "../utils/journal-utils";
+import { deriveExitMetrics, fmtSignedINR, fmtINR } from "../utils/journal-utils";
 import type { JournalTrade } from "../types/journal.types";
 
 export function metricsFor(t: JournalTrade) {
@@ -10,6 +10,12 @@ export function metricsFor(t: JournalTrade) {
     exitPrice: t.exit.exitPrice,
     exitDate: t.exit.exitDate,
   });
+}
+
+/** Net P&L when the backend computed it (charges-aware); falls back to the
+ * gross figure for trades closed before charges tracking existed. */
+function netPnlFor(t: JournalTrade, gross: number): number {
+  return t.exit?.netPnlAmount ?? gross;
 }
 
 export function TradeHistoryKpis({ trades }: { trades: JournalTrade[] }) {
@@ -23,20 +29,23 @@ export function TradeHistoryKpis({ trades }: { trades: JournalTrade[] }) {
     let grossLoss = 0;
     let holdSum = 0;
     let holdCount = 0;
+    let totalCharges = 0;
     for (const t of trades) {
       const m = metricsFor(t);
       if (!m) continue;
-      net += m.realizedPnl;
+      const netPnl = netPnlFor(t, m.realizedPnl);
+      net += netPnl;
       invested += t.entry.entryPrice * t.entry.quantity;
-      if (m.win) wins++;
-      if (m.realizedPnl >= 0) grossProfit += m.realizedPnl;
-      else grossLoss += Math.abs(m.realizedPnl);
+      if (netPnl >= 0) wins++;
+      if (netPnl >= 0) grossProfit += netPnl;
+      else grossLoss += Math.abs(netPnl);
       if (m.rMultiple != null) {
         rSum += m.rMultiple;
         rCount++;
       }
       holdSum += m.daysHeld;
       holdCount++;
+      totalCharges += t.exit?.charges?.totalCharges ?? 0;
     }
     return {
       net,
@@ -46,6 +55,7 @@ export function TradeHistoryKpis({ trades }: { trades: JournalTrade[] }) {
       profitFactor:
         grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0,
       avgHold: holdCount ? Math.round(holdSum / holdCount) : 0,
+      totalCharges,
     };
   }, [trades]);
 
@@ -58,7 +68,7 @@ export function TradeHistoryKpis({ trades }: { trades: JournalTrade[] }) {
       value: fmtSignedINR(k.net),
       delta: `${k.netPct >= 0 ? "+" : ""}${k.netPct.toFixed(2)}%`,
       positive: netPos,
-      foot: "realised, all-time",
+      foot: "realised, net of charges",
       accent: true,
     },
     {
@@ -77,19 +87,18 @@ export function TradeHistoryKpis({ trades }: { trades: JournalTrade[] }) {
       progress: Math.round(k.winRate),
     },
     {
-      icon: Trophy,
-      label: "Avg R",
-      value:
-        k.avgR != null ? `${k.avgR >= 0 ? "+" : ""}${k.avgR.toFixed(2)}R` : "—",
-      positive: (k.avgR ?? 0) >= 0,
-      foot: "per closed trade",
-    },
-    {
       icon: Scale,
       label: "Profit Factor",
       value: Number.isFinite(k.profitFactor) ? k.profitFactor.toFixed(2) : "∞",
       positive: k.profitFactor >= 1,
       foot: "gains / losses",
+    },
+    {
+      icon: Receipt,
+      label: "Total Charges",
+      value: fmtINR(k.totalCharges),
+      positive: false,
+      foot: "STT, exchange, SEBI, stamp, DP, GST",
     },
   ];
 

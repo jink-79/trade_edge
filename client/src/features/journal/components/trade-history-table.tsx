@@ -7,8 +7,10 @@ import {
   ChevronDown,
   Clock,
   Filter,
+  Receipt,
   Search,
   Shield,
+  Sparkles,
   Target,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { fmtPrice, fmtSignedINR } from "../utils/journal-utils";
+import { fmtPrice, fmtSignedINR, isTrendRs55 } from "../utils/journal-utils";
 import { metricsFor } from "./trade-history-kpis";
 import type { JournalTrade } from "../types/journal.types";
 
@@ -38,8 +40,15 @@ const fmtDate = (iso: string) =>
 const OUTCOME_STYLE: Record<string, string> = {
   TARGET: "bg-primary/10 text-primary border-primary/30",
   STOP: "bg-destructive/10 text-destructive border-destructive/30",
+  "TREND-FLIP": "bg-sky-500/10 text-sky-400 border-sky-500/30",
   "MANUAL-EXIT": "bg-amber-500/10 text-amber-400 border-amber-500/30",
 };
+
+/** Net P&L when the backend computed it (charges-aware); falls back to the
+ * gross figure for trades closed before charges tracking existed. */
+function netPnlFor(t: JournalTrade, gross: number): number {
+  return t.exit?.netPnlAmount ?? gross;
+}
 
 export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
   const [query, setQuery] = useState("");
@@ -62,7 +71,7 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
         <div>
           <CardTitle className="text-base font-medium">Closed trades</CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
-            Click any row to inspect the entry, exit and realized R.
+            Click any row to inspect the entry, exit and charges.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -93,11 +102,9 @@ export function TradeHistoryTable({ trades }: { trades: JournalTrade[] }) {
               <TableRow className="hover:bg-transparent border-border/60">
                 <TableHead className="w-[240px] pl-6">Symbol</TableHead>
                 <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Entry</TableHead>
-                <TableHead className="text-right">Exit</TableHead>
-                <TableHead className="text-right">P&L (₹)</TableHead>
-                <TableHead className="text-right">P&L %</TableHead>
-                <TableHead className="text-right">R</TableHead>
+                <TableHead className="text-right">Entry → Exit</TableHead>
+                <TableHead className="text-right">Days</TableHead>
+                <TableHead className="text-right">Net P&amp;L</TableHead>
                 <TableHead>Outcome</TableHead>
                 <TableHead className="text-right pr-6" />
               </TableRow>
@@ -130,7 +137,10 @@ function HistoryRow({
 }) {
   const e = t.entry;
   const m = metricsFor(t);
-  const positive = (m?.realizedPnl ?? 0) >= 0;
+  const net = m ? netPnlFor(t, m.realizedPnl) : 0;
+  const netPct = m && e.entryPrice * e.quantity > 0 ? (net / (e.entryPrice * e.quantity)) * 100 : 0;
+  const positive = net >= 0;
+
   return (
     <>
       <TableRow
@@ -155,62 +165,46 @@ function HistoryRow({
                   {e.ticker}
                 </Link>
               </div>
-              <div className="text-xs text-muted-foreground tabular">
-                {fmtDate(e.entryDate)} →{" "}
-                {t.exit ? fmtDate(t.exit.exitDate) : "—"}
+              <div className="text-xs text-muted-foreground">
+                {[e.sector, e.marketCapCategory].filter(Boolean).join(" · ") || "—"}
               </div>
             </div>
           </div>
         </TableCell>
         <TableCell className="text-right tabular">{e.quantity}</TableCell>
         <TableCell className="text-right tabular text-muted-foreground">
-          {fmtPrice(e.entryPrice)}
+          {fmtPrice(e.entryPrice)} → {t.exit ? fmtPrice(t.exit.exitPrice) : "—"}
+        </TableCell>
+        <TableCell className="text-right tabular text-muted-foreground">
+          {m ? `${m.daysHeld}d` : "—"}
         </TableCell>
         <TableCell className="text-right tabular">
-          {t.exit ? fmtPrice(t.exit.exitPrice) : "—"}
-        </TableCell>
-        <TableCell
-          className={cn(
-            "text-right tabular font-medium",
-            positive ? "text-primary" : "text-destructive",
-          )}
-        >
-          {m ? fmtSignedINR(m.realizedPnl) : "—"}
-        </TableCell>
-        <TableCell
-          className={cn(
-            "text-right tabular",
-            positive ? "text-primary" : "text-destructive",
-          )}
-        >
-          {m ? (
-            <span className="inline-flex items-center gap-0.5">
-              {positive ? (
-                <ArrowUpRight className="size-3.5" />
-              ) : (
-                <ArrowDownRight className="size-3.5" />
-              )}
-              {Math.abs(m.realizedPnlPct).toFixed(2)}%
-            </span>
-          ) : (
-            "—"
-          )}
-        </TableCell>
-        <TableCell
-          className={cn(
-            "text-right tabular",
-            positive ? "text-primary" : "text-destructive",
-          )}
-        >
-          {m?.rMultiple != null
-            ? `${m.rMultiple >= 0 ? "+" : ""}${m.rMultiple.toFixed(2)}R`
-            : "—"}
+          <div className="leading-tight">
+            <div className={cn("font-medium", positive ? "text-primary" : "text-destructive")}>
+              {m ? fmtSignedINR(net) : "—"}
+            </div>
+            {m && (
+              <div
+                className={cn(
+                  "text-xs inline-flex items-center gap-0.5",
+                  positive ? "text-primary" : "text-destructive",
+                )}
+              >
+                {positive ? (
+                  <ArrowUpRight className="size-3" />
+                ) : (
+                  <ArrowDownRight className="size-3" />
+                )}
+                {Math.abs(netPct).toFixed(2)}%
+              </div>
+            )}
+          </div>
         </TableCell>
         <TableCell>
           <Badge
             className={cn(
               "border hover:bg-transparent",
-              OUTCOME_STYLE[t.outcome],
+              OUTCOME_STYLE[t.outcome] ?? "bg-secondary/50 text-muted-foreground border-border/60",
             )}
           >
             {t.outcome}
@@ -228,7 +222,7 @@ function HistoryRow({
 
       {open && (
         <TableRow className="hover:bg-transparent border-border/60">
-          <TableCell colSpan={9} className="p-0">
+          <TableCell colSpan={7} className="p-0">
             <ExpandedDetails t={t} />
           </TableCell>
         </TableRow>
@@ -241,72 +235,117 @@ function ExpandedDetails({ t }: { t: JournalTrade }) {
   const e = t.entry;
   const x = t.exit;
   const m = metricsFor(t);
+  const trendRs55 = isTrendRs55(t);
+  const gross = m?.realizedPnl ?? 0;
+  const net = m ? netPnlFor(t, gross) : 0;
+  const charges = x?.charges?.totalCharges ?? null;
+  const note = x?.aiAnalysis || x?.manualExitReason || null;
 
   return (
-    <div className="bg-background/40 border-t border-border/60 p-6 grid grid-cols-12 gap-6">
-      <DetailBlock
-        title="Entry"
-        icon={<Target className="size-3.5 text-primary" />}
-      >
-        <DetailRow label="Entry price" value={fmtPrice(e.entryPrice)} mono />
-        <DetailRow label="Quantity" value={String(e.quantity)} />
-        <DetailRow label="Target" value={fmtPrice(e.targetPrice)} mono tone="good" />
-        <DetailRow label="Stop" value={fmtPrice(e.stopPrice)} mono tone="bad" />
-        <DetailRow label="Entry date" value={fmtDate(e.entryDate)} />
-      </DetailBlock>
+    <div className="bg-background/40 border-t border-border/60 p-6 space-y-6">
+      <div className="grid grid-cols-12 gap-6">
+        <DetailBlock title="Entry" icon={<Target className="size-3.5 text-primary" />}>
+          <DetailRow label="Entry price" value={fmtPrice(e.entryPrice)} mono />
+          <DetailRow label="Quantity" value={String(e.quantity)} />
+          <DetailRow label="Entry date" value={fmtDate(e.entryDate)} />
+          {trendRs55 ? (
+            <DetailRow
+              label="RS-55 at entry"
+              value={e.rs55Pct != null ? `${e.rs55Pct.toFixed(2)}%` : "—"}
+              tone="good"
+            />
+          ) : (
+            <>
+              <DetailRow label="Target" value={fmtPrice(e.targetPrice)} mono tone="good" />
+              <DetailRow label="Stop" value={fmtPrice(e.stopPrice)} mono tone="bad" />
+            </>
+          )}
+        </DetailBlock>
 
-      <DetailBlock
-        title="Exit"
-        icon={<Shield className="size-3.5 text-primary" />}
-      >
-        <DetailRow
-          label="Exit price"
-          value={x ? fmtPrice(x.exitPrice) : "—"}
-          mono
-        />
-        <DetailRow label="Outcome" value={t.outcome} />
-        <DetailRow label="Exit date" value={x ? fmtDate(x.exitDate) : "—"} />
-        {x?.manualExitReason ? (
-          <DetailRow label="Reason" value={x.manualExitReason} />
-        ) : null}
-      </DetailBlock>
+        <DetailBlock title="Exit" icon={<Shield className="size-3.5 text-primary" />}>
+          <DetailRow label="Exit price" value={x ? fmtPrice(x.exitPrice) : "—"} mono />
+          <DetailRow label="Outcome" value={t.outcome} />
+          <DetailRow label="Exit date" value={x ? fmtDate(x.exitDate) : "—"} />
+          {x?.quantity != null && x.quantity !== e.quantity && (
+            <DetailRow label="Exited qty" value={String(x.quantity)} />
+          )}
+        </DetailBlock>
 
-      <DetailBlock
-        title="Result"
-        icon={<Activity className="size-3.5 text-primary" />}
-      >
-        <DetailRow
-          label="Realized P&L"
-          value={m ? fmtSignedINR(m.realizedPnl) : "—"}
-          tone={(m?.realizedPnl ?? 0) >= 0 ? "good" : "bad"}
-        />
-        <DetailRow
-          label="Return"
-          value={
-            m ? `${m.realizedPnlPct >= 0 ? "+" : ""}${m.realizedPnlPct.toFixed(2)}%` : "—"
-          }
-          tone={(m?.realizedPnlPct ?? 0) >= 0 ? "good" : "bad"}
-        />
-        <DetailRow
-          label="R multiple"
-          value={
-            m?.rMultiple != null
-              ? `${m.rMultiple >= 0 ? "+" : ""}${m.rMultiple.toFixed(2)}R`
-              : "—"
-          }
-          tone={(m?.rMultiple ?? 0) >= 0 ? "good" : "bad"}
-        />
-      </DetailBlock>
+        <DetailBlock title="Result" icon={<Activity className="size-3.5 text-primary" />}>
+          <DetailRow
+            label="Gross P&L"
+            value={m ? fmtSignedINR(gross) : "—"}
+            tone={gross >= 0 ? "good" : "bad"}
+          />
+          <DetailRow
+            label="Charges"
+            value={charges != null ? `−${fmtPrice(charges)}` : "—"}
+            tone="muted"
+          />
+          <DetailRow
+            label="Net P&L"
+            value={m ? fmtSignedINR(net) : "—"}
+            tone={net >= 0 ? "good" : "bad"}
+          />
+          {m?.rMultiple != null && (
+            <DetailRow
+              label="R multiple"
+              value={`${m.rMultiple >= 0 ? "+" : ""}${m.rMultiple.toFixed(2)}R`}
+              tone={m.rMultiple >= 0 ? "good" : "bad"}
+            />
+          )}
+        </DetailBlock>
 
-      <DetailBlock
-        title="Setup & hold"
-        icon={<Clock className="size-3.5 text-primary" />}
-      >
-        <DetailRow label="Days held" value={m ? `${m.daysHeld}d` : "—"} />
-        <DetailRow label="RSI(2) at entry" value={e.rsi2.toFixed(2)} />
-        <DetailRow label="ATR(14)" value={fmtPrice(e.atr14)} mono />
-        <DetailRow label="Sector" value={e.sector || "—"} />
-      </DetailBlock>
+        <DetailBlock title="Setup" icon={<Clock className="size-3.5 text-primary" />}>
+          <DetailRow label="Days held" value={m ? `${m.daysHeld}d` : "—"} />
+          <DetailRow label="Sector" value={e.sector || "—"} />
+          {trendRs55 ? (
+            <DetailRow label="Market cap" value={e.marketCapCategory || "—"} />
+          ) : (
+            <>
+              <DetailRow label="RSI(2) at entry" value={e.rsi2.toFixed(2)} />
+              <DetailRow label="ATR(14)" value={fmtPrice(e.atr14)} mono />
+            </>
+          )}
+        </DetailBlock>
+      </div>
+
+      {(note || charges != null) && (
+        <div className="grid grid-cols-12 gap-6">
+          {note && (
+            <div className="col-span-12 lg:col-span-8 rounded-xl border border-border/60 bg-card/40 p-4">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="size-5 rounded-md grid place-items-center bg-primary/10 ring-1 ring-primary/20">
+                  <Sparkles className="size-3.5 text-primary" />
+                </span>
+                Exit note
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
+                {note}
+              </p>
+            </div>
+          )}
+
+          {charges != null && x?.charges && (
+            <div className="col-span-12 lg:col-span-4 rounded-xl border border-border/60 bg-card/40 p-4">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="size-5 rounded-md grid place-items-center bg-primary/10 ring-1 ring-primary/20">
+                  <Receipt className="size-3.5 text-primary" />
+                </span>
+                Charges breakdown
+              </div>
+              <div className="mt-3 space-y-2.5">
+                <DetailRow label="STT" value={fmtPrice(x.charges.stt)} mono />
+                <DetailRow label="Exchange" value={fmtPrice(x.charges.exchangeCharges)} mono />
+                <DetailRow label="SEBI" value={fmtPrice(x.charges.sebiCharges)} mono />
+                <DetailRow label="Stamp duty" value={fmtPrice(x.charges.stampDuty)} mono />
+                <DetailRow label="DP" value={fmtPrice(x.charges.dpCharges)} mono />
+                <DetailRow label="GST" value={fmtPrice(x.charges.gst)} mono />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -345,10 +384,11 @@ function DetailRow({
   tone?: "good" | "bad" | "muted";
 }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-xs text-muted-foreground">{label}</span>
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-xs text-muted-foreground shrink-0">{label}</span>
       <span
         className={cn(
+          "text-right truncate",
           mono && "tabular",
           tone === "good" && "text-primary",
           tone === "bad" && "text-destructive",
