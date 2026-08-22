@@ -1,68 +1,91 @@
 import { useMemo } from "react";
-import { ListChecks, ShieldAlert, Target, Wallet } from "lucide-react";
-import { JournalKpiCard } from "./journal-kpi-card";
-import { deriveEntryMetrics, fmtINR } from "../utils/journal-utils";
+import { Layers, ListChecks, TrendingUp, Wallet, Zap } from "lucide-react";
+import { KpiCard } from "@/features/dashboard/components/kpi-card";
+import { useLatestDailySignal } from "@/features/algo-signals/hooks/use-algo-signals";
+import { fmtINR } from "../utils/journal-utils";
 import type { JournalTrade } from "../types/journal.types";
 
 export function OpenPositionsKpis({
   trades,
-  capital,
 }: {
   trades: JournalTrade[];
-  capital: number;
 }) {
+  const { data: signal } = useLatestDailySignal();
+
   const k = useMemo(() => {
     let deployed = 0;
-    let atRisk = 0;
+    let priced = 0;
+    let unrealizedPnl = 0;
+    let pricedDeployed = 0;
+
     for (const t of trades) {
-      const m = deriveEntryMetrics(
-        {
-          direction: t.entry.direction,
-          entryPrice: t.entry.entryPrice,
-          stopPrice: t.entry.stopPrice,
-          targetPrice: t.entry.targetPrice,
-          quantity: t.entry.quantity,
-          atr14: t.entry.atr14,
-        },
-        capital,
-      );
-      deployed += m.capitalDeployed;
-      atRisk += m.capitalAtRisk ?? 0;
+      const capital = t.entry.entryPrice * t.entry.quantity;
+      deployed += capital;
+      if (t.markPrice != null) {
+        priced++;
+        pricedDeployed += capital;
+        const long = t.entry.direction !== "SHORT";
+        const pnlPerShare = long
+          ? t.markPrice - t.entry.entryPrice
+          : t.entry.entryPrice - t.markPrice;
+        unrealizedPnl += pnlPerShare * t.entry.quantity;
+      }
     }
+
     return {
       deployed,
-      atRisk,
-      gttPending: trades.filter((t) => !t.gttPlaced).length,
+      priced,
+      unrealizedPnl,
+      unrealizedPct: pricedDeployed > 0 ? (unrealizedPnl / pricedDeployed) * 100 : 0,
       needsReview: trades.filter((t) => t.needsReview).length,
     };
-  }, [trades, capital]);
+  }, [trades]);
+
+  const maxPositions = signal?.max_positions;
+  const freeSlots =
+    maxPositions != null ? Math.max(maxPositions - trades.length, 0) : null;
+  const pnlPositive = k.unrealizedPnl >= 0;
 
   return (
-    <div className="grid grid-cols-12 gap-4">
-      <JournalKpiCard
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <KpiCard
+        icon={ListChecks}
         label="Open positions"
         value={String(trades.length)}
-        hint={`${k.needsReview} to review`}
-        icon={<ListChecks className="size-3.5 text-primary" />}
+        positive
+        foot={k.needsReview > 0 ? `${k.needsReview} to review` : "all reviewed"}
       />
-      <JournalKpiCard
+      <KpiCard
+        icon={Wallet}
         label="Capital deployed"
         value={fmtINR(k.deployed)}
-        hint="At entry price"
-        icon={<Wallet className="size-3.5 text-primary" />}
+        positive
+        foot="at entry price"
       />
-      <JournalKpiCard
-        label="Capital at risk"
-        value={fmtINR(k.atRisk)}
-        hint="Entry → stop-loss"
-        tone="bad"
-        icon={<ShieldAlert className="size-3.5 text-primary" />}
+      <KpiCard
+        icon={TrendingUp}
+        label="Unrealised P&L"
+        value={`${pnlPositive ? "+" : ""}${fmtINR(k.unrealizedPnl)}`}
+        delta={`${k.unrealizedPct >= 0 ? "+" : ""}${k.unrealizedPct.toFixed(2)}%`}
+        positive={pnlPositive}
+        foot="vs capital deployed"
+        accent
       />
-      <JournalKpiCard
-        label="GTT pending"
-        value={String(k.gttPending)}
-        hint="Target/SL not yet placed"
-        icon={<Target className="size-3.5 text-primary" />}
+      {maxPositions != null && (
+        <KpiCard
+          icon={Zap}
+          label="Free slots"
+          value={String(freeSlots)}
+          positive
+          foot={`of ${maxPositions} max`}
+        />
+      )}
+      <KpiCard
+        icon={Layers}
+        label="Positions priced"
+        value={`${k.priced}/${trades.length}`}
+        positive={k.priced === trades.length}
+        foot={k.priced === trades.length ? "all have a live mark" : "some untracked by phalanx"}
       />
     </div>
   );

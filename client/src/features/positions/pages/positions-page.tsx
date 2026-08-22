@@ -26,6 +26,13 @@ export function PositionsPage() {
     () => open.filter((t) => t.needsReview).length,
     [open],
   );
+  const lastRefreshedAt = useMemo(() => {
+    const stamps = open
+      .map((t) => t.markUpdatedAt)
+      .filter((d): d is string => !!d);
+    if (stamps.length === 0) return null;
+    return stamps.reduce((latest, d) => (d > latest ? d : latest));
+  }, [open]);
 
   const handleAdd = (payload: ManualEntryPayload) => {
     addEntryMutation.mutate(payload, {
@@ -47,7 +54,11 @@ export function PositionsPage() {
       <main className="flex-1 min-w-0">
         <div className="px-8 py-8 space-y-8 max-w-[1600px]">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <OpenPositionsHero count={open.length} needsReview={needsReview} />
+            <OpenPositionsHero
+              count={open.length}
+              needsReview={needsReview}
+              lastRefreshedAt={lastRefreshedAt}
+            />
             <Button
               onClick={() => setShowForm((v) => !v)}
               className={`gap-2 transition-all ${
@@ -69,7 +80,7 @@ export function PositionsPage() {
             />
           )}
 
-          <OpenPositionsKpis trades={open} capital={capital} />
+          <OpenPositionsKpis trades={open} />
           <OpenPositionsTable trades={open} capital={capital} />
         </div>
       </main>

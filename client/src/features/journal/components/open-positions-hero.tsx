@@ -1,11 +1,21 @@
 import { ListChecks } from "lucide-react";
 
+const fmtRefreshedAt = (iso: string) =>
+  new Date(iso).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
 export function OpenPositionsHero({
   count,
   needsReview,
+  lastRefreshedAt,
 }: {
   count: number;
   needsReview: number;
+  lastRefreshedAt: string | null;
 }) {
   return (
     <div>
@@ -21,6 +31,11 @@ export function OpenPositionsHero({
           : ", all reviewed"}
         . Prices refresh automatically daily; close a position out yourself when
         the trade resolves.
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground/70">
+        {lastRefreshedAt
+          ? `Prices last refreshed ${fmtRefreshedAt(lastRefreshedAt)}`
+          : "Prices not yet refreshed for these positions"}
       </p>
     </div>
   );
