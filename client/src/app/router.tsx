@@ -26,6 +26,7 @@ import { PerformancePage } from "@/features/performance/pages/performance-page";
 import { PulsePage } from "@/features/pulse/pages/pulse-page";
 import { AlgoSignalsPage } from "@/features/algo-signals/pages/algo-signals-page";
 import { DailyPnlPage } from "@/features/daily-pnl/pages/daily-pnl-page";
+import { CalendarPage } from "@/features/calendar/pages/calendar-page";
 
 export const router = createBrowserRouter([
   {
@@ -80,6 +81,10 @@ export const router = createBrowserRouter([
       {
         path: "daily-pnl",
         element: <DailyPnlPage />,
+      },
+      {
+        path: "calendar",
+        element: <CalendarPage />,
       },
       {
         path: "trades/:id",

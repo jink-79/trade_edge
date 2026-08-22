@@ -1,6 +1,7 @@
 import {
   Activity,
   BarChart3,
+  CalendarDays,
   ChevronRight,
   Eye,
   FileBarChart,
@@ -33,6 +34,7 @@ export const NAV_ITEMS = [
   { icon: FileBarChart, label: "Backtest Reports", path: "/report/metrics" },
   { icon: Radar, label: "Algo Signals", path: "/algo-signals" },
   { icon: ReceiptText, label: "Daily P&L", path: "/daily-pnl" },
+  { icon: CalendarDays, label: "Calendar", path: "/calendar" },
   { icon: LineChart, label: "Analytics", path: "/analytics" },
   { icon: PiggyBank, label: "Mutual Funds", path: "/mutual-funds" },
   { icon: Eye, label: "Overview", path: "/overview" },
