@@ -729,7 +729,11 @@ export function TradeDetailView({ id }: TradeDetailViewProps) {
                   />
                   {exitMetrics.rMultiple != null && (
                     <Row
-                      label="R multiple"
+                      label={
+                        exitMetrics.rMultipleBasis === "atr"
+                          ? "R multiple (vs ATR)"
+                          : "R multiple"
+                      }
                       value={`${exitMetrics.rMultiple >= 0 ? "+" : ""}${exitMetrics.rMultiple.toFixed(2)}R`}
                       tone={exitMetrics.rMultiple >= 0 ? "good" : "bad"}
                     />

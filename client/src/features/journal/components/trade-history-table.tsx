@@ -215,7 +215,19 @@ function HistoryRow({
           m?.rMultiple != null && (m.rMultiple >= 0 ? "text-primary" : "text-destructive"),
         )}
       >
-        {m?.rMultiple != null ? `${m.rMultiple >= 0 ? "+" : ""}${m.rMultiple.toFixed(2)}R` : "—"}
+        {m?.rMultiple != null ? (
+          <div className="leading-tight">
+            <div>
+              {m.rMultiple >= 0 ? "+" : ""}
+              {m.rMultiple.toFixed(2)}R
+            </div>
+            {m.rMultipleBasis === "atr" && (
+              <div className="text-[10px] text-muted-foreground font-normal">vs ATR</div>
+            )}
+          </div>
+        ) : (
+          "—"
+        )}
       </TableCell>
       <TableCell>
         <Badge

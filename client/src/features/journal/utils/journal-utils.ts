@@ -173,7 +173,7 @@ export function estimateCharges(buyValue: number, sellValue: number): ChargesEst
 export function deriveExitMetrics(
   entry: Pick<
     TradeEntry,
-    "direction" | "entryPrice" | "stopPrice" | "quantity" | "entryDate"
+    "direction" | "entryPrice" | "stopPrice" | "quantity" | "entryDate" | "atr14"
   >,
   exit: { exitPrice: number; exitDate: string },
 ) {
@@ -187,6 +187,25 @@ export function deriveExitMetrics(
       : long
         ? entry.entryPrice - entry.stopPrice
         : entry.stopPrice - entry.entryPrice;
+
+  // Trend+RS-55 has no fixed stop-loss, so there's no risk unit to divide
+  // by — but ATR(14) at entry is already captured on every trade and is the
+  // standard substitute risk unit for trend systems that size/manage risk
+  // off volatility rather than a hard stop. Real stop-based R (legacy rsi2
+  // trades) always wins when it exists; ATR-based R is the fallback, not an
+  // override.
+  const atrRMultiple =
+    entry.atr14 > 0 ? pnlPerShare / entry.atr14 : null;
+  const rMultiple =
+    initialRiskPerShare != null && initialRiskPerShare > 0
+      ? pnlPerShare / initialRiskPerShare
+      : atrRMultiple;
+  const rMultipleBasis: "stop" | "atr" | null =
+    initialRiskPerShare != null && initialRiskPerShare > 0
+      ? "stop"
+      : atrRMultiple != null
+        ? "atr"
+        : null;
 
   const realizedPnl = pnlPerShare * entry.quantity;
   const invested = entry.entryPrice * entry.quantity;
@@ -202,10 +221,8 @@ export function deriveExitMetrics(
   return {
     realizedPnl,
     realizedPnlPct: invested > 0 ? (realizedPnl / invested) * 100 : 0,
-    rMultiple:
-      initialRiskPerShare != null && initialRiskPerShare > 0
-        ? pnlPerShare / initialRiskPerShare
-        : null,
+    rMultiple,
+    rMultipleBasis,
     daysHeld,
     win: realizedPnl > 0,
   };
