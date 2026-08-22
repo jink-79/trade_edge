@@ -219,6 +219,7 @@ export interface JournalTradeResponse {
   ruleAdherence?: string | null;
   ruleAdherenceNote?: string | null;
   analytics?: Record<string, unknown> | null;
+  tradeInsight?: Record<string, unknown> | null;
   markPrice?: number | null;
   markUpdatedAt?: Date | null;
   markDate?: Date | null;

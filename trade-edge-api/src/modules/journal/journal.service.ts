@@ -1,7 +1,14 @@
 import mongoose from "mongoose";
 import { JournalOpen, JournalClosed } from "./journal.model";
 import { AppError } from "../../utils/api-error";
-import { computeEntryIndicators, computeRegime, computeRs55 } from "./journal.compute";
+import {
+  computeEntryIndicators,
+  computeRegime,
+  computeRs55,
+  computeMansfieldRsSeries,
+  computeStockStrength,
+  type StockStrength,
+} from "./journal.compute";
 import { analyzeTradePath } from "./journal.analytics";
 import { getPreferences } from "../preferences/preferences.service";
 import { getCandleWindow, getRecentCandles, getSymbolMeta } from "../../config/phalanx-ohlcv";
@@ -9,6 +16,8 @@ import { logger } from "../../utils/logger";
 import { fetchPositionAiReview } from "./journal.ai-review";
 import { fetchExitSummary } from "./journal.exit-ai";
 import { computeCharges } from "./journal.charges";
+import { checkEntryAdherence, checkExitAdherence } from "./journal.rule-check";
+import { fetchTradeInsight } from "./journal.trade-insight";
 import type {
   AnalyzeTradeInput,
   AutoCaptureInput,
@@ -40,6 +49,7 @@ function formatTrade(doc: any): JournalTradeResponse {
     ruleAdherence: doc.ruleAdherence ?? null,
     ruleAdherenceNote: doc.ruleAdherenceNote ?? null,
     analytics: doc.analytics ?? null,
+    tradeInsight: doc.tradeInsight ?? null,
     markPrice: doc.markPrice ?? null,
     markUpdatedAt: doc.markUpdatedAt ?? null,
     markDate: doc.markDate ?? null,
@@ -60,32 +70,108 @@ async function findEitherDoc(userId: string, id: string) {
 export interface TradeChartResponse {
   symbol: string;
   candles: import("../../config/phalanx-ohlcv").PlainCandle[];
+  /** Mansfield RS vs Nifty (EMA 55) at every bar in `candles`, same index
+   * alignment — the same indicator shown on TradingView, not phalanx-live's
+   * own rs55 entry-signal formula (that's `entryPrice`'s rs55Pct, unchanged). */
+  rsSeries: (number | null)[];
   entryDate: string;
   entryPrice: number;
   exitDate: string | null;
   exitPrice: number | null;
 }
 
-/** ~60 daily bars before entry through exit (or "now" while still open) —
- * the candlestick chart on the trade detail page. */
+const CHART_BARS_BEFORE_ENTRY = 60;
+const RS_EMA_PERIOD = 55;
+
+/** Live fetch from phalanx's Atlas cluster: ~60 daily bars before entry
+ * through `endDate`, plus a Mansfield RS line aligned to those bars. Only
+ * ever accurate while phalanx-live still retains that date range — it trims
+ * OHLCV older than ~500 trading days (retention_daily.py), which is why a
+ * CLOSED trade's chart gets snapshotted permanently at exit time instead of
+ * re-fetched live forever (see buildChartSnapshot / exitJournalTrade). */
+async function fetchLiveChart(
+  symbol: string,
+  entryDate: Date | string,
+  endDate: Date | string,
+): Promise<{ candles: import("../../config/phalanx-ohlcv").PlainCandle[]; rsSeries: (number | null)[] }> {
+  const [candles, stockWithRsContext, niftyWithRsContext] = await Promise.all([
+    getCandleWindow(symbol, entryDate, endDate, CHART_BARS_BEFORE_ENTRY),
+    getCandleWindow(symbol, entryDate, endDate, CHART_BARS_BEFORE_ENTRY + RS_EMA_PERIOD),
+    getCandleWindow("NIFTY", entryDate, endDate, CHART_BARS_BEFORE_ENTRY + RS_EMA_PERIOD),
+  ]);
+  const rsFull = computeMansfieldRsSeries(stockWithRsContext, niftyWithRsContext, RS_EMA_PERIOD);
+  const rsSeries = rsFull.slice(rsFull.length - candles.length);
+  return { candles, rsSeries };
+}
+
+/** Chart data for the trade-detail candlestick chart. Closed trades read
+ * their permanent `chartSnapshot` (captured once, at exit) instead of
+ * hitting phalanx live — its OHLCV retention window rolls forward and would
+ * otherwise blank out an old trade's chart. Still-open trades always fetch
+ * live, since the position is still moving. A closed trade from before this
+ * snapshot existed falls back to a live fetch and backfills the snapshot for
+ * next time, best-effort (phalanx may have already trimmed that data by
+ * then, in which case it just stays empty). */
 export async function getTradeChart(userId: string, id: string): Promise<TradeChartResponse> {
   const doc = await findEitherDoc(userId, id);
   if (!doc) throw AppError.notFound("Trade not found");
 
   const entry = doc.entry as Record<string, any>;
   const exit = doc.exit as Record<string, any> | null;
-  const endDate = exit?.exitDate ?? new Date();
+  const snapshot = (doc as any).chartSnapshot as
+    | { candles: any[]; rsSeries: (number | null)[] }
+    | null
+    | undefined;
 
-  const candles = await getCandleWindow(entry.ticker, entry.entryDate, endDate, 60);
+  let candles: import("../../config/phalanx-ohlcv").PlainCandle[];
+  let rsSeries: (number | null)[];
+
+  if (exit && snapshot) {
+    candles = snapshot.candles;
+    rsSeries = snapshot.rsSeries;
+  } else {
+    const live = await fetchLiveChart(entry.ticker, entry.entryDate, exit?.exitDate ?? new Date());
+    candles = live.candles;
+    rsSeries = live.rsSeries;
+    if (exit && candles.length > 0) {
+      doc.set("chartSnapshot", { candles, rsSeries, capturedAt: new Date() });
+      await doc.save();
+    }
+  }
 
   return {
     symbol: entry.ticker,
     candles,
+    rsSeries,
     entryDate: new Date(entry.entryDate).toISOString(),
     entryPrice: entry.entryPrice,
     exitDate: exit ? new Date(exit.exitDate).toISOString() : null,
     exitPrice: exit?.exitPrice ?? null,
   };
+}
+
+/** Technical strength scorecard for this trade's symbol — purely rule-based
+ * off the LATEST available OHLCV (not frozen at entry/exit), so it reflects
+ * the stock's current state whether the position is still open or long
+ * closed. Uses the same 300-day window computeEntryIndicators reads, since
+ * a real 200 EMA needs real warmup. */
+export async function getStockStrength(userId: string, id: string): Promise<StockStrength> {
+  const doc = await findEitherDoc(userId, id);
+  if (!doc) throw AppError.notFound("Trade not found");
+
+  const entry = doc.entry as Record<string, any>;
+  const [stockCandles, niftyCandles] = await Promise.all([
+    getRecentCandles(entry.ticker),
+    getRecentCandles("NIFTY"),
+  ]);
+
+  const strength = computeStockStrength(stockCandles, niftyCandles);
+  if (!strength) {
+    throw AppError.badRequest(
+      `Not enough price history for ${entry.ticker} yet to compute a strength score.`,
+    );
+  }
+  return strength;
 }
 
 /** Flat top-level fields the dashboard/analytics Position & Trade models read. */
@@ -508,6 +594,22 @@ export async function exitJournalTrade(
   const exitedEntry = { ...open.entry, quantity: exitQuantity };
   const metrics = computeExitMetrics(exitedEntry, exit);
 
+  // Captured now, while phalanx-live's Atlas cluster still has every bar of
+  // this trade's life — its OHLCV retention window (~500 trading days) rolls
+  // forward and would otherwise blank out this chart years down the line.
+  // Best-effort: a live-fetch failure here shouldn't block the exit itself.
+  let chartSnapshot: { candles: any[]; rsSeries: (number | null)[]; capturedAt: Date } | null = null;
+  try {
+    const live = await fetchLiveChart(exitedEntry.ticker, exitedEntry.entryDate, exit.exitDate);
+    if (live.candles.length > 0) {
+      chartSnapshot = { candles: live.candles, rsSeries: live.rsSeries, capturedAt: new Date() };
+    }
+  } catch (err) {
+    logger.warn(
+      `exitJournalTrade: chart snapshot failed for ${exitedEntry.ticker}: ${err instanceof Error ? err.message : "unknown error"}`,
+    );
+  }
+
   const closedDoc = {
     _id: isPartial ? new mongoose.Types.ObjectId() : open._id,
     userId: open.userId,
@@ -518,9 +620,11 @@ export async function exitJournalTrade(
     dataQuality: open.dataQuality,
     dataQualityNote: open.dataQualityNote ?? null,
     source: open.source,
+    strategyId: open.strategyId ?? null,
     needsReview: false,
     gttPlaced: open.gttPlaced,
     createdAt: isPartial ? new Date() : open.createdAt,
+    chartSnapshot,
     ...entryMirror(exitedEntry),
     exitPrice: exit.exitPrice,
     exitDate: exit.exitDate,
@@ -599,6 +703,63 @@ export async function getExitSummaryPreview(
     outcome: input.outcome,
   });
   return { summary };
+}
+
+/**
+ * Comprehensive AI review of a CLOSED trade against the strategy's own
+ * rules — verifies the entry/exit against phalanx-live's own daily_signals
+ * record (was this symbol actually flagged that day, or a discretionary
+ * override?) and asks Gemini to judge the setup, the exit, and what could
+ * have gone better. Persisted so it isn't regenerated on every page view;
+ * call again to regenerate.
+ */
+export async function generateTradeInsight(
+  userId: string,
+  id: string,
+): Promise<JournalTradeResponse> {
+  const doc = await JournalClosed.findOne({ _id: id, userId });
+  if (!doc) {
+    throw AppError.badRequest(
+      "Trade analytics is only available for closed trades — this trade isn't closed (or doesn't exist).",
+    );
+  }
+
+  const entry = doc.entry as Record<string, any>;
+  const exit = doc.exit as Record<string, any>;
+
+  const [entryCheck, exitCheck] = await Promise.all([
+    checkEntryAdherence(entry.ticker, entry.entryDate),
+    checkExitAdherence(entry.ticker, exit.exitDate),
+  ]);
+
+  const metrics = computeExitMetrics(entry, exit);
+
+  const text = await fetchTradeInsight({
+    symbol: entry.ticker,
+    sector: entry.sector ?? null,
+    marketCapCategory: entry.marketCapCategory ?? null,
+    entryDate: new Date(entry.entryDate).toISOString(),
+    entryPrice: entry.entryPrice,
+    quantity: entry.quantity,
+    rs55AtEntry: entry.rs55Pct ?? null,
+    distanceFrom200Ema: entry.distanceFrom200Ema,
+    distanceTo50Ema: entry.distanceTo50Ema,
+    niftyRegimeAtEntry: entry.niftyVs200Ema,
+    entryCheck,
+    exitDate: new Date(exit.exitDate).toISOString(),
+    exitPrice: exit.exitPrice,
+    outcome: exit.outcome,
+    daysHeld: holdingDaysBetween(entry.entryDate, exit.exitDate),
+    exitCheck,
+    grossPnlPct: metrics.pnlPercent,
+    netPnlAmount: exit.netPnlAmount ?? metrics.netPnlAmount,
+    totalCharges: exit.charges?.totalCharges ?? metrics.charges.totalCharges,
+    manualNote: exit.manualExitReason ?? exit.aiAnalysis ?? null,
+  });
+
+  doc.set("tradeInsight", { text, entryCheck, exitCheck, generatedAt: new Date() });
+  await doc.save();
+  return formatTrade(doc.toObject());
 }
 
 /**

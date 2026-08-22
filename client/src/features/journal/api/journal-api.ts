@@ -63,6 +63,9 @@ export interface TradeChartCandle {
 export interface TradeChartData {
   symbol: string;
   candles: TradeChartCandle[];
+  /** RS-55 (% vs Nifty) at every bar in `candles`, same index alignment —
+   * null where there isn't 55 bars of lookback yet. */
+  rsSeries: (number | null)[];
   entryDate: string;
   entryPrice: number;
   exitDate: string | null;
@@ -78,6 +81,35 @@ export async function fetchTradeChart(id: string): Promise<TradeChartData> {
   return data.data;
 }
 
+export interface StrengthComponent {
+  score: number;
+  detail: string;
+}
+
+export interface StockStrength {
+  score: number;
+  label: "Strong" | "Neutral" | "Weak";
+  asOfDate: string;
+  niftyRegime: "up" | "down";
+  components: {
+    trendAlignment: StrengthComponent;
+    emaDistance: StrengthComponent;
+    relativeStrength: StrengthComponent;
+    volatility: StrengthComponent;
+    momentum: StrengthComponent;
+    volume: StrengthComponent;
+  };
+}
+
+/** Technical (non-AI) strength scorecard for this trade's symbol, evaluated
+ * on the latest available OHLCV — reflects the stock's current state. */
+export async function fetchStockStrength(id: string): Promise<StockStrength> {
+  const { data } = await axiosInstance.get<ApiEnvelope<StockStrength>>(
+    `/journal/${id}/strength`,
+  );
+  return data.data;
+}
+
 export async function exitJournalTrade(
   id: string,
   payload: ExitTradePayload,
@@ -85,6 +117,15 @@ export async function exitJournalTrade(
   const { data } = await axiosInstance.post<ApiEnvelope<JournalTrade>>(
     `/journal/${id}/exit`,
     payload,
+  );
+  return data.data;
+}
+
+/** Generates (or regenerates) the AI review of a closed trade against the
+ * strategy's own rules, and persists it on the trade. */
+export async function generateTradeInsight(id: string): Promise<JournalTrade> {
+  const { data } = await axiosInstance.post<ApiEnvelope<JournalTrade>>(
+    `/journal/${id}/insight`,
   );
   return data.data;
 }

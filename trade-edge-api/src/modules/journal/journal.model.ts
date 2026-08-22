@@ -75,6 +75,31 @@ const ChargesSchema = new Schema(
   { _id: false },
 );
 
+const ChartCandleSchema = new Schema(
+  {
+    date: { type: String, required: true },
+    open: { type: Number, required: true },
+    high: { type: Number, required: true },
+    low: { type: Number, required: true },
+    close: { type: Number, required: true },
+    volume: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
+// phalanx-live only keeps ~500 trading days of OHLCV (retention_daily.py
+// trims older bars) — a closed trade's chart would otherwise go blank once
+// that window rolls past its dates. Captured once, at the moment of exit,
+// so it survives independent of phalanx's own retention lifecycle.
+const ChartSnapshotSchema = new Schema(
+  {
+    candles: { type: [ChartCandleSchema], default: [] },
+    rsSeries: { type: [Schema.Types.Mixed], default: [] },
+    capturedAt: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
 const ExitSchema = new Schema(
   {
     outcome: { type: String, enum: OUTCOMES.filter((o) => o !== "STILL-OPEN") },
@@ -112,6 +137,21 @@ export interface IJournalTrade {
   ruleAdherence?: string | null;
   ruleAdherenceNote?: string | null;
   analytics?: Record<string, any> | null;
+  // Permanent chart data, captured at exit — see ChartSnapshotSchema above.
+  chartSnapshot?: {
+    candles: { date: string; open: number; high: number; low: number; close: number; volume: number }[];
+    rsSeries: (number | null)[];
+    capturedAt: Date;
+  } | null;
+  // AI review of a CLOSED trade against the strategy's own rules — see
+  // journal.trade-insight.ts / journal.rule-check.ts. Generated on demand,
+  // persisted so it isn't regenerated on every page view.
+  tradeInsight?: {
+    text: string;
+    entryCheck: Record<string, any>;
+    exitCheck: Record<string, any>;
+    generatedAt: Date;
+  } | null;
   // ── flat mirrors (read by dashboard/analytics Position & Trade models) ──
   symbol?: string;
   stockName?: string;
@@ -162,6 +202,8 @@ const JournalTradeSchema = new Schema<IJournalTrade>(
     ruleAdherence: { type: String, enum: RULE_ADHERENCES, default: null },
     ruleAdherenceNote: { type: String, default: null },
     analytics: { type: Schema.Types.Mixed, default: null },
+    chartSnapshot: { type: ChartSnapshotSchema, default: null },
+    tradeInsight: { type: Schema.Types.Mixed, default: null },
 
     // flat mirrors
     symbol: { type: String, default: null },

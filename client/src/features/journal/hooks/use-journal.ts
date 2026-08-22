@@ -7,6 +7,8 @@ import {
   fetchJournalTrades,
   fetchJournalTrade,
   fetchTradeChart,
+  fetchStockStrength,
+  generateTradeInsight,
   exitJournalTrade,
   reviewJournalTrade,
   setGttPlaced,
@@ -18,7 +20,7 @@ import type {
   JournalTrade,
   ReviewPayload,
 } from "../types/journal.types";
-import type { TradeChartData } from "../api/journal-api";
+import type { TradeChartData, StockStrength } from "../api/journal-api";
 
 export const journalKeys = {
   all: ["journal"] as const,
@@ -53,6 +55,15 @@ export function useTradeChart(id: string | undefined) {
   });
 }
 
+export function useStockStrength(id: string | undefined) {
+  return useQuery<StockStrength>({
+    queryKey: ["journal", "strength", id ?? ""],
+    queryFn: () => fetchStockStrength(id as string),
+    enabled: !!id,
+    staleTime: 1000 * 60,
+  });
+}
+
 export function useCreateJournalTrade() {
   const qc = useQueryClient();
   return useMutation({
@@ -75,6 +86,17 @@ export function useExitJournalTrade() {
     mutationFn: ({ id, payload }: { id: string; payload: ExitTradePayload }) =>
       exitJournalTrade(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: journalKeys.all }),
+  });
+}
+
+export function useGenerateTradeInsight() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => generateTradeInsight(id),
+    onSuccess: (trade) => {
+      qc.setQueryData(journalKeys.detail(trade.id), trade);
+      qc.invalidateQueries({ queryKey: journalKeys.list() });
+    },
   });
 }
 

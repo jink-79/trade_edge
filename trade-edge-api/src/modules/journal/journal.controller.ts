@@ -11,6 +11,8 @@ import {
   autoCreateJournalTrade,
   getAiReviewForTrade,
   getTradeChart,
+  getStockStrength,
+  generateTradeInsight,
   backfillPositionMeta,
   reviewJournalTrade,
   setGttPlaced,
@@ -96,6 +98,20 @@ export const chart = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const data = await getTradeChart(userId, id);
   sendSuccess(res, data, "Chart data fetched");
+});
+
+export const strength = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const id = req.params.id as string;
+  const data = await getStockStrength(userId, id);
+  sendSuccess(res, data, "Strength score computed");
+});
+
+export const insight = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const id = req.params.id as string;
+  const trade = await generateTradeInsight(userId, id);
+  sendSuccess(res, trade, "Trade insight generated");
 });
 
 export const review = asyncHandler(async (req: Request, res: Response) => {

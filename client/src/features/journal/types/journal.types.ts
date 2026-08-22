@@ -162,6 +162,25 @@ export interface JournalTrade {
   ruleAdherence?: RuleAdherence | null;
   ruleAdherenceNote?: string | null;
   analytics?: TradeAnalytics | null;
+  /** AI review of a CLOSED trade against the strategy's own rules —
+   * generated on demand, persisted until regenerated. */
+  tradeInsight?: {
+    text: string;
+    entryCheck: {
+      date: string;
+      signalFound: boolean;
+      inToBuy?: boolean;
+      inCandidates?: boolean;
+      wasStale?: boolean;
+    };
+    exitCheck: {
+      date: string;
+      signalFound: boolean;
+      inExits?: boolean;
+      wasStale?: boolean;
+    };
+    generatedAt: string;
+  } | null;
   /** Last price mark seen for this open position (from phalanx-live's daily
    * OHLCV, refreshed by the tvdatafeed cron — not a broker LTP). */
   markPrice?: number | null;

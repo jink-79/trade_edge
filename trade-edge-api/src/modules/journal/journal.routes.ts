@@ -10,6 +10,8 @@ import {
   manualEntry,
   aiReview,
   chart,
+  strength,
+  insight,
   backfillMeta,
   review,
   gttPlaced,
@@ -64,6 +66,10 @@ router.get("/:id", getOne);
 // exit/now) for the trade-detail candlestick chart
 router.get("/:id/chart", chart);
 
+// GET /api/journal/:id/strength  — technical strength scorecard (no AI),
+// evaluated on the symbol's latest available OHLCV
+router.get("/:id/strength", strength);
+
 // POST /api/journal/:id/exit  — record a full or partial exit
 router.post("/:id/exit", validate(ExitJournalTradeSchema), exit);
 
@@ -73,6 +79,10 @@ router.post("/:id/exit-summary", validate(ExitSummarySchema), exitSummary);
 
 // POST /api/journal/:id/ai-review  — on-demand AI take on a held position
 router.post("/:id/ai-review", aiReview);
+
+// POST /api/journal/:id/insight  — comprehensive AI review of a CLOSED
+// trade against the strategy's own rules, verified against daily_signals
+router.post("/:id/insight", insight);
 
 // POST /api/journal/:id/review  — attach screenshot + comment, clear needs-review
 router.post("/:id/review", validate(ReviewJournalTradeSchema), review);

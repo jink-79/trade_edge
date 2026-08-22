@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import {
   CandlestickSeries,
   ColorType,
+  LineSeries,
   createChart,
   createSeriesMarkers,
   type IChartApi,
@@ -13,6 +14,7 @@ import { useTradeChart } from "../hooks/use-journal";
 
 const GREEN = "#34d399";
 const RED = "#f87171";
+const RS_LINE = "#818cf8";
 
 function toBusinessDay(iso: string): UTCTimestamp {
   return (new Date(iso).getTime() / 1000) as UTCTimestamp;
@@ -23,6 +25,7 @@ export function TradeChart({ id }: { id: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const rsSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
   // The container div below is ALWAYS mounted (loading/error/empty states are
   // absolutely-positioned overlays on top of it, not alternate returns) —
@@ -35,17 +38,20 @@ export function TradeChart({ id }: { id: string }) {
     const chart = createChart(containerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "oklch(0.72 0.02 260)",
+        textColor: "#9199ab",
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: "oklch(0.32 0.02 260 / 0.4)" },
-        horzLines: { color: "oklch(0.32 0.02 260 / 0.4)" },
+        vertLines: { color: "rgba(145,153,171,0.12)" },
+        horzLines: { color: "rgba(145,153,171,0.12)" },
       },
-      rightPriceScale: { borderColor: "oklch(0.32 0.02 260 / 0.6)" },
+      rightPriceScale: { borderColor: "rgba(145,153,171,0.25)" },
       timeScale: {
-        borderColor: "oklch(0.32 0.02 260 / 0.6)",
+        borderColor: "rgba(145,153,171,0.25)",
         timeVisible: false,
+        // Leaves empty space to the right of the last candle instead of
+        // gluing it to the edge of the chart.
+        rightOffset: 10,
       },
       crosshair: { mode: 0 },
       autoSize: true,
@@ -57,20 +63,35 @@ export function TradeChart({ id }: { id: string }) {
       wickUpColor: GREEN,
       wickDownColor: RED,
     });
+    const rsSeries = chart.addSeries(
+      LineSeries,
+      {
+        color: RS_LINE,
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: true,
+      },
+      1,
+    );
+    chart.panes()[1]?.setHeight(110);
+
     chartRef.current = chart;
     seriesRef.current = series;
+    rsSeriesRef.current = rsSeries;
 
     return () => {
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      rsSeriesRef.current = null;
     };
   }, []);
 
   // Push data + entry/exit markers whenever the fetched chart data changes.
   useEffect(() => {
     const series = seriesRef.current;
-    if (!series || !data || data.candles.length === 0) return;
+    const rsSeries = rsSeriesRef.current;
+    if (!series || !rsSeries || !data || data.candles.length === 0) return;
 
     series.setData(
       data.candles.map((c) => ({
@@ -80,6 +101,12 @@ export function TradeChart({ id }: { id: string }) {
         low: c.low,
         close: c.close,
       })),
+    );
+
+    rsSeries.setData(
+      data.candles
+        .map((c, i) => ({ time: toBusinessDay(c.date), value: data.rsSeries[i] }))
+        .filter((p): p is { time: UTCTimestamp; value: number } => p.value != null),
     );
 
     const markers = [
@@ -104,13 +131,14 @@ export function TradeChart({ id }: { id: string }) {
     ];
     createSeriesMarkers(series, markers);
 
+    // Dashed reference lines only — no axis-label title, since the marker
+    // above/below the candle already names the price.
     series.createPriceLine({
       price: data.entryPrice,
       color: GREEN,
       lineWidth: 1,
       lineStyle: 2,
-      axisLabelVisible: true,
-      title: "Entry",
+      axisLabelVisible: false,
     });
     if (data.exitPrice != null) {
       series.createPriceLine({
@@ -118,8 +146,7 @@ export function TradeChart({ id }: { id: string }) {
         color: RED,
         lineWidth: 1,
         lineStyle: 2,
-        axisLabelVisible: true,
-        title: "Exit",
+        axisLabelVisible: false,
       });
     }
 
@@ -129,7 +156,7 @@ export function TradeChart({ id }: { id: string }) {
   const showEmpty = !isLoading && (isError || !data || data.candles.length === 0);
 
   return (
-    <div className="relative h-[360px] w-full">
+    <div className="relative h-[480px] w-full">
       <div ref={containerRef} className="h-full w-full" />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground bg-card/70">
