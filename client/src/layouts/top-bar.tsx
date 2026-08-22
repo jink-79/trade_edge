@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import {
   Bell,
   Command,
@@ -37,15 +38,11 @@ function initialsOf(name: string): string {
 
 export function Topbar() {
   const searchRef = useRef<HTMLInputElement | null>(null);
-  const [isDark, setIsDark] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { data: user } = useCurrentUser();
   const logout = useLogout();
-
-  /* Sync theme on mount */
-  useEffect(() => {
-    setIsDark(!document.documentElement.classList.contains("light"));
-  }, []);
+  const { theme, setTheme } = useTheme();
+  const isDark = theme !== "light";
 
   /* ⌘K / Ctrl+K focuses search */
   useEffect(() => {
@@ -59,17 +56,7 @@ export function Topbar() {
     return () => window.removeEventListener("keydown", handle);
   }, []);
 
-  const toggleTheme = () => {
-    const next = !isDark;
-    setIsDark(next);
-    if (next) {
-      document.documentElement.classList.remove("light");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.documentElement.classList.add("light");
-      localStorage.setItem("theme", "light");
-    }
-  };
+  const toggleTheme = () => setTheme(isDark ? "light" : "dark");
 
   return (
     <>

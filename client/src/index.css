@@ -12,11 +12,13 @@
  * The @theme inline block maps CSS custom properties to Tailwind utility
  * classes (e.g. --color-primary -> bg-primary, text-primary).
  *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
+ * The .dark and .light blocks define the actual color values using oklch.
+ * All colors MUST use oklch format. :root only holds theme-agnostic values
+ * (radius, fonts) — next-themes (attribute="class") always puts .dark or
+ * .light on <html>, so there's no "unclassed" state to fall back to.
  *
  * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 1. Add the variable to .dark AND .light
  * 2. Register it in @theme inline as --color-<name>: var(--<name>)
  */
 
@@ -65,7 +67,15 @@
 
 :root {
   --radius: 0.625rem;
-  /* Trade Edge — refined dark fintech */
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* Trade Edge was designed dark-first; .dark is the original palette,
+   unchanged. .light is the new counterpart. next-themes (attribute="class")
+   always puts one of these two classes on <html> — see app/providers.tsx. */
+.dark {
   --background: oklch(0.16 0.012 250);
   --foreground: oklch(0.96 0.005 240);
   --card: oklch(0.205 0.014 252);
@@ -122,12 +132,62 @@
   --shadow-glow:
     0 0 0 1px oklch(0.78 0.17 155 / 25%),
     0 12px 40px -10px oklch(0.78 0.17 155 / 30%);
-
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+.light {
+  --background: oklch(0.99 0.003 250);
+  --foreground: oklch(0.17 0.018 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0.018 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0.018 250);
+  --primary: oklch(0.52 0.14 155);
+  --primary-foreground: oklch(0.99 0.005 240);
+  --secondary: oklch(0.95 0.006 250);
+  --secondary-foreground: oklch(0.17 0.018 250);
+  --muted: oklch(0.96 0.005 250);
+  --muted-foreground: oklch(0.48 0.015 250);
+  --accent: oklch(0.93 0.02 250);
+  --accent-foreground: oklch(0.17 0.018 250);
+  --destructive: oklch(0.53 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.52 0.14 155);
+  --success-foreground: oklch(0.99 0.005 240);
+  --warning: oklch(0.62 0.16 80);
+  --border: oklch(0 0 0 / 8%);
+  --input: oklch(0 0 0 / 10%);
+  --ring: oklch(0.52 0.14 155 / 45%);
+  --chart-1: oklch(0.52 0.14 155);
+  --chart-2: oklch(0.5 0.16 240);
+  --chart-3: oklch(0.62 0.16 80);
+  --chart-4: oklch(0.53 0.22 25);
+  --chart-5: oklch(0.55 0.14 300);
+  --sidebar: oklch(0.985 0.003 250);
+  --sidebar-foreground: oklch(0.17 0.018 250);
+  --sidebar-primary: oklch(0.52 0.14 155);
+  --sidebar-primary-foreground: oklch(0.99 0.005 240);
+  --sidebar-accent: oklch(0.94 0.01 250);
+  --sidebar-accent-foreground: oklch(0.17 0.018 250);
+  --sidebar-border: oklch(0 0 0 / 7%);
+  --sidebar-ring: oklch(0.52 0.14 155 / 45%);
+
+  --gradient-success: linear-gradient(
+    135deg,
+    oklch(0.52 0.14 155),
+    oklch(0.47 0.15 175)
+  );
+  --gradient-danger: linear-gradient(
+    135deg,
+    oklch(0.53 0.22 25),
+    oklch(0.48 0.22 10)
+  );
+  --gradient-surface: linear-gradient(180deg, oklch(1 0 0), oklch(0.97 0.004 250));
+  --shadow-card:
+    0 1px 0 oklch(1 0 0 / 70%) inset, 0 16px 32px -20px oklch(0 0 0 / 14%);
+  --shadow-glow:
+    0 0 0 1px oklch(0.52 0.14 155 / 20%),
+    0 12px 32px -10px oklch(0.52 0.14 155 / 16%);
+}
 
 @layer base {
   * {
