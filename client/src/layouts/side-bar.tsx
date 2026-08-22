@@ -10,7 +10,6 @@ import {
   PiggyBank,
   Radar,
   SlidersHorizontal,
-  Target,
   Wallet,
   Zap,
 } from "lucide-react";
@@ -33,9 +32,8 @@ export const NAV_ITEMS = [
   { icon: CalendarDays, label: "Calendar", path: "/calendar" },
   { icon: LineChart, label: "Analytics", path: "/analytics" },
   { icon: PiggyBank, label: "Mutual Funds", path: "/mutual-funds" },
-  { icon: Eye, label: "Overview", path: "/overview" },
+  { icon: Eye, label: "Weekly Recap", path: "/overview" },
   { icon: Wallet, label: "Funds", path: "/funds" },
-  { icon: Target, label: "Playbook", path: "/playbook" },
   { icon: SlidersHorizontal, label: "Preferences", path: "/preferences" },
 ];
 
