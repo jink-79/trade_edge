@@ -2,146 +2,14 @@ import { AppError } from "../../utils/api-error";
 import {
   autoCreateJournalTrade,
   exitJournalTrade,
-  getJournalTradesClosedBetween,
   getOpenJournalTrades,
   updateOpenTradeMark,
 } from "../journal/journal.service";
 import { JournalOpen } from "../journal/journal.model";
-import { getFunds } from "../funds/funds.service";
 import { getTodayAndPrevClose, getRecentCandles } from "../../config/phalanx-ohlcv";
 import { computeMansfieldRsSeries } from "../journal/journal.compute";
 import { logger } from "../../utils/logger";
-import { DailyPnlSnapshot } from "./broker-sync.model";
-import type { DailyPnlSnapshotResponse, KiteSyncInput, KiteSyncResult } from "./broker-sync.types";
-
-function startOfDay(d: Date): Date {
-  const s = new Date(d);
-  s.setUTCHours(0, 0, 0, 0);
-  return s;
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-/**
- * Rebuilds and upserts today's DailyPnlSnapshot from the current DB state —
- * called as the last step of a sync so the snapshot always reflects
- * whatever create/update/exit just happened.
- */
-export async function refreshDailySnapshot(userId: string): Promise<DailyPnlSnapshotResponse> {
-  const now = new Date();
-  const dayStart = startOfDay(now);
-  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-
-  const [openTrades, closedToday, fundsSummary] = await Promise.all([
-    getOpenJournalTrades(userId),
-    getJournalTradesClosedBetween(userId, dayStart, dayEnd),
-    getFunds(userId),
-  ]);
-
-  const openPositions = openTrades.map((t: any) => {
-    const entryPrice = t.entryPrice ?? 0;
-    const quantity = t.quantity ?? t.qty ?? 0;
-    const markPrice = t.markPrice ?? null;
-    const unrealizedPnl = markPrice != null ? round2((markPrice - entryPrice) * quantity) : 0;
-    const todayPnl =
-      markPrice != null && t.markPrevClose != null
-        ? round2((markPrice - t.markPrevClose) * quantity)
-        : null;
-    return {
-      id: t._id ? String(t._id) : null,
-      symbol: t.symbol,
-      quantity,
-      entryPrice,
-      markPrice,
-      unrealizedPnl,
-      todayPnl,
-    };
-  });
-  const unrealizedPnlTotal = round2(openPositions.reduce((s, p) => s + p.unrealizedPnl, 0));
-  const todayPnlTotal = round2(openPositions.reduce((s, p) => s + (p.todayPnl ?? 0), 0));
-
-  const closedTodayRows = closedToday.map((t: any) => ({
-    id: t._id ? String(t._id) : null,
-    symbol: t.symbol,
-    exitPrice: t.exitPrice,
-    pnlAmount: t.pnlAmount ?? 0,
-  }));
-  const realizedPnlTotal = round2(closedTodayRows.reduce((s, t) => s + t.pnlAmount, 0));
-
-  const doc = await DailyPnlSnapshot.findOneAndUpdate(
-    { userId, date: dayStart },
-    {
-      userId,
-      date: dayStart,
-      openPositions,
-      unrealizedPnlTotal,
-      todayPnlTotal,
-      closedToday: closedTodayRows,
-      realizedPnlTotal,
-      // The actual "today" figure: today's move on open positions plus
-      // today's realized exits — NOT unrealizedPnlTotal, which is
-      // since-entry and would conflate weeks of gains with "today."
-      totalPnl: round2(todayPnlTotal + realizedPnlTotal),
-      availableCash: fundsSummary.summary.availableCash,
-      generatedAt: now,
-    },
-    { upsert: true, new: true },
-  ).lean();
-
-  return formatSnapshot(doc!);
-}
-
-function formatSnapshot(doc: any): DailyPnlSnapshotResponse {
-  return {
-    date: doc.date.toISOString(),
-    openPositions: (doc.openPositions ?? []).map((p: any) => ({
-      id: p.id ?? null,
-      symbol: p.symbol,
-      quantity: p.quantity,
-      entryPrice: p.entryPrice,
-      markPrice: p.markPrice ?? null,
-      unrealizedPnl: p.unrealizedPnl,
-      todayPnl: p.todayPnl ?? null,
-    })),
-    unrealizedPnlTotal: doc.unrealizedPnlTotal,
-    todayPnlTotal: doc.todayPnlTotal ?? 0,
-    closedToday: (doc.closedToday ?? []).map((t: any) => ({
-      id: t.id ?? null,
-      symbol: t.symbol,
-      exitPrice: t.exitPrice,
-      pnlAmount: t.pnlAmount,
-    })),
-    realizedPnlTotal: doc.realizedPnlTotal,
-    totalPnl: doc.totalPnl,
-    availableCash: doc.availableCash,
-    generatedAt: doc.generatedAt.toISOString(),
-  };
-}
-
-export async function getLatestDailySnapshot(userId: string): Promise<DailyPnlSnapshotResponse | null> {
-  const doc = await DailyPnlSnapshot.findOne({ userId }).sort({ date: -1 }).lean();
-  return doc ? formatSnapshot(doc) : null;
-}
-
-export async function listDailySnapshots(
-  userId: string,
-  range: { from?: string; to?: string; limit?: number },
-): Promise<DailyPnlSnapshotResponse[]> {
-  const filter: Record<string, unknown> = { userId };
-  if (range.from || range.to) {
-    filter.date = {
-      ...(range.from ? { $gte: new Date(range.from) } : {}),
-      ...(range.to ? { $lte: new Date(range.to) } : {}),
-    };
-  }
-  const docs = await DailyPnlSnapshot.find(filter)
-    .sort({ date: -1 })
-    .limit(Math.min(range.limit ?? 60, 200))
-    .lean();
-  return docs.map(formatSnapshot);
-}
+import type { KiteSyncInput, KiteSyncResult } from "./broker-sync.types";
 
 /**
  * The actual sync: diff the incoming Kite positions snapshot against this
@@ -209,8 +77,7 @@ export async function syncKitePositions(userId: string, input: KiteSyncInput): P
     closed.push(t.symbol);
   }
 
-  const snapshot = await refreshDailySnapshot(userId);
-  return { created, updated, closed, snapshot };
+  return { created, updated, closed };
 }
 
 export interface MarkRefreshSummary {
@@ -221,9 +88,9 @@ export interface MarkRefreshSummary {
 
 /**
  * The Kite-free daily price refresh: mark every open trade (any user) to
- * phalanx-live's own latest OHLCV close, then rebuild each affected user's
- * daily P&L snapshot. Position lifecycle (open/close) isn't touched here —
- * only manual entry / the exit dialog change what's open.
+ * phalanx-live's own latest OHLCV close. Position lifecycle (open/close)
+ * isn't touched here — only manual entry / the exit dialog change what's
+ * open.
  */
 export async function refreshAllMarksFromOhlcv(): Promise<MarkRefreshSummary> {
   const openTrades = await JournalOpen.find({}).select("userId symbol").lean();
@@ -270,10 +137,6 @@ export async function refreshAllMarksFromOhlcv(): Promise<MarkRefreshSummary> {
       userIds.add(t.userId);
       updated++;
     }
-  }
-
-  for (const userId of userIds) {
-    await refreshDailySnapshot(userId);
   }
 
   return { updated, skipped, usersRefreshed: userIds.size };

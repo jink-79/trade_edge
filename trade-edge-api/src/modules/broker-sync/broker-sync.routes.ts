@@ -3,7 +3,7 @@ import { authMiddleware } from "../../middleware/auth.middleware";
 import { requireCronSecret } from "../../middleware/cron-auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { KiteSyncSchema } from "./broker-sync.types";
-import { latestSnapshot, listSnapshots, refreshMarks, sync } from "./broker-sync.controller";
+import { refreshMarks, sync } from "./broker-sync.controller";
 
 const router = Router();
 
@@ -17,9 +17,6 @@ router.get("/refresh-marks", requireCronSecret, refreshMarks);
 
 router.use(authMiddleware);
 
-// Fixed paths before any future :param routes.
-router.get("/daily-pnl/latest", latestSnapshot);
-router.get("/daily-pnl", listSnapshots);
 router.post("/kite", validate(KiteSyncSchema), sync);
 
 export default router;

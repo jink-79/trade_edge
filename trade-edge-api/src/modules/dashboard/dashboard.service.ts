@@ -107,11 +107,12 @@ function buildTradeStats(tradeDocs: any[]): DashboardTradeStats {
     };
   }
 
-  const wins = tradeDocs.filter((t) => t.pnlAmount > 0);
-  const losses = tradeDocs.filter((t) => t.pnlAmount <= 0);
-  const grossWin = wins.reduce((s: number, t: any) => s + t.pnlAmount, 0);
+  // >= 0 / < 0 split matches the Trade History page's win-rate convention.
+  const wins = tradeDocs.filter((t) => netPnlFor(t) >= 0);
+  const losses = tradeDocs.filter((t) => netPnlFor(t) < 0);
+  const grossWin = wins.reduce((s: number, t: any) => s + netPnlFor(t), 0);
   const grossLoss = Math.abs(
-    losses.reduce((s: number, t: any) => s + t.pnlAmount, 0),
+    losses.reduce((s: number, t: any) => s + netPnlFor(t), 0),
   );
 
   let totalHoldMins = 0;
@@ -122,7 +123,7 @@ function buildTradeStats(tradeDocs: any[]): DashboardTradeStats {
   return {
     totalTrades: total,
     winRate: round2((wins.length / total) * 100),
-    netPnl: round2(tradeDocs.reduce((s: number, t: any) => s + t.pnlAmount, 0)),
+    netPnl: round2(tradeDocs.reduce((s: number, t: any) => s + netPnlFor(t), 0)),
     profitFactor:
       grossLoss > 0 ? round2(grossWin / grossLoss) : grossWin > 0 ? 999 : 0,
     avgHold: formatAvgHold(totalHoldMins, total),
@@ -133,14 +134,18 @@ function buildRecentTrades(
   tradeDocs: any[],
   limit = 5,
 ): DashboardRecentTrade[] {
-  return tradeDocs.slice(0, limit).map((t: any) => ({
-    id: String(t._id),
-    symbol: t.symbol,
-    exitDate: new Date(t.exitDate).toISOString(),
-    pnlAmount: round2(t.pnlAmount),
-    pnlPercent: round2(t.pnlPercent),
-    exitReason: t.exitReason,
-  }));
+  return tradeDocs.slice(0, limit).map((t: any) => {
+    const net = netPnlFor(t);
+    const invested = (t.entryPrice ?? 0) * (t.quantity ?? t.qty ?? 0);
+    return {
+      id: String(t._id),
+      symbol: t.symbol,
+      exitDate: new Date(t.exitDate).toISOString(),
+      pnlAmount: round2(net),
+      pnlPercent: invested > 0 ? round2((net / invested) * 100) : 0,
+      exitReason: t.exitReason,
+    };
+  });
 }
 
 function buildPnlChart(tradeDocs: any[]): DashboardPnlPoint[] {
@@ -155,7 +160,7 @@ function buildPnlChart(tradeDocs: any[]): DashboardPnlPoint[] {
     if (exitDate < sixMonthsAgo) continue;
     const label = MONTH_LABELS[exitDate.getMonth()];
     if (pnlByMonth.has(label)) {
-      pnlByMonth.set(label, (pnlByMonth.get(label) ?? 0) + t.pnlAmount);
+      pnlByMonth.set(label, (pnlByMonth.get(label) ?? 0) + netPnlFor(t));
     }
   }
 
@@ -172,9 +177,10 @@ function buildSetups(tradeDocs: any[]): DashboardSetup[] {
   for (const t of tradeDocs) {
     const key = t.exitReason || "Unknown";
     const e = map.get(key) ?? { wins: 0, total: 0, pnl: 0 };
+    const net = netPnlFor(t);
     e.total++;
-    if (t.pnlAmount > 0) e.wins++;
-    e.pnl += t.pnlAmount;
+    if (net >= 0) e.wins++;
+    e.pnl += net;
     map.set(key, e);
   }
   return Array.from(map.entries())
@@ -188,7 +194,10 @@ function buildSetups(tradeDocs: any[]): DashboardSetup[] {
 }
 
 /** Net P&L when charges were tracked (charges-aware); falls back to the
- * gross figure for trades closed before charges tracking existed. */
+ * gross figure for trades closed before charges tracking existed. Same
+ * convention the Trade History page uses — every P&L figure on the
+ * dashboard (Net P&L, Profit Factor, Recent Trades, the monthly chart,
+ * Exit Breakdown) is net-of-charges so numbers agree across pages. */
 function netPnlFor(t: any): number {
   return t.netPnlAmount ?? t.pnlAmount ?? 0;
 }

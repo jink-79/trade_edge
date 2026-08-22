@@ -190,17 +190,6 @@ export function AlgoSignalsSkeleton() {
   );
 }
 
-export function DailyPnlSkeleton() {
-  return (
-    <PageWrap>
-      <HeaderSkel />
-      <TilesSkel n={4} />
-      <TableSkel rows={6} cols={5} />
-      <TableSkel rows={4} cols={3} />
-    </PageWrap>
-  );
-}
-
 export function CalendarSkeleton() {
   return (
     <PageWrap>
