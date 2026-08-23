@@ -54,3 +54,39 @@ export interface FundsResponse {
   summary: FundsSummary
   data: Fund[]
 }
+
+// ── Statement (Zerodha-style running ledger) ────────────────────────────────
+//
+// Not stored — synthesized on read from Fund deposits + every journal trade's
+// entry (debit) and exit (credit, net of charges), sorted chronologically
+// with a running balance. See funds.service.ts#getFundsStatement.
+
+export type StatementEntryType = 'deposit' | 'buy' | 'sell'
+
+export interface StatementEntry {
+  id: string
+  date: string
+  type: StatementEntryType
+  description: string
+  symbol: string | null
+  debit: number | null
+  credit: number | null
+  /** Net P&L for this trade exit — only set on 'sell' rows. */
+  pnl: number | null
+  /** Running balance immediately after this entry. */
+  balance: number
+  /** The real Fund._id behind a 'deposit' row (so it stays deletable) — null
+   * for 'buy'/'sell' rows, which aren't deletable from the Funds page. */
+  refId: string | null
+}
+
+export interface FundsStatementResponse {
+  openingBalance: number
+  closingBalance: number
+  totalDeposits: number
+  totalBuys: number
+  totalSells: number
+  totalRealizedPnl: number
+  /** Newest first, matching how a brokerage statement reads. */
+  entries: StatementEntry[]
+}

@@ -50,3 +50,30 @@ export interface SortState {
   col: keyof Fund;
   dir: "asc" | "desc";
 }
+
+// ── Statement (Zerodha-style running ledger) ─────────────────────────────
+
+export type StatementEntryType = "deposit" | "buy" | "sell";
+
+export interface StatementEntry {
+  id: string;
+  date: string;
+  type: StatementEntryType;
+  description: string;
+  symbol: string | null;
+  debit: number | null;
+  credit: number | null;
+  pnl: number | null;
+  balance: number;
+  refId: string | null;
+}
+
+export interface FundsStatementResponse {
+  openingBalance: number;
+  closingBalance: number;
+  totalDeposits: number;
+  totalBuys: number;
+  totalSells: number;
+  totalRealizedPnl: number;
+  entries: StatementEntry[];
+}
