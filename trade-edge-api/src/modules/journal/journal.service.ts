@@ -316,10 +316,58 @@ export async function getJournalTradeById(
   return formatTrade(doc);
 }
 
+/** If this user already holds an OPEN position in this symbol (same
+ * strategy), fold a new buy into it instead of creating a second,
+ * disconnected trade record — weighted-average entry price, combined
+ * quantity. The original entry date and every technical/context field
+ * (RS-55, ATR, EMA distances, regime, sector, ...) are left untouched: they
+ * describe the signal that justified opening the position, and adding size
+ * later isn't a new signal event worth re-snapshotting. Never touches a
+ * CLOSED trade — once a position has been fully exited, a new buy of the
+ * same symbol is genuinely a new position, not a continuation. Returns the
+ * merged doc, or null if there's nothing open to merge into. */
+async function mergeIntoExistingOpenPosition(
+  userId: string,
+  ticker: string,
+  strategyId: string | null | undefined,
+  addPrice: number,
+  addQuantity: number,
+): Promise<any | null> {
+  const existing = await JournalOpen.findOne({
+    userId,
+    "entry.ticker": ticker,
+    strategyId: strategyId ?? null,
+  });
+  if (!existing) return null;
+
+  const existingEntry = existing.entry as any;
+  const totalQty = existingEntry.quantity + addQuantity;
+  const weightedPrice = round2(
+    (existingEntry.entryPrice * existingEntry.quantity + addPrice * addQuantity) / totalQty,
+  );
+
+  existing.set("entry.entryPrice", weightedPrice);
+  existing.set("entry.quantity", totalQty);
+  existing.set("entryPrice", weightedPrice);
+  existing.set("quantity", totalQty);
+  existing.set("qty", totalQty);
+  await existing.save();
+  return existing.toObject();
+}
+
 export async function autoCreateJournalTrade(
   userId: string,
   input: AutoCaptureInput,
 ): Promise<JournalTradeResponse> {
+  const merged = await mergeIntoExistingOpenPosition(
+    userId,
+    input.symbol,
+    input.strategyId,
+    input.entryPrice,
+    input.quantity,
+  );
+  if (merged) return formatTrade(merged);
+
   const prefs = await getPreferences(userId);
   const slMult = input.slAtrMultiplier ?? prefs.slAtrMultiplier;
   const tgtMult = input.targetAtrMultiplier ?? prefs.targetAtrMultiplier;
