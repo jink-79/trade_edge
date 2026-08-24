@@ -51,6 +51,10 @@ router.post("/backfill-meta", requireCronSecret, backfillMeta);
 
 // GET /api/journal/refresh-marks  — daily mark-price/RS refresh for every
 // open position across every user; same cron-secret gate as backfill-meta.
+// Called as the last step of .github/workflows/daily_phalanx.yml (right
+// after that run's OHLCV is confirmed written), not a separately-scheduled
+// Vercel cron — a fixed time offset would be a guess about how long the
+// Python steps take and could fire before the data's actually ready.
 router.get("/refresh-marks", requireCronSecret, refreshMarks);
 
 router.use(authMiddleware);

@@ -3,7 +3,6 @@
   "builds": [{ "src": "api/index.ts", "use": "@vercel/node" }],
   "routes": [{ "src": "/(.*)", "dest": "api/index.ts" }],
   "crons": [
-    { "path": "/api/journal/refresh-marks", "schedule": "20 11 * * 1-5" },
     { "path": "/api/newsletter/run", "schedule": "45 11 * * 1-5" }
   ]
 }
