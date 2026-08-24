@@ -928,6 +928,70 @@ export async function getJournalTradesClosedBetween(userId: string, start: Date,
     .lean();
 }
 
+export interface RefreshMarksResult {
+  updated: number;
+  symbols: number;
+  failedSymbols: string[];
+}
+
+/**
+ * Daily mark-price refresh for EVERY open position, across every user — a
+ * cron job, not a per-user action (see journal.routes.ts's requireCronSecret
+ * gate). Groups open trades by symbol first so each symbol's OHLCV (and its
+ * Mansfield RS series) is only fetched once no matter how many trades or
+ * users hold it, then fans the same mark out to every one of those trades.
+ * This is the piece that went missing when broker-sync's own refresh-marks
+ * cron was removed — without it, markPrice/markRs freeze at whatever they
+ * were on the day the position was opened.
+ */
+export async function refreshAllOpenMarks(): Promise<RefreshMarksResult> {
+  const openTrades = await JournalOpen.find({}).select("_id userId entry.ticker").lean();
+  if (openTrades.length === 0) return { updated: 0, symbols: 0, failedSymbols: [] };
+
+  const bySymbol = new Map<string, { id: string; userId: string }[]>();
+  for (const t of openTrades as any[]) {
+    const symbol = t.entry.ticker;
+    const arr = bySymbol.get(symbol) ?? [];
+    arr.push({ id: String(t._id), userId: String(t.userId) });
+    bySymbol.set(symbol, arr);
+  }
+
+  const niftyCandles = await getRecentCandles("NIFTY");
+  let updated = 0;
+  const failedSymbols: string[] = [];
+
+  for (const [symbol, trades] of bySymbol) {
+    const candles = await getRecentCandles(symbol);
+    if (candles.length < 2) {
+      failedSymbols.push(symbol);
+      continue;
+    }
+    const latest = candles[candles.length - 1];
+    const prevBar = candles[candles.length - 2];
+    const rsSeries = computeMansfieldRsSeries(candles, niftyCandles, 55);
+    const markRs = rsSeries[rsSeries.length - 1] ?? null;
+
+    for (const t of trades) {
+      try {
+        await updateOpenTradeMark(
+          t.userId,
+          t.id,
+          latest.close,
+          undefined,
+          new Date(latest.date),
+          prevBar.close,
+          markRs,
+        );
+        updated++;
+      } catch {
+        // trade may have exited between the initial find and now — skip it
+      }
+    }
+  }
+
+  return { updated, symbols: bySymbol.size, failedSymbols };
+}
+
 /** Refresh an open trade's mark price (and quantity, if it changed). */
 export async function updateOpenTradeMark(
   userId: string,

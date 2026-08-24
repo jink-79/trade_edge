@@ -14,6 +14,7 @@ import {
   indicators,
   insight,
   backfillMeta,
+  refreshMarks,
   review,
   gttPlaced,
   analyze,
@@ -47,6 +48,10 @@ router.use(express.json({ limit: "10mb" }));
 // open trades, not a single user's action, so it's cron-secret-gated ahead
 // of authMiddleware rather than scoped to req.user.
 router.post("/backfill-meta", requireCronSecret, backfillMeta);
+
+// GET /api/journal/refresh-marks  — daily mark-price/RS refresh for every
+// open position across every user; same cron-secret gate as backfill-meta.
+router.get("/refresh-marks", requireCronSecret, refreshMarks);
 
 router.use(authMiddleware);
 
