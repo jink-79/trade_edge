@@ -10,6 +10,7 @@ import {
   Download,
   Filter,
   Percent,
+  Star,
   TrendingDown,
   TrendingUp,
   X,
@@ -22,7 +23,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { CalendarSkeleton } from "@/components/page-skeletons";
 import { cn } from "@/lib/utils";
-import { useCalendar } from "../hooks/use-calendar";
+import { useCalendar, useCalendarBenchmarks } from "../hooks/use-calendar";
+import { INDEX_LABEL } from "../types/calendar.types";
 import type { EventKind, TradeEvent } from "../types/calendar.types";
 
 /* ---------- helpers ---------- */
@@ -103,7 +105,46 @@ export function CalendarPage() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const { data, isLoading } = useCalendar(cursor.year, cursor.month);
+  const { data: benchmarkData } = useCalendarBenchmarks(cursor.year, cursor.month);
   const events = data?.events ?? [];
+
+  // day -> that day's blended portfolio return (sum exit pnl / sum exit
+  // capital) vs each benchmark index's own day-over-day % return.
+  const beatByDay = useMemo(() => {
+    const capitalByDay = new Map<number, { pnl: number; capital: number }>();
+    for (const e of events) {
+      if (e.kind !== "exit" || !e.capital) continue;
+      const cur = capitalByDay.get(e.day) ?? { pnl: 0, capital: 0 };
+      cur.pnl += e.pnl ?? 0;
+      cur.capital += e.capital;
+      capitalByDay.set(e.day, cur);
+    }
+    const benchmarksByDay = new Map(
+      (benchmarkData?.days ?? []).map((d) => [d.day, d.returns]),
+    );
+    const result = new Map<
+      number,
+      { returnPct: number; beat: number; total: number; breakdown: { symbol: string; pct: number; beaten: boolean }[] }
+    >();
+    for (const [day, { pnl, capital }] of capitalByDay) {
+      const returns = benchmarksByDay.get(day);
+      if (!returns || capital <= 0) continue;
+      const returnPct = (pnl / capital) * 100;
+      const breakdown = Object.entries(returns).map(([symbol, pct]) => ({
+        symbol,
+        pct,
+        beaten: returnPct > pct,
+      }));
+      if (breakdown.length === 0) continue;
+      result.set(day, {
+        returnPct,
+        beat: breakdown.filter((b) => b.beaten).length,
+        total: breakdown.length,
+        breakdown,
+      });
+    }
+    return result;
+  }, [events, benchmarkData]);
 
   const visibleEvents = useMemo(
     () => events.filter((e) => activeKinds.includes(e.kind)),
@@ -358,6 +399,7 @@ export function CalendarPage() {
                       const selected = selectedDay === cell.day && cell.day !== null;
                       const dayEvents = cell.day ? byDay.get(cell.day) ?? [] : [];
                       const dayPnl = dayEvents.reduce((s, e) => s + (e.pnl ?? 0), 0);
+                      const beat = cell.day ? beatByDay.get(cell.day) : undefined;
                       return (
                         <button
                           key={idx}
@@ -396,6 +438,21 @@ export function CalendarPage() {
                                   </span>
                                 )}
                               </div>
+                              {beat && (
+                                <div
+                                  className={cn(
+                                    "mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium tabular ring-1",
+                                    beat.beat >= beat.total
+                                      ? "bg-primary/10 text-primary ring-primary/30"
+                                      : beat.beat > 0
+                                        ? "bg-amber-500/10 text-amber-400 ring-amber-500/30"
+                                        : "bg-muted/30 text-muted-foreground ring-border/60",
+                                  )}
+                                >
+                                  <Star className="size-2.5 fill-current" />
+                                  {beat.beat}/{beat.total} indices
+                                </div>
+                              )}
                               <div className="mt-1.5 space-y-1">
                                 {dayEvents.slice(0, 3).map((e) => {
                                   const m = eventVisual(e);
@@ -456,6 +513,49 @@ export function CalendarPage() {
                   )}
                 </CardHeader>
                 <Separator />
+                {selectedDay && beatByDay.get(selectedDay) && (
+                  <div className="px-5 py-4 border-b border-border/60">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                        vs indices
+                      </span>
+                      <span
+                        className={cn(
+                          "text-xs font-medium tabular",
+                          beatByDay.get(selectedDay)!.returnPct >= 0
+                            ? "text-emerald-400"
+                            : "text-destructive",
+                        )}
+                      >
+                        my day {beatByDay.get(selectedDay)!.returnPct >= 0 ? "+" : ""}
+                        {beatByDay.get(selectedDay)!.returnPct.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {beatByDay.get(selectedDay)!.breakdown.map((b) => (
+                        <div key={b.symbol} className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            {INDEX_LABEL[b.symbol] ?? b.symbol}
+                          </span>
+                          <span
+                            className={cn(
+                              "tabular font-medium inline-flex items-center gap-1.5",
+                              b.beaten ? "text-primary" : "text-muted-foreground",
+                            )}
+                          >
+                            {b.pct >= 0 ? "+" : ""}
+                            {b.pct.toFixed(2)}%
+                            {b.beaten ? (
+                              <Star className="size-3 fill-current" />
+                            ) : (
+                              <span className="size-3" />
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <CardContent className="p-0">
                   {selectedEvents.length === 0 ? (
                     <div className="py-12 px-5 text-center">

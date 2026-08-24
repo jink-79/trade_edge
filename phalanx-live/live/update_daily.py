@@ -32,6 +32,20 @@ SEED_BARS = config.RETENTION_DAYS + 50  # comfortable buffer above the retention
 EXCHANGE = "NSE"
 DEFAULT_BUFFER_DAYS = 3
 NIFTY_SYMBOL = "NIFTY"
+# Broad-market NSE indices force-included in every run (same treatment as
+# NIFTY_SYMBOL below) for the returns-vs-benchmark comparison feature — never
+# marked `tracked: true` in the symbols collection, since that flag also
+# drives generate_daily_signals.py's buy-candidate universe and an index has
+# no business showing up as a stock buy signal. BSE indices (e.g. SENSEX)
+# aren't included: EXCHANGE is hardcoded to NSE for every fetch in this file.
+BENCHMARK_INDICES = [
+    NIFTY_SYMBOL,
+    "BANKNIFTY",
+    "NIFTYNEXT50",
+    "NIFTY500",
+    "NIFTYMIDCAP100",
+    "NIFTYSMLCAP100",
+]
 
 IST = ZoneInfo("Asia/Kolkata")
 # NSE closes 15:30 IST; a 15-min buffer covers TradingView's own candle
@@ -129,8 +143,9 @@ def update(
 
     if symbols is None:
         symbols = [d["symbol"] for d in database[db.SYMBOLS].find({"tracked": True}, {"symbol": 1})]
-    if NIFTY_SYMBOL not in symbols:
-        symbols = [*symbols, NIFTY_SYMBOL]
+    for idx in BENCHMARK_INDICES:
+        if idx not in symbols:
+            symbols.append(idx)
 
     if tv is None:
         tv = TvDatafeed()

@@ -1,5 +1,14 @@
 import { JournalOpen, JournalClosed } from "../journal/journal.model";
-import type { CalendarEvent, CalendarResponse } from "./calendar.types";
+import { getCandleWindow } from "../../config/phalanx-ohlcv";
+import {
+  BENCHMARK_INDICES,
+  type CalendarEvent,
+  type CalendarResponse,
+  type CalendarBenchmarkResponse,
+  type CalendarDayBenchmark,
+} from "./calendar.types";
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function fmtPrice(n: number): string {
   return (
@@ -69,17 +78,66 @@ export async function getCalendarEvents(
     const e: any = t.entry;
     const x: any = t.exit;
     if (!e || !x?.exitDate) continue;
+    const exitedQty = x.quantity ?? e.quantity;
     events.push({
       id: `${t._id}-exit`,
       day: new Date(x.exitDate).getDate(),
       kind: "exit",
       symbol: e.ticker,
-      title: `Sold ${x.quantity ?? e.quantity} @ ${fmtPrice(x.exitPrice)}`,
+      title: `Sold ${exitedQty} @ ${fmtPrice(x.exitPrice)}`,
       pnl: netPnlFor(t),
+      capital: round2(e.entryPrice * exitedQty),
     });
   }
 
   events.sort((a, b) => a.day - b.day);
 
   return { year, month, events };
+}
+
+/**
+ * Day-over-day % return for every benchmark index, for every trading day in
+ * the given month — the same basis a day's blended portfolio return
+ * (sum(exit pnl) / sum(exit capital)) can be compared against. Not
+ * user-scoped: index OHLCV is the same for everyone. `barsBefore = 5` just
+ * needs the ONE prior trading day's close to seed day 1's return; a small
+ * lead-in survives a long holiday weekend at the start of a month.
+ */
+export async function getCalendarBenchmarks(
+  year: number,
+  month: number,
+): Promise<CalendarBenchmarkResponse> {
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 1); // exclusive
+
+  const perIndex = await Promise.all(
+    BENCHMARK_INDICES.map(async (symbol) => {
+      const candles = await getCandleWindow(symbol, monthStart, monthEnd, 5);
+      const byDay = new Map<number, number>();
+      for (let i = 1; i < candles.length; i++) {
+        const c = candles[i];
+        const cDate = new Date(c.date);
+        if (cDate < monthStart || cDate >= monthEnd) continue;
+        const prevClose = candles[i - 1].close;
+        if (prevClose <= 0) continue;
+        byDay.set(cDate.getDate(), round2(((c.close - prevClose) / prevClose) * 100));
+      }
+      return { symbol, byDay };
+    }),
+  );
+
+  const dayMap = new Map<number, CalendarDayBenchmark>();
+  for (const { symbol, byDay } of perIndex) {
+    for (const [day, pct] of byDay) {
+      let entry = dayMap.get(day);
+      if (!entry) {
+        entry = { day, date: new Date(year, month, day).toISOString(), returns: {} };
+        dayMap.set(day, entry);
+      }
+      entry.returns[symbol] = pct;
+    }
+  }
+
+  const days = [...dayMap.values()].sort((a, b) => a.day - b.day);
+  return { year, month, indices: BENCHMARK_INDICES, days };
 }
