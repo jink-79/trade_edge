@@ -42,14 +42,3 @@ jobs:
           ATLAS_MONGODB_URI: ${{ secrets.ATLAS_MONGODB_URI }}
           ATLAS_DB_NAME: ${{ secrets.ATLAS_DB_NAME }}
         run: python -m live.generate_daily_signals
-
-      # Chained here instead of a separately-scheduled Vercel cron: a
-      # fixed-time-offset cron is a guess about how long the steps above
-      # take, and can fire before this run has actually finished writing.
-      # Calling it as the literal next step guarantees marks only refresh
-      # once today's OHLCV is confirmed in Atlas.
-      - name: Refresh open-position marks on trade-edge-api
-        run: |
-          curl -sf --max-time 60 \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.TRADE_EDGE_API_URL }}/api/journal/refresh-marks"

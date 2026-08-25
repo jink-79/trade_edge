@@ -289,6 +289,69 @@ export async function createJournalTrade(
 }
 
 /** List a user's trades (open + closed), newest first, without screenshots. */
+/**
+ * Refreshes markPrice/markRs on open trades in place, straight from
+ * whatever's currently in Atlas — no cron, no external trigger. Called
+ * inline whenever open positions are read, so the page you're looking at
+ * is always as fresh as Atlas's latest bar. Groups by symbol (cheap for one
+ * user's own handful of open positions) and skips a symbol entirely once
+ * its stored mark already matches Atlas's latest bar for that symbol, so a
+ * second page load a minute later does no extra work.
+ */
+async function refreshOpenMarksInPlace(openDocs: any[]): Promise<void> {
+  if (openDocs.length === 0) return;
+
+  const bySymbol = new Map<string, any[]>();
+  for (const t of openDocs) {
+    const symbol = t.entry?.ticker;
+    if (!symbol) continue;
+    const arr = bySymbol.get(symbol) ?? [];
+    arr.push(t);
+    bySymbol.set(symbol, arr);
+  }
+
+  let niftyCandles: Awaited<ReturnType<typeof getRecentCandles>> | null = null;
+
+  for (const [symbol, trades] of bySymbol) {
+    const candles = await getRecentCandles(symbol);
+    if (candles.length < 2) continue;
+
+    const latest = candles[candles.length - 1];
+    const latestDay = new Date(latest.date).toISOString().slice(0, 10);
+    const stale = trades.filter(
+      (t) => (t.markDate ? new Date(t.markDate).toISOString().slice(0, 10) : null) !== latestDay,
+    );
+    if (stale.length === 0) continue;
+
+    const prevBar = candles[candles.length - 2];
+    if (niftyCandles == null) niftyCandles = await getRecentCandles("NIFTY");
+    const rsSeries = computeMansfieldRsSeries(candles, niftyCandles, 55);
+    const markRs = rsSeries[rsSeries.length - 1] ?? null;
+
+    for (const t of stale) {
+      await JournalOpen.updateOne(
+        { _id: t._id },
+        {
+          $set: {
+            markPrice: latest.close,
+            markUpdatedAt: new Date(),
+            markDate: latest.date,
+            markPrevClose: prevBar.close,
+            markRs,
+          },
+        },
+      );
+      // reflect in the in-memory doc so THIS request's response is already
+      // fresh, without a second DB round-trip to re-read what was just set
+      t.markPrice = latest.close;
+      t.markUpdatedAt = new Date();
+      t.markDate = latest.date;
+      t.markPrevClose = prevBar.close;
+      t.markRs = markRs;
+    }
+  }
+}
+
 export async function getJournalTrades(
   userId: string,
 ): Promise<JournalTradeResponse[]> {
@@ -297,6 +360,7 @@ export async function getJournalTrades(
     JournalOpen.find(filter).select(LIST_PROJECTION).lean(),
     JournalClosed.find(filter).select(LIST_PROJECTION).lean(),
   ]);
+  await refreshOpenMarksInPlace(open);
   return [...open, ...closed]
     .sort(
       (a: any, b: any) =>
@@ -309,11 +373,14 @@ export async function getJournalTradeById(
   userId: string,
   id: string,
 ): Promise<JournalTradeResponse> {
-  const doc =
-    (await JournalOpen.findOne({ _id: id, userId }).lean()) ||
-    (await JournalClosed.findOne({ _id: id, userId }).lean());
-  if (!doc) throw AppError.notFound("Trade not found");
-  return formatTrade(doc);
+  const openDoc = await JournalOpen.findOne({ _id: id, userId }).lean();
+  if (openDoc) {
+    await refreshOpenMarksInPlace([openDoc]);
+    return formatTrade(openDoc);
+  }
+  const closedDoc = await JournalClosed.findOne({ _id: id, userId }).lean();
+  if (!closedDoc) throw AppError.notFound("Trade not found");
+  return formatTrade(closedDoc);
 }
 
 /** If this user already holds an OPEN position in this symbol (same
@@ -926,70 +993,6 @@ export async function getJournalTradesClosedBetween(userId: string, start: Date,
   return JournalClosed.find({ userId, exitDate: { $gte: start, $lt: end } })
     .select(LIST_PROJECTION)
     .lean();
-}
-
-export interface RefreshMarksResult {
-  updated: number;
-  symbols: number;
-  failedSymbols: string[];
-}
-
-/**
- * Daily mark-price refresh for EVERY open position, across every user — a
- * cron job, not a per-user action (see journal.routes.ts's requireCronSecret
- * gate). Groups open trades by symbol first so each symbol's OHLCV (and its
- * Mansfield RS series) is only fetched once no matter how many trades or
- * users hold it, then fans the same mark out to every one of those trades.
- * This is the piece that went missing when broker-sync's own refresh-marks
- * cron was removed — without it, markPrice/markRs freeze at whatever they
- * were on the day the position was opened.
- */
-export async function refreshAllOpenMarks(): Promise<RefreshMarksResult> {
-  const openTrades = await JournalOpen.find({}).select("_id userId entry.ticker").lean();
-  if (openTrades.length === 0) return { updated: 0, symbols: 0, failedSymbols: [] };
-
-  const bySymbol = new Map<string, { id: string; userId: string }[]>();
-  for (const t of openTrades as any[]) {
-    const symbol = t.entry.ticker;
-    const arr = bySymbol.get(symbol) ?? [];
-    arr.push({ id: String(t._id), userId: String(t.userId) });
-    bySymbol.set(symbol, arr);
-  }
-
-  const niftyCandles = await getRecentCandles("NIFTY");
-  let updated = 0;
-  const failedSymbols: string[] = [];
-
-  for (const [symbol, trades] of bySymbol) {
-    const candles = await getRecentCandles(symbol);
-    if (candles.length < 2) {
-      failedSymbols.push(symbol);
-      continue;
-    }
-    const latest = candles[candles.length - 1];
-    const prevBar = candles[candles.length - 2];
-    const rsSeries = computeMansfieldRsSeries(candles, niftyCandles, 55);
-    const markRs = rsSeries[rsSeries.length - 1] ?? null;
-
-    for (const t of trades) {
-      try {
-        await updateOpenTradeMark(
-          t.userId,
-          t.id,
-          latest.close,
-          undefined,
-          new Date(latest.date),
-          prevBar.close,
-          markRs,
-        );
-        updated++;
-      } catch {
-        // trade may have exited between the initial find and now — skip it
-      }
-    }
-  }
-
-  return { updated, symbols: bySymbol.size, failedSymbols };
 }
 
 /** Refresh an open trade's mark price (and quantity, if it changed). */

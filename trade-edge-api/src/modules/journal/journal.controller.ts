@@ -15,7 +15,6 @@ import {
   getLiveIndicators,
   generateTradeInsight,
   backfillPositionMeta,
-  refreshAllOpenMarks,
   reviewJournalTrade,
   setGttPlaced,
   analyzeJournalTrade,
@@ -96,11 +95,6 @@ export const aiReview = asyncHandler(async (req: Request, res: Response) => {
 export const backfillMeta = asyncHandler(async (_req: Request, res: Response) => {
   const result = await backfillPositionMeta();
   sendSuccess(res, result, "Backfill complete");
-});
-
-export const refreshMarks = asyncHandler(async (_req: Request, res: Response) => {
-  const result = await refreshAllOpenMarks();
-  sendSuccess(res, result, "Marks refreshed");
 });
 
 export const chart = asyncHandler(async (req: Request, res: Response) => {
