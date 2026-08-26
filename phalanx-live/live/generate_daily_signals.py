@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pandas as pd
 
 import db
-from core.daily_rules import Position, make_rules
+from core.daily_rules import make_rules
 
 POSITIONS_FILE = Path(__file__).resolve().parent / "positions_daily.json"
 DATA_START = "2015-01-01"  # wide window; Atlas only retains RETENTION_DAYS anyway
@@ -43,18 +43,6 @@ def load_positions() -> list[dict]:
     if not POSITIONS_FILE.exists():
         return []
     return json.loads(POSITIONS_FILE.read_text())
-
-
-def to_position_obj(p: dict) -> Position:
-    return Position(
-        symbol=p["symbol"],
-        entry_date=pd.Timestamp(p["entry_date"]),
-        entry_price=p["entry_price"],
-        size=p["size"],
-        sl_price=0,
-        tp_price=None,
-        state=dict(p.get("state", {})),
-    )
 
 
 def load_atlas_ohlcv(symbols: list[str], start_date: str, end_date: str) -> dict[str, pd.DataFrame]:
@@ -122,31 +110,44 @@ def generate() -> dict:
         print(f"  Stale (skipped, no fresh data today): {', '.join(sorted(stale))}")
 
     # --- Exits ---
+    # exit_signal() is a pure function of a symbol's OWN latest bar (see
+    # core/daily_rules.py — the `position` argument isn't even read) so it
+    # can be evaluated for every currently tracked symbol, not just the ones
+    # in positions_daily.json (phalanx's own hand-maintained paper
+    # portfolio, unrelated to TradeEdge). This used to only ever check
+    # `held`, which starts empty and was never wired to real positions — so
+    # `exits` was silently always [] and TradeEdge's newsletter could never
+    # show a real SELL alert. Scanning the whole universe here and letting
+    # TradeEdge intersect it against a user's actual JournalOpen symbols is
+    # what makes that intersection possible at all.
     print()
     print("-" * 70)
-    print("  EXITS")
+    print("  EXITS  (trend flipped down today, across every tracked symbol)")
     print("-" * 70)
     exits = []
-    for p in held:
-        symbol = p["symbol"]
-        frame = frames.get(symbol)
-        if frame is None or frame.index.max() < reference_date:
-            print(f"  ! {symbol}: no fresh data today — cannot evaluate, check manually")
+    for symbol, frame in frames.items():
+        if symbol == "NIFTY" or frame.index.max() < reference_date:
             continue
         hist = frame.loc[:reference_date]
-        pos = to_position_obj(p)
-        if rules.exit_signal(hist, pos):
-            print(f"  SELL {symbol:12} (entered {p['entry_date']} @ {p['entry_price']}) — trend flip")
+        bar = hist.iloc[-1]
+        if pd.isna(bar.get("sell_signal")):
+            continue
+        if bool(bar["sell_signal"]):
+            print(f"  SELL {symbol:12} — trend flip")
             exits.append(symbol)
-        else:
-            print(f"  hold {symbol:12} (entered {p['entry_date']} @ {p['entry_price']})")
+    if not exits:
+        print("  No symbols flipped to a sell signal today.")
 
     # --- New entries ---
     print()
     print("-" * 70)
     print("  NEW ENTRY CANDIDATES")
     print("-" * 70)
-    open_after_exits = len(held) - len(exits)
+    # `exits` now spans every tracked symbol (see above), not just phalanx's
+    # own held_symbols — only the overlap actually shrinks its paper
+    # portfolio's open count.
+    held_exits = held_symbols & set(exits)
+    open_after_exits = len(held) - len(held_exits)
     free_slots = max(0, max_positions - open_after_exits)
     print(f"  Open after exits: {open_after_exits}  |  Free slots: {free_slots}")
 

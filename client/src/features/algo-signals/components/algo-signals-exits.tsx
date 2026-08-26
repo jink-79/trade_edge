@@ -1,8 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-// `exits` is a subset of `held_before` where the engine's trend flipped down —
-// these are held positions phalanx-live says to close today.
+// Every tracked symbol whose trend flipped down today — not scoped to any
+// one portfolio, since exit_signal() is a pure per-symbol read. TradeEdge's
+// own newsletter/journal intersect this against a user's actual holdings;
+// here it's shown as the full scan result.
 export function AlgoSignalsExits({ exits }: { exits: string[] }) {
   return (
     <Card className="border-border/70 bg-card/70" style={{ boxShadow: "var(--shadow-card)" }}>
@@ -10,7 +12,7 @@ export function AlgoSignalsExits({ exits }: { exits: string[] }) {
         <CardTitle className="text-base" style={{ fontFamily: "var(--font-display)" }}>
           Exits · {exits.length} signalled
         </CardTitle>
-        <CardDescription>Held positions the engine says to close today.</CardDescription>
+        <CardDescription>Tracked symbols whose trend flipped down today.</CardDescription>
       </CardHeader>
       <CardContent>
         {exits.length === 0 ? (
