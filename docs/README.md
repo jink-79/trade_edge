@@ -31,31 +31,13 @@ Every architecture doc should have:
 
 - **Client** — React 19 + Vite + TanStack Query + shadcn/ui + Tailwind.
   Feature-slice layout: `features/<name>/{api,components,hooks,pages,types}`.
-  Thin pages compose components (see `features/dashboard`).
+  Mobile-first: single centered column (`max-w-md`), no sidebar.
 - **API** — Express 5 + Mongoose + Zod 4 + JWT. Module layout:
   `modules/<name>/<name>.{model,service,controller,routes,types}.ts`.
   Envelope `{ success, message, data }`; `sendSuccess` / `AppError` / `validate`.
-- **Data** — Kite (Zerodha) daily OHLCV; indicators computed in
-  `journal.compute.ts`; MAE/MFE + exit sims in `journal.analytics.ts`.
-  Kite login is interactive — the server holds no broker token, so candle
-  fetches are supplied in request bodies (agent now, Python courier later).
 
 ## Index
 
 ### Architecture docs
-- [Scanner (Signal Lab)](architecture/scanner.md) — **Planned** — paper-track
-  every Chartink signal to learn winner vs loser characteristics.
-
-### Shipped features (docs to backfill)
-- **Journal** — trade capture merged into `openpositions` / `closedpositions`;
-  auto-capture from Kite; Open Positions & Trade History pages; trade detail
-  page at `/trades/:id`.
-- **Trade analytics** — MAE/MFE + exit optimizer (`journal.analytics.ts`),
-  rule-adherence tagging.
-- **Preferences** — ATR multipliers, capital, risk (single source of truth for
-  target/SL maths).
-- **Dashboard / Analytics / Funds / Mutual funds** — read the same collections.
-
-### Planned / discussed
-- **Ranking system** — score & rank the daily signal set so real trades go to
-  the strongest setups. Fed by the Scanner's labeled dataset.
+- [Net Worth Tracker](architecture/net-worth-tracker.md) — **In progress** —
+  monthly snapshots of mutual funds, stocks and bank balances.

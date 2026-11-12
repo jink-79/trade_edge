@@ -1,6 +1,6 @@
 # Net Worth Tracker — Cleanup & Repurpose Plan
 
-**Status:** Planned (nothing deleted yet)
+**Status:** Phase 1 (cleanup) done — only auth + app skeleton remain
 
 ## Intent
 
