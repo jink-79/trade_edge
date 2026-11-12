@@ -76,7 +76,7 @@ function PossessionForm({ item, onDone }: { item: Possession | null; onDone: () 
         <span className="text-sm text-muted-foreground">What is it?</span>
         <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Category">
           {CATEGORIES.map((c) => {
-            const { icon: Icon, label } = CATEGORY_META[c];
+            const { icon: Icon, label, text } = CATEGORY_META[c];
             const active = c === category;
             return (
               <button
@@ -92,7 +92,7 @@ function PossessionForm({ item, onDone }: { item: Possession | null; onDone: () 
                     : "border-border text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Icon className="size-5" strokeWidth={1.75} />
+                <Icon className={cn("size-5", text)} strokeWidth={1.75} />
                 <span className="text-center leading-tight">{label}</span>
               </button>
             );

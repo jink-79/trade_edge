@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import { fmtINR, monthLabel } from "@/lib/format";
 import { usePossessions } from "../hooks/use-possessions";
 import { PossessionSheet } from "../components/possession-sheet";
@@ -84,7 +85,7 @@ export function PossessionsPage() {
 
           <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
             {sorted.map((p) => {
-              const { icon: Icon } = CATEGORY_META[p.category];
+              const { icon: Icon, tile } = CATEGORY_META[p.category];
               const now = valueNow(p);
               const dropPct = p.purchasePrice > 0 ? ((p.purchasePrice - now) / p.purchasePrice) * 100 : 0;
               return (
@@ -94,7 +95,7 @@ export function PossessionsPage() {
                   onClick={() => setSheet(p)}
                   className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-secondary/60 active:bg-secondary"
                 >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-cat-possessions/15 text-cat-possessions">
+                  <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", tile)}>
                     <Icon className="size-5" strokeWidth={1.75} />
                   </span>
                   <span className="min-w-0 flex-1">
