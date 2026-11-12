@@ -6,6 +6,7 @@ import type {
   AccountDto,
   CreateAccountInput,
   SnapshotDto,
+  SnapshotRowDto,
   UpdateAccountInput,
   UpsertSnapshotInput,
 } from "./accounts.types";
@@ -54,6 +55,15 @@ export async function listAccounts(userId: string): Promise<AccountDto[]> {
 
   const latestById = new Map(latest.map((s) => [String(s._id), toSnapshotDto(s)]));
   return accounts.map((a) => toAccountDto(a, latestById.get(String(a._id)) ?? null));
+}
+
+/** Every month of every account, oldest first — the Home screen builds its trend from this. */
+export async function listAllSnapshots(userId: string): Promise<SnapshotRowDto[]> {
+  const rows = await Snapshot.find({ userId: new Types.ObjectId(userId) })
+    .sort({ month: 1 })
+    .select("accountId month value invested")
+    .lean();
+  return rows.map((r) => ({ accountId: String(r.accountId), ...toSnapshotDto(r) }));
 }
 
 export async function getAccount(userId: string, id: string): Promise<AccountDetailDto> {

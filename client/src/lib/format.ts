@@ -35,3 +35,21 @@ export function parseAmount(s: string): number | null {
   const n = Number(cleaned);
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
+
+/** "2026-11" + (-1) → "2026-10" */
+export function addMonths(m: string, delta: number): string {
+  const [y, mo] = m.split("-").map(Number);
+  return currentMonth(new Date(y, mo - 1 + delta, 1));
+}
+
+/** "2026-11" → "Nov" */
+export function shortMonth(m: string): string {
+  const [y, mo] = m.split("-").map(Number);
+  return new Date(y, mo - 1, 1).toLocaleDateString("en-IN", { month: "short" });
+}
+
+/** "2026-11" → "November" */
+export function longMonth(m: string): string {
+  const [y, mo] = m.split("-").map(Number);
+  return new Date(y, mo - 1, 1).toLocaleDateString("en-IN", { month: "long" });
+}

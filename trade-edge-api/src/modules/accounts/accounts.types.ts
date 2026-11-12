@@ -89,3 +89,7 @@ export interface AccountDetailDto extends AccountDto {
   /** Newest first. */
   snapshots: SnapshotDto[];
 }
+
+export interface SnapshotRowDto extends SnapshotDto {
+  accountId: string;
+}

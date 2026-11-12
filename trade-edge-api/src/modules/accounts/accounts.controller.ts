@@ -18,6 +18,10 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   sendSuccess(res, await service.listAccounts(uid(req)), "Accounts fetched");
 });
 
+export const snapshots = asyncHandler(async (req: Request, res: Response) => {
+  sendSuccess(res, await service.listAllSnapshots(uid(req)), "Snapshots fetched");
+});
+
 export const getOne = asyncHandler(async (req: Request, res: Response) => {
   const { id } = params<IdParams>(req);
   sendSuccess(res, await service.getAccount(uid(req), id), "Account fetched");
