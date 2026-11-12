@@ -7,7 +7,7 @@ import { fieldClass, selectClass } from "@/components/common/field-styles";
 import { cn } from "@/lib/utils";
 import { currentMonth, parseAmount } from "@/lib/format";
 import { useCreateAccount } from "../hooks/use-accounts";
-import { AmountInput } from "./amount-input";
+import { AmountInput } from "@/components/common/amount-input";
 import { ALL_TYPES, TYPE_META } from "../utils/account-meta";
 import { MF_CATEGORIES, type AccountType, type MfCategory } from "../types/accounts.types";
 

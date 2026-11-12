@@ -8,7 +8,7 @@ import { currentMonth, fmtINR, monthLabel, parseAmount } from "@/lib/format";
 import { useDeleteSnapshot, useUpsertSnapshot } from "../hooks/use-accounts";
 import { TYPE_META } from "../utils/account-meta";
 import type { AccountDetail, Snapshot } from "../types/accounts.types";
-import { AmountInput } from "./amount-input";
+import { AmountInput } from "@/components/common/amount-input";
 
 interface Props {
   account: AccountDetail;
