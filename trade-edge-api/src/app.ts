@@ -6,6 +6,7 @@ import { errorMiddleware } from "./middleware/error.middleware";
 import { logger } from "./utils/logger";
 
 import authRoutes from "./modules/auth/auth.routes";
+import accountsRoutes from "./modules/accounts/accounts.routes";
 
 const app = express();
 
@@ -45,6 +46,7 @@ if (env.NODE_ENV === "development") {
 }
 
 app.use("/api/auth", authRoutes);
+app.use("/api/accounts", accountsRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ success: false, message: "Route not found" });
