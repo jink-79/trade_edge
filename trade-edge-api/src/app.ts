@@ -6,17 +6,6 @@ import { errorMiddleware } from "./middleware/error.middleware";
 import { logger } from "./utils/logger";
 
 import authRoutes from "./modules/auth/auth.routes";
-import mutualFundsRoutes from "./modules/mutual-funds/mutual-funds.routes";
-import fundsRoutes from "./modules/funds/funds.routes";
-import analyticsRoutes from "./modules/analytics/analytics.routes";
-import dashboardRoutes from "./modules/dashboard/dashboard.routes";
-import journalRoutes from "./modules/journal/journal.routes";
-import preferencesRoutes from "./modules/preferences/preferences.routes";
-import algoSignalsRoutes from "./modules/algo-signals/algo-signals.routes";
-import newsletterRoutes from "./modules/newsletter/newsletter.routes";
-import calendarRoutes from "./modules/calendar/calendar.routes";
-import weeklyRecapRoutes from "./modules/weekly-recap/weekly-recap.routes";
-import missedSignalsRoutes from "./modules/missed-signals/missed-signals.routes";
 
 const app = express();
 
@@ -43,15 +32,8 @@ app.use(
   }),
 );
 
-// Journal payloads carry base64 screenshots / candle arrays; its own router
-// parses with a larger limit. Everything else stays tight at 10kb.
-const skipLargeBody =
-  (parser: express.RequestHandler): express.RequestHandler =>
-  (req, res, next) =>
-    req.path.startsWith("/api/journal") ? next() : parser(req, res, next);
-
-app.use(skipLargeBody(express.json({ limit: "10kb" })));
-app.use(skipLargeBody(express.urlencoded({ extended: true, limit: "10kb" })));
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
 app.use(globalRateLimiter);
 
@@ -63,17 +45,6 @@ if (env.NODE_ENV === "development") {
 }
 
 app.use("/api/auth", authRoutes);
-app.use("/api/mutual-funds", mutualFundsRoutes);
-app.use("/api/funds", fundsRoutes);
-app.use("/api/analytics", analyticsRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/journal", journalRoutes);
-app.use("/api/preferences", preferencesRoutes);
-app.use("/api/algo-signals", algoSignalsRoutes);
-app.use("/api/newsletter", newsletterRoutes);
-app.use("/api/calendar", calendarRoutes);
-app.use("/api/weekly-recap", weeklyRecapRoutes);
-app.use("/api/missed-signals", missedSignalsRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ success: false, message: "Route not found" });

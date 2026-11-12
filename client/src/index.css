@@ -2,24 +2,21 @@
 @source "../src";
 @import "tw-animate-css";
 
-@custom-variant dark {
-  &: is(.dark *);
-}
+/* next-themes forces class="dark" on <html>, so dark: variants always apply. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Design system definition.
+ * Bolero design tokens — dark only, amber accent.
  *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
+ * The app background matches the home-screen icon tile (#0b0e12) so the
+ * app reads as one piece with its sibling apps (Overlord, Curio, Torch),
+ * which share that tile and differ only in accent colour.
  *
- * The .dark and .light blocks define the actual color values using oklch.
- * All colors MUST use oklch format. :root only holds theme-agnostic values
- * (radius, fonts) — next-themes (attribute="class") always puts .dark or
- * .light on <html>, so there's no "unclassed" state to fall back to.
+ * @theme inline maps each CSS variable to Tailwind utilities
+ * (e.g. --color-primary -> bg-primary, text-primary).
  *
- * To add a new semantic color:
- * 1. Add the variable to .dark AND .light
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ * To add a colour: define it in :root, then register it below as
+ * --color-<name>: var(--<name>).
  */
 
 @theme inline {
@@ -38,6 +35,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-deep: var(--primary-deep);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -50,143 +48,62 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* meaning */
+  --color-up: var(--up);
+  --color-down: var(--down);
+
+  /* asset & liability categories */
+  --color-cat-mf: var(--cat-mf);
+  --color-cat-stocks: var(--cat-stocks);
+  --color-cat-bank: var(--cat-bank);
+  --color-cat-possessions: var(--cat-possessions);
+  --color-cat-loans: var(--cat-loans);
+  --color-cat-cards: var(--cat-cards);
 }
 
 :root {
-  --radius: 0.625rem;
+  color-scheme: dark;
+  --radius: 0.75rem;
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
-}
 
-/* Trade Edge was designed dark-first; .dark is the original palette,
-   unchanged. .light is the new counterpart. next-themes (attribute="class")
-   always puts one of these two classes on <html> — see app/providers.tsx. */
-.dark {
-  --background: oklch(0.16 0.012 250);
-  --foreground: oklch(0.96 0.005 240);
-  --card: oklch(0.205 0.014 252);
-  --card-foreground: oklch(0.96 0.005 240);
-  --popover: oklch(0.205 0.014 252);
-  --popover-foreground: oklch(0.96 0.005 240);
-  --primary: oklch(0.78 0.17 155);
-  --primary-foreground: oklch(0.18 0.02 160);
-  --secondary: oklch(0.26 0.015 252);
-  --secondary-foreground: oklch(0.96 0.005 240);
-  --muted: oklch(0.24 0.012 252);
-  --muted-foreground: oklch(0.66 0.015 250);
-  --accent: oklch(0.3 0.04 250);
-  --accent-foreground: oklch(0.96 0.005 240);
-  --destructive: oklch(0.68 0.21 22);
-  --destructive-foreground: oklch(0.98 0 0);
-  --success: oklch(0.78 0.17 155);
-  --success-foreground: oklch(0.18 0.02 160);
-  --warning: oklch(0.82 0.16 85);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.78 0.17 155 / 60%);
-  --chart-1: oklch(0.78 0.17 155);
-  --chart-2: oklch(0.68 0.18 240);
-  --chart-3: oklch(0.82 0.16 85);
-  --chart-4: oklch(0.68 0.21 22);
-  --chart-5: oklch(0.74 0.15 300);
-  --sidebar: oklch(0.18 0.012 252);
-  --sidebar-foreground: oklch(0.96 0.005 240);
-  --sidebar-primary: oklch(0.78 0.17 155);
-  --sidebar-primary-foreground: oklch(0.18 0.02 160);
-  --sidebar-accent: oklch(0.26 0.015 252);
-  --sidebar-accent-foreground: oklch(0.96 0.005 240);
-  --sidebar-border: oklch(1 0 0 / 6%);
-  --sidebar-ring: oklch(0.78 0.17 155 / 60%);
+  /* surfaces & text */
+  --background: #0b0e12;
+  --foreground: #e8eaed;
+  --card: #13171d;
+  --card-foreground: #e8eaed;
+  --popover: #13171d;
+  --popover-foreground: #e8eaed;
+  --secondary: #1a1f27;
+  --secondary-foreground: #e8eaed;
+  --muted: #1a1f27;
+  --muted-foreground: #8b93a0;
+  --accent: #1a1f27;
+  --accent-foreground: #e8eaed;
+  --border: #252b34;
+  --input: #252b34;
 
-  --gradient-success: linear-gradient(
-    135deg,
-    oklch(0.78 0.17 155),
-    oklch(0.7 0.18 175)
-  );
-  --gradient-danger: linear-gradient(
-    135deg,
-    oklch(0.68 0.21 22),
-    oklch(0.62 0.22 10)
-  );
-  --gradient-surface: linear-gradient(
-    180deg,
-    oklch(0.215 0.014 252),
-    oklch(0.19 0.012 252)
-  );
-  --shadow-card:
-    0 1px 0 oklch(1 0 0 / 6%) inset, 0 20px 40px -20px oklch(0 0 0 / 50%);
-  --shadow-glow:
-    0 0 0 1px oklch(0.78 0.17 155 / 25%),
-    0 12px 40px -10px oklch(0.78 0.17 155 / 30%);
-}
+  /* brand */
+  --primary: #e2b259;
+  --primary-foreground: #0b0e12;
+  --primary-deep: #8a6a2f;
+  --ring: rgb(226 178 89 / 55%);
 
-.light {
-  --background: oklch(0.99 0.003 250);
-  --foreground: oklch(0.17 0.018 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.17 0.018 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.17 0.018 250);
-  --primary: oklch(0.52 0.14 155);
-  --primary-foreground: oklch(0.99 0.005 240);
-  --secondary: oklch(0.95 0.006 250);
-  --secondary-foreground: oklch(0.17 0.018 250);
-  --muted: oklch(0.96 0.005 250);
-  --muted-foreground: oklch(0.48 0.015 250);
-  --accent: oklch(0.93 0.02 250);
-  --accent-foreground: oklch(0.17 0.018 250);
-  --destructive: oklch(0.53 0.22 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.52 0.14 155);
-  --success-foreground: oklch(0.99 0.005 240);
-  --warning: oklch(0.62 0.16 80);
-  --border: oklch(0 0 0 / 8%);
-  --input: oklch(0 0 0 / 10%);
-  --ring: oklch(0.52 0.14 155 / 45%);
-  --chart-1: oklch(0.52 0.14 155);
-  --chart-2: oklch(0.5 0.16 240);
-  --chart-3: oklch(0.62 0.16 80);
-  --chart-4: oklch(0.53 0.22 25);
-  --chart-5: oklch(0.55 0.14 300);
-  --sidebar: oklch(0.985 0.003 250);
-  --sidebar-foreground: oklch(0.17 0.018 250);
-  --sidebar-primary: oklch(0.52 0.14 155);
-  --sidebar-primary-foreground: oklch(0.99 0.005 240);
-  --sidebar-accent: oklch(0.94 0.01 250);
-  --sidebar-accent-foreground: oklch(0.17 0.018 250);
-  --sidebar-border: oklch(0 0 0 / 7%);
-  --sidebar-ring: oklch(0.52 0.14 155 / 45%);
+  /* meaning */
+  --up: #5fc98a;
+  --down: #e5735f;
+  --destructive: #e5735f;
+  --destructive-foreground: #0b0e12;
 
-  --gradient-success: linear-gradient(
-    135deg,
-    oklch(0.52 0.14 155),
-    oklch(0.47 0.15 175)
-  );
-  --gradient-danger: linear-gradient(
-    135deg,
-    oklch(0.53 0.22 25),
-    oklch(0.48 0.22 10)
-  );
-  --gradient-surface: linear-gradient(180deg, oklch(1 0 0), oklch(0.97 0.004 250));
-  --shadow-card:
-    0 1px 0 oklch(1 0 0 / 70%) inset, 0 16px 32px -20px oklch(0 0 0 / 14%);
-  --shadow-glow:
-    0 0 0 1px oklch(0.52 0.14 155 / 20%),
-    0 12px 32px -10px oklch(0.52 0.14 155 / 16%);
+  /* categories */
+  --cat-mf: #7c9cf0;
+  --cat-stocks: #5fc9b8;
+  --cat-bank: #a3b1c2;
+  --cat-possessions: #b79be0;
+  --cat-loans: #e5735f;
+  --cat-cards: #d9668f;
 }
 
 @layer base {
@@ -199,18 +116,6 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01", "ss03";
-    background-image:
-      radial-gradient(
-        1200px 600px at 10% -10%,
-        oklch(0.78 0.17 155 / 8%),
-        transparent 60%
-      ),
-      radial-gradient(
-        900px 500px at 100% 0%,
-        oklch(0.68 0.18 240 / 7%),
-        transparent 55%
-      );
-    background-attachment: fixed;
   }
 
   h1,

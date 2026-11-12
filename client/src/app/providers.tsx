@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { queryClient } from "@/lib/query-client";
+import { Toaster } from "@/components/ui/sonner";
 
 type Props = {
   children: React.ReactNode;
@@ -12,9 +13,10 @@ export function AppProviders({ children }: Props) {
       <ThemeProvider
         attribute="class"
         defaultTheme="dark"
-        storageKey="trade-edge-theme"
+        forcedTheme="dark"
       >
         {children}
+        <Toaster />
       </ThemeProvider>
     </QueryClientProvider>
   );

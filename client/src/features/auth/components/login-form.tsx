@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { useLogin } from "../hooks/use-auth";
+import { BrandMark } from "@/components/common/brand-mark";
 
 interface FormErrors {
   email?: string;
@@ -46,17 +47,8 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-sm">
-      {/* mobile logo */}
-      <div className="lg:hidden flex items-center gap-2.5 mb-8">
-        <div className="size-9 rounded-lg grid place-items-center bg-primary/15 ring-1 ring-primary/30">
-          <span className="text-primary text-sm font-bold">TE</span>
-        </div>
-        <div
-          className="text-base font-semibold tracking-tight"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          Trade Edge
-        </div>
+      <div className="mb-8">
+        <BrandMark />
       </div>
 
       {/* heading */}
@@ -68,7 +60,7 @@ export function LoginForm() {
           Welcome back
         </h2>
         <p className="text-sm text-muted-foreground">
-          Sign in to review your edge and log today's trades.
+          Sign in to see this month's net worth.
         </p>
       </div>
 
@@ -87,7 +79,7 @@ export function LoginForm() {
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="you@tradedesk.com"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -171,7 +163,7 @@ export function LoginForm() {
           disabled={loading}
           className="w-full h-11 text-sm font-medium group"
         >
-          {loading ? "Signing in…" : "Sign in to Trade Edge"}
+          {loading ? "Signing in…" : "Sign in"}
           <ArrowRight className="size-4 ml-1 transition-transform group-hover:translate-x-0.5" />
         </Button>
 

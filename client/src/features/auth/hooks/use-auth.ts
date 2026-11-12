@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { isAxiosError } from "axios";
 import { loginApi, registerApi, fetchCurrentUser } from "../api/auth-api";
 import {
   getStoredToken,
@@ -31,9 +32,9 @@ export function useLogin() {
       queryClient.setQueryData(["auth", "me"], user);
       toast.success(`Welcome back, ${user.fullName.split(" ")[0]}.`);
       navigate("/");
-    } catch (err: any) {
+    } catch (err) {
       const msg =
-        err?.response?.data?.message ??
+        (isAxiosError(err) ? err.response?.data?.message : undefined) ??
         "Invalid email or password. Please try again.";
       setError(msg);
       toast.error(msg);
@@ -60,11 +61,11 @@ export function useRegister() {
       const { token, user } = await registerApi(payload);
       persistAuth(token, user);
       queryClient.setQueryData(["auth", "me"], user);
-      toast.success(`Welcome to Trade Edge, ${user.fullName.split(" ")[0]}.`);
+      toast.success(`Welcome to Bolero, ${user.fullName.split(" ")[0]}.`);
       navigate("/");
-    } catch (err: any) {
+    } catch (err) {
       const msg =
-        err?.response?.data?.message ??
+        (isAxiosError(err) ? err.response?.data?.message : undefined) ??
         "Could not create your account. Please try again.";
       setError(msg);
       toast.error(msg);

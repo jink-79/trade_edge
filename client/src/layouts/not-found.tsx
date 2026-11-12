@@ -13,13 +13,12 @@ export function NotFound() {
           Page not found
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground max-w-xs">
-          This route doesn't exist yet. Check the URL or head back to the
-          dashboard.
+          This route doesn't exist yet. Check the URL or head back home.
         </p>
       </div>
       <NavLink to="/">
         <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-          <Home className="size-4" /> Back to Dashboard
+          <Home className="size-4" /> Back to Home
         </Button>
       </NavLink>
     </div>

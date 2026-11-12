@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────────────
-   DATA CONTRACT  —  matches trade-edge-api
+   DATA CONTRACT  —  matches the API
    ─────────────────────────────────────────────────────
 
    Every API response is wrapped in the standard envelope:
