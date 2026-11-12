@@ -16,7 +16,7 @@ export default function AppLayout() {
           <span className="font-display text-lg font-semibold tracking-tight">Bolero</span>
         </header>
 
-        <main className="mx-auto w-full max-w-md flex-1 px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:max-w-3xl md:px-8 md:pb-10 md:pt-8">
+        <main className="mx-auto w-full max-w-md flex-1 px-4 pb-[calc(var(--nav-h)+1.5rem)] md:max-w-3xl md:px-8 md:pb-10 md:pt-8">
           <Outlet />
         </main>
       </div>
