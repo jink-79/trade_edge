@@ -67,6 +67,14 @@
   --color-cat-possessions: var(--cat-possessions);
   --color-cat-loans: var(--cat-loans);
   --color-cat-cards: var(--cat-cards);
+
+  /* possession categories */
+  --color-pos-vehicle: var(--pos-vehicle);
+  --color-pos-appliance: var(--pos-appliance);
+  --color-pos-electronics: var(--pos-electronics);
+  --color-pos-furniture: var(--pos-furniture);
+  --color-pos-jewellery: var(--pos-jewellery);
+  --color-pos-other: var(--pos-other);
 }
 
 :root {
@@ -108,6 +116,14 @@
   --cat-possessions: #b79be0;
   --cat-loans: #e5735f;
   --cat-cards: #d9668f;
+
+  /* possession categories */
+  --pos-vehicle: #7c9cf0;
+  --pos-appliance: #5fc9b8;
+  --pos-electronics: #b79be0;
+  --pos-furniture: #c98a5e;
+  --pos-jewellery: #f0c46e;
+  --pos-other: #a3b1c2;
 }
 
 /*
