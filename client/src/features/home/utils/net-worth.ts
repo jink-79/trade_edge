@@ -18,6 +18,8 @@ export interface NetWorthSummary {
   byType: Record<AccountType, number>;
   /** Open accounts with no value entered for `month` (their last value is carried forward). */
   missing: Account[];
+  /** Accounts that moved net worth most since last month (effect on net worth, signed). */
+  movers: { account: Account; effect: number }[];
   /** Funds and stocks whose latest month has an invested amount. */
   investments: { value: number; invested: number } | null;
 }
@@ -85,8 +87,20 @@ export function summarize(accounts: Account[], rows: SnapshotRow[], month: strin
     }
   }
 
+  const movers = accounts
+    .map((a) => {
+      const list = byAccount.get(a.id) ?? [];
+      const delta = valueAt(list, month, a.closed) - valueAt(list, prevMonth, a.closed);
+      // Paying down a loan raises net worth, so flip the sign for money owed.
+      return { account: a, effect: TYPE_META[a.type].liability ? -delta : delta };
+    })
+    .filter((m) => Math.round(m.effect) !== 0)
+    .sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect))
+    .slice(0, 5);
+
   return {
     month,
+    movers,
     current: point(month),
     previous: first && prevMonth >= first ? point(prevMonth) : null,
     trend,

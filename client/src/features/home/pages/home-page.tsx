@@ -5,7 +5,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { addMonths, currentMonth, fmtINR, longMonth, monthLabel } from "@/lib/format";
 import { useAccounts, useAllSnapshots } from "@/features/accounts/hooks/use-accounts";
-import { ASSET_TYPES, LIABILITY_TYPES } from "@/features/accounts/utils/account-meta";
+import { ASSET_TYPES, LIABILITY_TYPES, TYPE_META } from "@/features/accounts/utils/account-meta";
 import { fmtPct } from "@/features/accounts/utils/gain";
 import { summarize, type NetWorthSummary } from "../utils/net-worth";
 import { TrendChart } from "../components/trend-chart";
@@ -125,7 +125,7 @@ function Dashboard({ s }: { s: NetWorthSummary }) {
             </p>
           </div>
           <Button asChild className="h-11 shrink-0 rounded-2xl px-5 text-[15px]">
-            <Link to="/accounts">Update</Link>
+            <Link to="/update">Update</Link>
           </Button>
         </section>
       )}
@@ -144,6 +144,25 @@ function Dashboard({ s }: { s: NetWorthSummary }) {
           </p>
         )}
       </section>
+
+      {/* what moved net worth since last month */}
+      {s.movers.length > 0 && previous && (
+        <section className="rounded-3xl border border-border bg-card p-5">
+          <h2 className="mb-3 text-lg font-semibold">What changed since {longMonth(previous.month)}</h2>
+          <div className="flex flex-col divide-y divide-border">
+            {s.movers.map((m) => (
+              <Link key={m.account.id} to={`/accounts/${m.account.id}`} className="flex items-center gap-3 py-2.5">
+                <span className={cn("size-2 shrink-0 rounded-full", TYPE_META[m.account.type].dot)} />
+                <span className="min-w-0 flex-1 truncate">{m.account.name}</span>
+                <span className={cn("shrink-0 font-medium tabular-nums", m.effect >= 0 ? "text-up" : "text-down")}>
+                  {m.effect >= 0 ? "+" : "−"}
+                  {fmtINR(Math.abs(m.effect))}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* investments */}
       {investments && (

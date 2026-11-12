@@ -61,6 +61,23 @@ export const UpsertSnapshotSchema = z.object({
   invested: money.nullable().optional(),
 });
 
+export const MonthParamsSchema = z.object({ month });
+
+export const SaveMonthSchema = z.object({
+  entries: z
+    .array(
+      z.object({
+        accountId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid account id"),
+        value: money,
+        invested: money.nullable().optional(),
+      }),
+    )
+    .min(1, "Nothing to save")
+    .max(200)
+    .refine((e) => new Set(e.map((x) => x.accountId)).size === e.length, "An account appears twice"),
+});
+
+export type SaveMonthInput = z.infer<typeof SaveMonthSchema>;
 export type CreateAccountInput = z.infer<typeof CreateAccountSchema>;
 export type UpdateAccountInput = z.infer<typeof UpdateAccountSchema>;
 export type UpsertSnapshotInput = z.infer<typeof UpsertSnapshotSchema>;

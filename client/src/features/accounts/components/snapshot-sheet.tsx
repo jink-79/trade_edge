@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet } from "@/components/common/sheet";
 import { Field } from "@/components/common/field";
 import { fieldClass } from "@/components/common/field-styles";
-import { currentMonth, fmtINR, monthLabel, parseAmount } from "@/lib/format";
+import { amountText, currentMonth, fmtINR, monthLabel, parseAmount } from "@/lib/format";
 import { useDeleteSnapshot, useUpsertSnapshot } from "../hooks/use-accounts";
 import { TYPE_META } from "../utils/account-meta";
 import type { AccountDetail, Snapshot } from "../types/accounts.types";
@@ -40,8 +40,8 @@ function SnapshotForm({
   const initial = editing ?? findMonth(currentMonth());
 
   const [month, setMonth] = useState(editing?.month ?? currentMonth());
-  const [value, setValue] = useState(initial ? String(initial.value) : "");
-  const [invested, setInvested] = useState(initial?.invested != null ? String(initial.invested) : "");
+  const [value, setValue] = useState(initial ? amountText(initial.value) : "");
+  const [invested, setInvested] = useState(initial?.invested != null ? amountText(initial.invested) : "");
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const upsert = useUpsertSnapshot(account.id);
@@ -53,14 +53,14 @@ function SnapshotForm({
   const onMonthChange = (m: string) => {
     setMonth(m);
     const s = findMonth(m);
-    setValue(s ? String(s.value) : "");
-    setInvested(s?.invested != null ? String(s.invested) : "");
+    setValue(s ? amountText(s.value) : "");
+    setInvested(s?.invested != null ? amountText(s.invested) : "");
   };
 
   const copyLast = () => {
     if (!last) return;
-    setValue(String(last.value));
-    if (last.invested != null) setInvested(String(last.invested));
+    setValue(amountText(last.value));
+    if (last.invested != null) setInvested(amountText(last.invested));
   };
 
   const onSubmit = (e: FormEvent) => {
@@ -109,7 +109,7 @@ function SnapshotForm({
         <button
           type="button"
           onClick={copyLast}
-          className="-mt-2 self-start text-sm text-primary hover:underline"
+          className="-mt-2 self-start text-sm text-primary tabular-nums hover:underline"
         >
           Copy {monthLabel(last.month)} ({fmtINR(last.value)})
         </button>

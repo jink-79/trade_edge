@@ -7,7 +7,8 @@
     "dev": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "db:cleanup": "ts-node scripts/cleanup-db.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

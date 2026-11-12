@@ -120,6 +120,12 @@
   --nav-h: calc(3.625rem + var(--nav-pad-bottom));
 }
 
+/* "Hide amounts": every figure uses tabular-nums, so blur those (not inputs). */
+[data-private] .tabular-nums:not(input) {
+  filter: blur(7px);
+  user-select: none;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

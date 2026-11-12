@@ -4,7 +4,6 @@ import type {
   AuthData,
   AuthUser,
   LoginPayload,
-  RegisterPayload,
 } from "../types/auth.types";
 
 /**
@@ -13,19 +12,6 @@ import type {
 export async function loginApi(payload: LoginPayload): Promise<AuthData> {
   const { data } = await axiosInstance.post<ApiEnvelope<AuthData>>(
     "/auth/login",
-    payload,
-  );
-  return data.data;
-}
-
-/**
- * POST /auth/register — creates the account and returns a fresh session.
- */
-export async function registerApi(
-  payload: RegisterPayload,
-): Promise<AuthData> {
-  const { data } = await axiosInstance.post<ApiEnvelope<AuthData>>(
-    "/auth/register",
     payload,
   );
   return data.data;

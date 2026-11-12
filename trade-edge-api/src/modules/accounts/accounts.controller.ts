@@ -6,6 +6,7 @@ import type {
   CreateAccountInput,
   UpdateAccountInput,
   UpsertSnapshotInput,
+  SaveMonthInput,
 } from "./accounts.types";
 
 type IdParams = { id: string };
@@ -53,4 +54,10 @@ export const upsertSnapshot = asyncHandler(async (req: Request, res: Response) =
 export const removeSnapshot = asyncHandler(async (req: Request, res: Response) => {
   const { id, month } = params<SnapParams>(req);
   sendSuccess(res, await service.deleteSnapshot(uid(req), id, month), "Month removed");
+});
+
+export const saveMonth = asyncHandler(async (req: Request, res: Response) => {
+  const { month } = params<{ month: string }>(req);
+  const input = req.body as SaveMonthInput;
+  sendSuccess(res, await service.saveMonth(uid(req), month, input), "Month saved");
 });

@@ -98,3 +98,23 @@ export function useDeleteSnapshot(id: string) {
     onError: (e) => toast.error(errorMessage(e)),
   });
 }
+
+export function useSaveMonth() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ month, entries }: { month: string; entries: api.MonthEntry[] }) => api.saveMonth(month, entries),
+    onSuccess: ({ saved }) => {
+      // Refresh every account view: the list, each detail, and Home's history.
+      qc.invalidateQueries({ queryKey: KEYS.all });
+      qc.invalidateQueries({ queryKey: KEYS.history });
+      toast.success(`Saved ${saved} ${saved === 1 ? "account" : "accounts"}`);
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+}
+
+/** Open accounts with no value for this month yet (drives the Update badge). */
+export function useMissingCount(month: string): number {
+  const { data } = useAccounts();
+  return (data ?? []).filter((a) => !a.closed && a.latest?.month !== month).length;
+}
