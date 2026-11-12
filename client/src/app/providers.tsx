@@ -13,7 +13,7 @@ export function AppProviders({ children }: Props) {
       <ThemeProvider
         attribute="class"
         defaultTheme="dark"
-        storageKey="trade-edge-theme"
+        forcedTheme="dark"
       >
         {children}
         <Toaster />
