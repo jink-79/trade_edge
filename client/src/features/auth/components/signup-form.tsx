@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRegister } from "../hooks/use-auth";
+import { BrandMark } from "@/components/common/brand-mark";
 
 interface FormErrors {
   fullName?: string;
@@ -60,17 +61,8 @@ export function SignupForm() {
 
   return (
     <div className="w-full max-w-sm">
-      {/* mobile logo */}
-      <div className="lg:hidden flex items-center gap-2.5 mb-8">
-        <div className="size-9 rounded-lg grid place-items-center bg-primary/15 ring-1 ring-primary/30">
-          <span className="text-primary text-sm font-bold">TE</span>
-        </div>
-        <div
-          className="text-base font-semibold tracking-tight"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          Trade Edge
-        </div>
+      <div className="mb-8">
+        <BrandMark />
       </div>
 
       {/* heading */}
@@ -82,7 +74,7 @@ export function SignupForm() {
           Create your account
         </h2>
         <p className="text-sm text-muted-foreground">
-          Start tracking your edge in a few seconds.
+          Set up your net worth tracker.
         </p>
       </div>
 
@@ -129,7 +121,7 @@ export function SignupForm() {
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="you@tradedesk.com"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);

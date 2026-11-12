@@ -10,8 +10,11 @@ export default function AppLayout() {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-background">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur">
-        <span className="text-base font-semibold tracking-tight">Net Worth</span>
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-background/80 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur">
+        <span className="flex items-center gap-2 text-base font-semibold tracking-tight">
+          <img src="/icon.svg" alt="" className="size-6" />
+          Bolero
+        </span>
         <Button variant="ghost" size="icon" onClick={logout} aria-label="Log out">
           <LogOut className="size-4" />
         </Button>

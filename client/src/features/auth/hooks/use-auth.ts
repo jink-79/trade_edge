@@ -61,7 +61,7 @@ export function useRegister() {
       const { token, user } = await registerApi(payload);
       persistAuth(token, user);
       queryClient.setQueryData(["auth", "me"], user);
-      toast.success(`Welcome to Trade Edge, ${user.fullName.split(" ")[0]}.`);
+      toast.success(`Welcome to Bolero, ${user.fullName.split(" ")[0]}.`);
       navigate("/");
     } catch (err) {
       const msg =

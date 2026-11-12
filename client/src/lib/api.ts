@@ -1,5 +1,5 @@
 /**
- * The standard response envelope returned by every trade-edge-api endpoint:
+ * The standard response envelope returned by every API endpoint:
  *   { success: boolean; message: string; data: T }
  *
  * Feature API layers should unwrap `.data` and return the inner `T`.

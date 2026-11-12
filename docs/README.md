@@ -1,4 +1,4 @@
-# TradeEdge — Docs
+# Bolero — Docs
 
 Architecture-first workflow. **Before building any feature, we write an
 architecture doc here.** Before planning a *new* feature, we re-read the

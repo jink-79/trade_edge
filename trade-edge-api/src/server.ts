@@ -17,7 +17,7 @@ async function bootstrap(): Promise<void> {
 
   const server = app.listen(env.PORT, () => {
     logger.info(
-      `🚀 TradeEdge API running on port ${env.PORT} [${env.NODE_ENV}]`,
+      `🚀 Bolero API running on port ${env.PORT} [${env.NODE_ENV}]`,
     );
   });
 
