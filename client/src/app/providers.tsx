@@ -16,7 +16,12 @@ export function AppProviders({ children }: Props) {
         forcedTheme="dark"
       >
         {children}
-        <Toaster />
+        {/* top of the screen, so it never covers the bottom tab bar */}
+        <Toaster
+          position="top-center"
+          offset={{ top: "calc(env(safe-area-inset-top) + 12px)" }}
+          mobileOffset={{ top: "calc(env(safe-area-inset-top) + 12px)" }}
+        />
       </ThemeProvider>
     </QueryClientProvider>
   );
