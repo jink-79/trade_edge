@@ -5,6 +5,8 @@ import * as c from "./accounts.controller";
 import {
   AccountIdParamsSchema,
   CreateAccountSchema,
+  MonthParamsSchema,
+  SaveMonthSchema,
   SnapshotParamsSchema,
   UpdateAccountSchema,
   UpsertSnapshotSchema,
@@ -16,6 +18,7 @@ router.use(authMiddleware);
 // GET    /api/accounts                      — all accounts with their latest month
 // POST   /api/accounts                      — add an account with its opening value
 // GET    /api/accounts/snapshots            — every month of every account (for Home)
+// PUT    /api/accounts/snapshots/:month     — save one month for many accounts
 // GET    /api/accounts/:id                  — one account with its full history
 // PATCH  /api/accounts/:id                  — rename / close / reopen
 // DELETE /api/accounts/:id                  — delete an account and its history
@@ -24,6 +27,7 @@ router.use(authMiddleware);
 router.get("/", c.list);
 router.post("/", validate(CreateAccountSchema), c.create);
 router.get("/snapshots", c.snapshots); // must stay above "/:id"
+router.put("/snapshots/:month", validate(MonthParamsSchema, "params"), validate(SaveMonthSchema), c.saveMonth);
 router.get("/:id", validate(AccountIdParamsSchema, "params"), c.getOne);
 router.patch("/:id", validate(AccountIdParamsSchema, "params"), validate(UpdateAccountSchema), c.update);
 router.delete("/:id", validate(AccountIdParamsSchema, "params"), c.remove);

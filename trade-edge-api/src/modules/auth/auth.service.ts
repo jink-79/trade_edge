@@ -34,6 +34,9 @@ function formatUser(user: {
 export async function registerUser(
   input: RegisterInput,
 ): Promise<AuthTokenResponse> {
+  if (!env.ALLOW_SIGNUP) {
+    throw AppError.forbidden("Sign-ups are closed.");
+  }
   const { fullName, email, password } = input;
   // confirmPassword is validated by Zod — not persisted
 

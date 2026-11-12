@@ -56,3 +56,17 @@ export async function fetchAllSnapshots(): Promise<SnapshotRow[]> {
   const { data } = await axiosInstance.get<ApiEnvelope<SnapshotRow[]>>("/accounts/snapshots");
   return data.data;
 }
+
+export interface MonthEntry {
+  accountId: string;
+  value: number;
+  invested?: number | null;
+}
+
+/** Save one month for many accounts at once. */
+export async function saveMonth(month: string, entries: MonthEntry[]): Promise<{ saved: number }> {
+  const { data } = await axiosInstance.put<ApiEnvelope<{ saved: number }>>(`/accounts/snapshots/${month}`, {
+    entries,
+  });
+  return data.data;
+}

@@ -5,9 +5,7 @@
    Every API response is wrapped in the standard envelope:
      { success: boolean; message: string; data: T }
 
-   POST /api/auth/register
-   Body:    { fullName, email, password, confirmPassword }
-   Returns: ApiEnvelope<{ token, user }>   (201)
+   Sign-ups are closed on the server (single-user app).
 
    POST /api/auth/login
    Body:    { email, password }
@@ -32,14 +30,7 @@ export interface LoginPayload {
   password: string;
 }
 
-export interface RegisterPayload {
-  fullName: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
-
-/** Inner `data` shape for login/register responses. */
+/** Inner `data` shape for the login response. */
 export interface AuthData {
   token: string;
   user: AuthUser;

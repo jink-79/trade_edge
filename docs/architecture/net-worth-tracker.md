@@ -1,6 +1,16 @@
 # Net Worth Tracker — Cleanup & Repurpose Plan
 
-**Status:** Phase 1 (cleanup) done — only auth + app skeleton remain
+**Status:** Shipped: cleanup, Bolero branding, Accounts, Home, Possessions,
+monthly Update screen, single-user sign-in, hide amounts, CSV backup.
+
+Not planned (decided): live NAV/price fetch (against the monthly manual
+model), push reminders (needs a service worker + server keys + cron for a
+monthly nudge; the Update badge covers it), budgets (Torch's job).
+Later, once there are a few months of data: net worth goals.
+
+Sign-ups are refused unless the API's `ALLOW_SIGNUP=true`.
+`npm run db:cleanup -- --email <you>` (in trade-edge-api) removes old
+TradeEdge collections and other users; dry run unless `--confirm`.
 
 ## Intent
 

@@ -9,6 +9,7 @@ import type {
   SnapshotRowDto,
   UpdateAccountInput,
   UpsertSnapshotInput,
+  SaveMonthInput,
 } from "./accounts.types";
 
 function toSnapshotDto(s: Pick<ISnapshot, "month" | "value" | "invested">): SnapshotDto {
@@ -157,4 +158,31 @@ export async function deleteSnapshot(
   }
   await Snapshot.deleteOne({ accountId: account._id, month });
   return getAccount(userId, id);
+}
+
+/** Saves one month for many accounts at once (the monthly Update screen). */
+export async function saveMonth(
+  userId: string,
+  month: string,
+  { entries }: SaveMonthInput,
+): Promise<{ saved: number }> {
+  const ids = entries.map((e) => e.accountId);
+  const accounts = await Account.find({ _id: { $in: ids }, userId });
+  if (accounts.length !== ids.length) throw AppError.badRequest("One of the accounts wasn't found.");
+  const byId = new Map(accounts.map((a) => [String(a._id), a]));
+
+  await Snapshot.bulkWrite(
+    entries.map((e) => {
+      const account = byId.get(e.accountId)!;
+      const tracksInvested = account.type === "mf" || account.type === "stock";
+      const $set: Record<string, unknown> = { value: e.value };
+      const update: Record<string, unknown> = { $set, $setOnInsert: { userId: account.userId } };
+      if (tracksInvested && typeof e.invested === "number") $set.invested = e.invested;
+      else if (!tracksInvested || e.invested === null) update.$unset = { invested: 1 };
+      return {
+        updateOne: { filter: { accountId: account._id, month }, update, upsert: true },
+      };
+    }),
+  );
+  return { saved: entries.length };
 }

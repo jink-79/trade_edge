@@ -6,7 +6,7 @@ import { Field } from "@/components/common/field";
 import { fieldClass } from "@/components/common/field-styles";
 import { AmountInput } from "@/components/common/amount-input";
 import { cn } from "@/lib/utils";
-import { currentMonth, fmtINR, parseAmount } from "@/lib/format";
+import { amountText, currentMonth, fmtINR, parseAmount } from "@/lib/format";
 import { useDeletePossession, useSavePossession } from "../hooks/use-possessions";
 import { CATEGORIES, CATEGORY_META } from "../utils/possession-meta";
 import { valueNow } from "../utils/possession-value";
@@ -30,7 +30,7 @@ export function PossessionSheet({ open, onClose, item }: Props) {
 function PossessionForm({ item, onDone }: { item: Possession | null; onDone: () => void }) {
   const [name, setName] = useState(item?.name ?? "");
   const [category, setCategory] = useState<PossessionCategory>(item?.category ?? "vehicle");
-  const [price, setPrice] = useState(item ? String(item.purchasePrice) : "");
+  const [price, setPrice] = useState(amountText(item?.purchasePrice));
   const [month, setMonth] = useState(item?.purchaseMonth ?? currentMonth());
   const [drop, setDrop] = useState(String(item?.yearlyDropPct ?? CATEGORY_META.vehicle.defaultDrop));
   const [dropTouched, setDropTouched] = useState(Boolean(item));

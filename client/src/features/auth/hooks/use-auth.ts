@@ -3,14 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { isAxiosError } from "axios";
-import { loginApi, registerApi, fetchCurrentUser } from "../api/auth-api";
+import { loginApi, fetchCurrentUser } from "../api/auth-api";
 import {
   getStoredToken,
   getStoredUser,
   persistAuth,
   clearAuth,
 } from "../storage";
-import type { LoginPayload, RegisterPayload } from "../types/auth.types";
+import type { LoginPayload } from "../types/auth.types";
 
 /* Re-export storage helpers so existing imports from this hook keep working. */
 export { getStoredToken, getStoredUser } from "../storage";
@@ -44,37 +44,6 @@ export function useLogin() {
   };
 
   return { login, loading, error };
-}
-
-/* ── register ── */
-
-export function useRegister() {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const register = async (payload: RegisterPayload) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { token, user } = await registerApi(payload);
-      persistAuth(token, user);
-      queryClient.setQueryData(["auth", "me"], user);
-      toast.success(`Welcome to Bolero, ${user.fullName.split(" ")[0]}.`);
-      navigate("/");
-    } catch (err) {
-      const msg =
-        (isAxiosError(err) ? err.response?.data?.message : undefined) ??
-        "Could not create your account. Please try again.";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return { register, loading, error };
 }
 
 /* ── logout (stateless JWT — client-side only) ── */

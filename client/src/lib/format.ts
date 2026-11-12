@@ -28,6 +28,11 @@ export function monthLabel(m: string): string {
   return new Date(y, mo - 1, 1).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
 }
 
+/** 824310.5 → "8,24,310.5" for pre-filling amount inputs; "" for empty. */
+export function amountText(n: number | null | undefined): string {
+  return n == null ? "" : n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
 /** Parses "8,24,310.50" → 824310.5; returns null for empty/invalid. */
 export function parseAmount(s: string): number | null {
   const cleaned = s.replace(/[,\s₹]/g, "");

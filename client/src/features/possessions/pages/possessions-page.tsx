@@ -96,7 +96,7 @@ export function PossessionsPage() {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{p.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
+                    <span className="block truncate text-xs text-muted-foreground tabular-nums">
                       {fmtINR(p.purchasePrice)} · {monthLabel(p.purchaseMonth)} · {ageLabel(p.purchaseMonth)}
                     </span>
                   </span>
