@@ -58,3 +58,7 @@ export interface UpsertSnapshotPayload {
   value: number;
   invested?: number | null;
 }
+
+export interface SnapshotRow extends Snapshot {
+  accountId: string;
+}

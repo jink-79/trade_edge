@@ -4,6 +4,7 @@ import type {
   Account,
   AccountDetail,
   CreateAccountPayload,
+  SnapshotRow,
   UpdateAccountPayload,
   UpsertSnapshotPayload,
 } from "../types/accounts.types";
@@ -48,5 +49,10 @@ export async function deleteSnapshot(id: string, month: string): Promise<Account
   const { data } = await axiosInstance.delete<ApiEnvelope<AccountDetail>>(
     `/accounts/${id}/snapshots/${month}`,
   );
+  return data.data;
+}
+
+export async function fetchAllSnapshots(): Promise<SnapshotRow[]> {
+  const { data } = await axiosInstance.get<ApiEnvelope<SnapshotRow[]>>("/accounts/snapshots");
   return data.data;
 }

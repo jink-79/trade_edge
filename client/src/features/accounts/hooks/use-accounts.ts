@@ -11,6 +11,7 @@ import type {
 
 const KEYS = {
   all: ["accounts"] as const,
+  history: ["net-worth-history"] as const,
   one: (id: string) => ["accounts", id] as const,
 };
 
@@ -22,6 +23,11 @@ export function useAccounts() {
   return useQuery({ queryKey: KEYS.all, queryFn: api.fetchAccounts });
 }
 
+/** Every month of every account (feeds the Home screen). */
+export function useAllSnapshots() {
+  return useQuery({ queryKey: KEYS.history, queryFn: api.fetchAllSnapshots });
+}
+
 export function useAccount(id: string) {
   return useQuery({ queryKey: KEYS.one(id), queryFn: () => api.fetchAccount(id) });
 }
@@ -31,6 +37,7 @@ function useSync() {
   const qc = useQueryClient();
   return (detail?: AccountDetail) => {
     if (detail) qc.setQueryData(KEYS.one(detail.id), detail);
+    qc.invalidateQueries({ queryKey: KEYS.history });
     return qc.invalidateQueries({ queryKey: KEYS.all, exact: true });
   };
 }
@@ -63,6 +70,7 @@ export function useDeleteAccount(id: string) {
     onSuccess: () => {
       qc.removeQueries({ queryKey: KEYS.one(id) });
       qc.invalidateQueries({ queryKey: KEYS.all, exact: true });
+      qc.invalidateQueries({ queryKey: KEYS.history });
       toast.success("Account deleted");
     },
     onError: (e) => toast.error(errorMessage(e)),

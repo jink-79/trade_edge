@@ -15,6 +15,7 @@ router.use(authMiddleware);
 
 // GET    /api/accounts                      — all accounts with their latest month
 // POST   /api/accounts                      — add an account with its opening value
+// GET    /api/accounts/snapshots            — every month of every account (for Home)
 // GET    /api/accounts/:id                  — one account with its full history
 // PATCH  /api/accounts/:id                  — rename / close / reopen
 // DELETE /api/accounts/:id                  — delete an account and its history
@@ -22,6 +23,7 @@ router.use(authMiddleware);
 // DELETE /api/accounts/:id/snapshots/:month — remove one month
 router.get("/", c.list);
 router.post("/", validate(CreateAccountSchema), c.create);
+router.get("/snapshots", c.snapshots); // must stay above "/:id"
 router.get("/:id", validate(AccountIdParamsSchema, "params"), c.getOne);
 router.patch("/:id", validate(AccountIdParamsSchema, "params"), validate(UpdateAccountSchema), c.update);
 router.delete("/:id", validate(AccountIdParamsSchema, "params"), c.remove);
