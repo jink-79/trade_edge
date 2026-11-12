@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, Plus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,8 @@ import { fmtPct } from "@/features/accounts/utils/gain";
 import { summarize, type NetWorthSummary } from "../utils/net-worth";
 import { TrendChart } from "../components/trend-chart";
 import { Breakdown } from "../components/breakdown";
+import { usePossessions } from "@/features/possessions/hooks/use-possessions";
+import { totals } from "@/features/possessions/utils/possession-value";
 
 export function HomePage() {
   const accounts = useAccounts();
@@ -46,6 +48,8 @@ export function HomePage() {
 }
 
 function Dashboard({ s }: { s: NetWorthSummary }) {
+  const { data: items } = usePossessions();
+  const possessions = items && items.length > 0 ? totals(items).worth : null;
   const { current, previous, missing, investments } = s;
   const change = previous ? current.net - previous.net : null;
   const changePct = previous && previous.net !== 0 ? (change! / Math.abs(previous.net)) * 100 : null;
@@ -89,6 +93,25 @@ function Dashboard({ s }: { s: NetWorthSummary }) {
           </div>
         </div>
       </section>
+
+      {/* possessions: shown beside net worth, not inside it */}
+      {possessions !== null && (
+        <Link
+          to="/possessions"
+          className="flex items-center gap-3 rounded-3xl border border-border bg-card px-5 py-4 transition-colors hover:bg-secondary/60"
+        >
+          <span className="size-2.5 shrink-0 rounded-full bg-cat-possessions" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm text-muted-foreground">With possessions</span>
+            <span className="block font-semibold tabular-nums">{fmtINR(current.net + possessions)}</span>
+          </span>
+          <span className="text-right">
+            <span className="block text-sm text-muted-foreground">Possessions</span>
+            <span className="block font-medium tabular-nums">+{fmtINR(possessions)}</span>
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+        </Link>
+      )}
 
       {/* monthly update prompt */}
       {missing.length > 0 && (
