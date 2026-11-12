@@ -110,12 +110,28 @@
   --cat-cards: #d9668f;
 }
 
+/*
+ * Bottom tab bar geometry (phones). The home indicator needs ~20px of
+ * clearance, not the full 34px safe-area inset, so the bar sits low like a
+ * native tab bar. Anything pinned above it uses --nav-h.
+ */
+:root {
+  --nav-pad-bottom: max(6px, calc(env(safe-area-inset-bottom) - 14px));
+  --nav-h: calc(3.625rem + var(--nav-pad-bottom));
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
+    overscroll-behavior-y: none;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);

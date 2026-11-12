@@ -6,7 +6,7 @@ import { NAV_ITEMS, initialOf } from "./nav-items";
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    "flex flex-1 flex-col items-center gap-1 pt-2.5 pb-1 text-[11px] font-medium transition-colors",
+    "flex h-13 min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
     isActive ? "text-primary" : "text-muted-foreground active:text-foreground",
   );
 
@@ -17,11 +17,11 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-card px-1 pt-1.5 pb-(--nav-pad-bottom) md:hidden"
     >
       {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
         <NavLink key={to} to={to} end={to === "/"} className={tabClass}>
-          <Icon className="size-6" strokeWidth={1.75} />
+          <Icon className="size-[22px]" strokeWidth={1.75} />
           {label}
         </NavLink>
       ))}
