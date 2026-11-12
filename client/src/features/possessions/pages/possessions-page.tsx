@@ -26,7 +26,7 @@ export function PossessionsPage() {
       <div className="flex items-start justify-between gap-4 pb-5 pt-2 md:pt-0">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Possessions</h1>
-          <p className="text-sm text-muted-foreground">Things you own, valued as they age.</p>
+          <p className="text-sm text-muted-foreground">Things you own and what you paid.</p>
         </div>
         <Button onClick={() => setSheet(null)} className="h-10 gap-1.5 rounded-xl px-4">
           <Plus className="size-4" /> Add
@@ -66,12 +66,12 @@ export function PossessionsPage() {
       {items && items.length > 0 && (
         <div className="flex flex-col gap-6">
           <section className="rounded-3xl border border-border bg-card p-5">
-            <p className="text-sm text-muted-foreground">Worth now · {items.length} items</p>
-            <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums">{fmtINR(worth)}</p>
+            <p className="text-sm text-muted-foreground">You paid · {items.length} items</p>
+            <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums">{fmtINR(paid)}</p>
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm">
               <div>
-                <p className="text-muted-foreground">You paid</p>
-                <p className="mt-0.5 font-medium tabular-nums">{fmtINR(paid)}</p>
+                <p className="text-muted-foreground">Worth now</p>
+                <p className="mt-0.5 font-medium tabular-nums">{fmtINR(worth)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Lost to age</p>
@@ -99,14 +99,14 @@ export function PossessionsPage() {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{p.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground tabular-nums">
-                      {fmtINR(p.purchasePrice)} · {monthLabel(p.purchaseMonth)} · {ageLabel(p.purchaseMonth)}
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {monthLabel(p.purchaseMonth)} · {ageLabel(p.purchaseMonth)}
                     </span>
                   </span>
                   <span className="shrink-0 text-right">
-                    <span className="block font-medium tabular-nums">{fmtINR(now)}</span>
+                    <span className="block font-medium tabular-nums">{fmtINR(p.purchasePrice)}</span>
                     <span className="block text-xs text-muted-foreground tabular-nums">
-                      {dropPct >= 0.5 ? `−${Math.round(dropPct)}%` : "Holds value"}
+                      {dropPct >= 0.5 ? `Worth ${fmtINR(now)}` : "Holds value"}
                     </span>
                   </span>
                 </button>
