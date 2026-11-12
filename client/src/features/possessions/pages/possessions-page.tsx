@@ -14,7 +14,10 @@ export function PossessionsPage() {
   // undefined = closed, null = adding, item = editing
   const [sheet, setSheet] = useState<Possession | null | undefined>(undefined);
 
-  const sorted = [...(items ?? [])].sort((a, b) => valueNow(b) - valueNow(a));
+  // Most recently bought first; same month → most recently added first.
+  const sorted = [...(items ?? [])].sort(
+    (a, b) => b.purchaseMonth.localeCompare(a.purchaseMonth) || b.createdAt.localeCompare(a.createdAt),
+  );
   const { paid, worth } = totals(items ?? []);
   const lost = paid - worth;
 
